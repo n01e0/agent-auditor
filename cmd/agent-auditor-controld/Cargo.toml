@@ -1,0 +1,12 @@
+[package]
+name = "agent-auditor-controld"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+agenta-core = { path = "../../crates/agenta-core" }
+agenta-policy = { path = "../../crates/agenta-policy" }
+chrono.workspace = true
+serde_json.workspace = true
