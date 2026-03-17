@@ -136,6 +136,7 @@ The initial runtime security layer will rely on:
 
 - eBPF for process / syscall / network-level observability and selected enforcement hooks where practical
 - fanotify for filesystem monitoring and gating where practical
+- a Rust-first implementation strategy, with `aya` as the preferred initial eBPF stack
 
 Design must allow selective fallback where kernel capabilities differ, but the product should not hide unsupported coverage behind silent degradation.
 
