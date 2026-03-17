@@ -4,9 +4,14 @@ Agent execution security / governance for Linux-hosted autonomous agents.
 
 ## Current status
 
-This repository currently contains an initial product requirements draft.
+This repository currently contains the initial product framing and core design contracts.
 
 - PRD: [`docs/PRD.md`](docs/PRD.md)
+- Architecture overview: [`docs/architecture/overview.md`](docs/architecture/overview.md)
+- Event schema: [`docs/schemas/event-envelope.schema.json`](docs/schemas/event-envelope.schema.json)
+- Policy decision schema: [`docs/schemas/policy-decision.schema.json`](docs/schemas/policy-decision.schema.json)
+- Rego contract: [`docs/policies/rego-contract.md`](docs/policies/rego-contract.md)
+- Example policy: [`examples/policies/sensitive_fs.rego`](examples/policies/sensitive_fs.rego)
 
 ## Product direction
 
