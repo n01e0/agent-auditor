@@ -1,0 +1,12 @@
+[package]
+name = "agent-auditor-hostd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+agenta-core = { path = "../../crates/agenta-core" }
+aya.workspace = true
+chrono.workspace = true
+serde_json.workspace = true

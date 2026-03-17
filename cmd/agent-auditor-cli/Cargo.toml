@@ -1,0 +1,11 @@
+[package]
+name = "agent-auditor-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+agenta-core = { path = "../../crates/agenta-core" }
+chrono.workspace = true
+serde_json.workspace = true

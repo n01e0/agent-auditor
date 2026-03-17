@@ -1,12 +1,15 @@
 # crates/
 
-Planned shared Rust crates.
+Shared Rust crates live here.
 
-Initial expected split:
+Current packages:
 
-- `event-schema` — normalized event types and serde models
-- `policy-client` — OPA bundle / decision integration
-- `audit-store` — append log and integrity helpers
-- `runtime-attribution` — session/container attribution helpers
-- `collectors-ebpf` — eBPF-facing collector code
-- `collectors-fanotify` — fanotify-facing collector code
+- `agenta-core` — normalized event, session, approval, and policy data models
+- `agenta-policy` — policy input types and evaluation boundary
+
+Likely follow-up crates:
+
+- audit storage / integrity helpers
+- runtime attribution helpers
+- eBPF-facing collector support types
+- fanotify-facing collector support types

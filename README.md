@@ -25,3 +25,15 @@ This repository currently contains the initial product framing and core design c
 - Browser / Google Workspace governance after filesystem and process coverage
 - Policy engine based on OPA / Rego
 - microVM support deferred until after the initial container-focused release
+
+## Workspace bootstrap
+
+The repository now includes an initial Rust workspace:
+
+- `crates/agenta-core` — shared domain models for sessions, events, approvals, and policy decisions
+- `crates/agenta-policy` — policy input models and evaluation boundary
+- `cmd/agent-auditor-hostd` — host-side collector / enforcement daemon bootstrap
+- `cmd/agent-auditor-controld` — control-plane bootstrap
+- `cmd/agent-auditor-cli` — operator CLI bootstrap
+
+Current goal: keep the type system and process boundaries stable before deeper `aya` / fanotify implementation starts.
