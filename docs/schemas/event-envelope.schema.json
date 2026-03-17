@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/agent-auditor/schemas/event-envelope.schema.json",
+  "title": "Agent Auditor Event Envelope",
+  "type": "object",
+  "required": [
+    "event_id",
+    "timestamp",
+    "event_type",
+    "session",
+    "actor",
+    "action",
+    "result",
+    "source"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Globally unique event identifier"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "session.lifecycle",
+        "process.exec",
+        "process.exit",
+        "filesystem.access",
+        "network.connect",
+        "secret.access",
+        "policy.decision",
+        "approval.requested",
+        "approval.resolved",
+        "alert.raised"
+      ]
+    },
+    "session": {
+      "type": "object",
+      "required": ["session_id"],
+      "properties": {
+        "session_id": { "type": "string" },
+        "agent_id": { "type": ["string", "null"] },
+        "initiator_id": { "type": ["string", "null"] },
+        "workspace_id": { "type": ["string", "null"] },
+        "policy_bundle_version": { "type": ["string", "null"] },
+        "environment": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "actor": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["agent", "human", "system"]
+        },
+        "id": { "type": ["string", "null"] },
+        "display_name": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "action": {
+      "type": "object",
+      "required": ["class"],
+      "properties": {
+        "class": {
+          "type": "string",
+          "enum": ["process", "filesystem", "network", "secret", "approval", "session", "alert"]
+        },
+        "verb": { "type": ["string", "null"] },
+        "target": { "type": ["string", "null"] },
+        "attributes": {
+          "type": "object",
+          "default": {}
+        }
+      },
+      "additionalProperties": true
+    },
+    "result": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["observed", "allowed", "denied", "approval_required", "approved", "rejected", "failed"]
+        },
+        "reason": { "type": ["string", "null"] },
+        "exit_code": { "type": ["integer", "null"] },
+        "error": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "policy": {
+      "type": ["object", "null"],
+      "properties": {
+        "decision": { "type": ["string", "null"] },
+        "rule_id": { "type": ["string", "null"] },
+        "severity": { "type": ["string", "null"] },
+        "explanation": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["collector"],
+      "properties": {
+        "collector": {
+          "type": "string",
+          "enum": ["ebpf", "fanotify", "runtime_hint", "control_plane", "operator"]
+        },
+        "host_id": { "type": ["string", "null"] },
+        "container_id": { "type": ["string", "null"] },
+        "pod_uid": { "type": ["string", "null"] },
+        "pid": { "type": ["integer", "null"] },
+        "ppid": { "type": ["integer", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "integrity": {
+      "type": ["object", "null"],
+      "properties": {
+        "hash": { "type": ["string", "null"] },
+        "prev_hash": { "type": ["string", "null"] },
+        "signature": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

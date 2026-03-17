@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/agent-auditor/schemas/session.schema.json",
+  "title": "Agent Auditor Session",
+  "type": "object",
+  "required": [
+    "session_id",
+    "agent_id",
+    "status",
+    "started_at",
+    "runtime"
+  ],
+  "properties": {
+    "session_id": { "type": "string" },
+    "agent_id": { "type": "string" },
+    "initiator_id": { "type": ["string", "null"] },
+    "display_name": { "type": ["string", "null"] },
+    "status": {
+      "type": "string",
+      "enum": ["starting", "running", "waiting_approval", "completed", "failed", "killed"]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "workspace": {
+      "type": ["object", "null"],
+      "properties": {
+        "workspace_id": { "type": ["string", "null"] },
+        "path": { "type": ["string", "null"] },
+        "repo": { "type": ["string", "null"] },
+        "branch": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["openclaw", "custom", "unknown"]
+        },
+        "version": { "type": ["string", "null"] },
+        "session_key": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "placement": {
+      "type": ["object", "null"],
+      "properties": {
+        "host_id": { "type": ["string", "null"] },
+        "container_id": { "type": ["string", "null"] },
+        "container_runtime": {
+          "type": ["string", "null"],
+          "enum": ["docker", "kubernetes", "podman", null]
+        },
+        "pod_uid": { "type": ["string", "null"] },
+        "namespace": { "type": ["string", "null"] },
+        "cgroup_path": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "policy_bundle_version": { "type": ["string", "null"] },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "risk_tier": {
+      "type": ["string", "null"],
+      "enum": ["low", "medium", "high", "critical", null]
+    },
+    "coverage": {
+      "type": ["object", "null"],
+      "properties": {
+        "process": { "type": ["string", "null"], "enum": ["none", "observe", "enforce", null] },
+        "filesystem": { "type": ["string", "null"], "enum": ["none", "observe", "enforce", null] },
+        "network": { "type": ["string", "null"], "enum": ["none", "observe", "enforce", null] },
+        "secret": { "type": ["string", "null"], "enum": ["none", "observe", "enforce", null] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/agent-auditor/schemas/policy-decision.schema.json",
+  "title": "Agent Auditor Policy Decision",
+  "type": "object",
+  "required": ["decision"],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": ["allow", "deny", "require_approval"]
+    },
+    "rule_id": {
+      "type": ["string", "null"]
+    },
+    "severity": {
+      "type": ["string", "null"],
+      "enum": ["low", "medium", "high", "critical", null]
+    },
+    "reason": {
+      "type": ["string", "null"]
+    },
+    "approval": {
+      "type": ["object", "null"],
+      "properties": {
+        "scope": {
+          "type": ["string", "null"],
+          "enum": ["single_action", "equivalent_action_ttl", null]
+        },
+        "ttl_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "reviewer_hint": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

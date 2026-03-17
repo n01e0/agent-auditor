@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/agent-auditor/schemas/approval-request.schema.json",
+  "title": "Agent Auditor Approval Request",
+  "type": "object",
+  "required": [
+    "approval_id",
+    "status",
+    "requested_at",
+    "session_id",
+    "request",
+    "policy"
+  ],
+  "properties": {
+    "approval_id": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "approved", "rejected", "expired", "cancelled"]
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "session_id": { "type": "string" },
+    "event_id": { "type": ["string", "null"] },
+    "request": {
+      "type": "object",
+      "required": ["action_class", "action_verb"],
+      "properties": {
+        "action_class": {
+          "type": "string",
+          "enum": ["process", "filesystem", "network", "secret", "browser", "gws"]
+        },
+        "action_verb": { "type": "string" },
+        "target": { "type": ["string", "null"] },
+        "summary": { "type": ["string", "null"] },
+        "attributes": {
+          "type": "object",
+          "default": {}
+        }
+      },
+      "additionalProperties": true
+    },
+    "policy": {
+      "type": "object",
+      "required": ["rule_id"],
+      "properties": {
+        "rule_id": { "type": "string" },
+        "severity": {
+          "type": ["string", "null"],
+          "enum": ["low", "medium", "high", "critical", null]
+        },
+        "reason": { "type": ["string", "null"] },
+        "scope": {
+          "type": ["string", "null"],
+          "enum": ["single_action", "equivalent_action_ttl", null]
+        },
+        "ttl_seconds": { "type": ["integer", "null"], "minimum": 1 },
+        "reviewer_hint": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "requester_context": {
+      "type": ["object", "null"],
+      "properties": {
+        "agent_reason": { "type": ["string", "null"] },
+        "human_request": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": ["object", "null"],
+      "properties": {
+        "reviewer_id": { "type": ["string", "null"] },
+        "reviewer_note": { "type": ["string", "null"] },
+        "outcome": {
+          "type": ["string", "null"],
+          "enum": ["approved", "rejected", null]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}
