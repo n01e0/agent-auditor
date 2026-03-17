@@ -1,9 +1,9 @@
 # cmd/
 
-Planned entrypoints live here.
+Workspace binaries live here.
 
-Initial expectation:
+Current packages:
 
-- `agent-auditor-hostd` — host monitor / collector process
-- `agent-auditor-controld` — control plane API / approval / policy service
-- `agent-auditor-cli` — operator CLI for local development and administration
+- `agent-auditor-hostd` — host monitor / collector bootstrap
+- `agent-auditor-controld` — control plane bootstrap
+- `agent-auditor-cli` — local diagnostics / admin bootstrap
