@@ -64,6 +64,17 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     .expect("normalized_filesystem should be valid json");
     assert_json_subset(&fixtures["normalized_filesystem"], &normalized_filesystem);
     assert!(normalized_filesystem["timestamp"].is_string());
+
+    let filesystem_policy_decision: Value = serde_json::from_str(
+        lines
+            .get("filesystem_policy_decision")
+            .expect("smoke output should include filesystem_policy_decision"),
+    )
+    .expect("filesystem_policy_decision should be valid json");
+    assert_json_subset(
+        &fixtures["filesystem_policy_decision"],
+        &filesystem_policy_decision,
+    );
 }
 
 fn keyed_lines(stdout: &str) -> BTreeMap<String, String> {
