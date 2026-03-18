@@ -29,7 +29,7 @@
 - [x] P2-4: `agenta-policy` から Rego 判定を呼ぶ最小経路を実装する
 - [x] P2-5: `allow / deny / require_approval` の判定結果を event metadata に反映する
 - [x] P2-6: approval request record と audit record の最小永続化を追加する
-- [ ] P2-7: fanotify + policy の unit test / smoke test を追加する
+- [x] P2-7: fanotify + policy の unit test / smoke test を追加する
 - [ ] P2-8: local runbook と既知制約を docs に残す
 - [ ] P2-9: PR を分割作成し、CI green で main に取り込む
 - [x] P2-5-RECOVER: resolve runner block for task P2-5 (`allow / deny / require_approval` の判定結果を event metadata に反映する): runner stderr と関連ログを確認し、詰まっているコード/設定を直してから再実行する (blocked: runner exit=Some(2): TASK_BLOCKED: P2-4 is still open and unmerged, so `origin/mai
