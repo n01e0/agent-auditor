@@ -30,4 +30,6 @@
 - [x] P3-6: `allow / deny / require_approval` を network event metadata と audit record に反映する
 - [x] P3-7: network observe + policy の unit test / smoke test を追加する
 - [x] P3-8: local runbook と既知制約を docs に残す
-- [ ] P3-9: PR を分割作成し、CI green で main に取り込む
+- [x] P3-9: PR を分割作成し、CI green で main に取り込む
+  - merged PRs: #21, #22, #23, #24, #25, #26, #27, #28
+- [x] P3-8-RECOVER: resolve runner block for task P3-8 (local runbook と既知制約を docs に残す): runner stderr と関連ログを確認し、詰まっているコード/設定を直してから再実行する (blocked: runner exit=Some(2): runner produced no stderr/stdout detail)
