@@ -13,6 +13,7 @@ This repository currently contains the initial product framing and core design c
 - hostd exec/exit PoC boundary: [`docs/architecture/hostd-exec-exit-poc.md`](docs/architecture/hostd-exec-exit-poc.md)
 - hostd filesystem PoC boundary: [`docs/architecture/hostd-filesystem-poc.md`](docs/architecture/hostd-filesystem-poc.md)
 - hostd network PoC boundary: [`docs/architecture/hostd-network-poc.md`](docs/architecture/hostd-network-poc.md)
+- hostd secret access MVP boundary: [`docs/architecture/hostd-secret-access-poc.md`](docs/architecture/hostd-secret-access-poc.md)
 - hostd network domain attribution: [`docs/architecture/hostd-network-domain-attribution.md`](docs/architecture/hostd-network-domain-attribution.md)
 - hostd network PoC known constraints: [`docs/architecture/hostd-network-known-constraints.md`](docs/architecture/hostd-network-known-constraints.md)
 - hostd filesystem PoC known constraints: [`docs/architecture/hostd-filesystem-known-constraints.md`](docs/architecture/hostd-filesystem-known-constraints.md)
