@@ -29,7 +29,16 @@ impl NetworkPocPlan {
 
 #[cfg(test)]
 mod tests {
-    use agenta_core::{CollectorKind, PolicyDecisionKind, ResultStatus, SessionRecord, Severity};
+    use std::{
+        env,
+        net::{IpAddr, Ipv4Addr, SocketAddr},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use agenta_core::{
+        ActionClass, ApprovalScope, ApprovalStatus, CollectorKind, PolicyDecisionKind,
+        ResultStatus, SessionRecord, Severity,
+    };
     use agenta_policy::{
         PolicyCoverageContext, PolicyEvaluator, PolicyInput, RegoPolicyEvaluator,
         apply_decision_to_event, approval_request_from_decision,
@@ -38,6 +47,8 @@ mod tests {
     use super::{
         NetworkPocPlan,
         contract::{ClassifiedNetworkConnect, DestinationScope, NetworkCollector},
+        observe::{AddressFamily, ConnectEvent, TransportProtocol},
+        persist::NetworkPocStore,
     };
 
     #[test]
@@ -146,6 +157,7 @@ mod tests {
         let decision = RegoPolicyEvaluator::network_destination_example()
             .evaluate(&input)
             .expect("network rego should evaluate");
+        let enriched = apply_decision_to_event(&event, &decision);
 
         assert_eq!(decision.decision, PolicyDecisionKind::Allow);
         assert_eq!(
@@ -157,6 +169,12 @@ mod tests {
             decision.reason.as_deref(),
             Some("allowlisted public TLS destination")
         );
+        assert_eq!(enriched.result.status, ResultStatus::Allowed);
+        assert_eq!(
+            enriched.policy.as_ref().and_then(|policy| policy.decision),
+            Some(PolicyDecisionKind::Allow)
+        );
+        assert!(approval_request_from_decision(&enriched, &decision).is_none());
     }
 
     #[test]
@@ -170,7 +188,7 @@ mod tests {
             enriched.policy.as_ref().and_then(|policy| policy.decision),
             Some(PolicyDecisionKind::Allow)
         );
-        assert_eq!(approval_request, None);
+        assert!(approval_request.is_none());
     }
 
     #[test]
@@ -189,6 +207,90 @@ mod tests {
     }
 
     #[test]
+    fn require_approval_pipeline_generates_pending_network_approval_request() {
+        let (observed, enriched, decision, approval_request) = preview_network_policy_from_connect(
+            sample_connect_event(Ipv4Addr::new(203, 0, 113, 10), 443, 5252, 8),
+        );
+        let request = approval_request.expect("require_approval should yield approval request");
+
+        assert_eq!(observed.result.status, ResultStatus::Observed);
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(enriched.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(
+            enriched
+                .policy
+                .as_ref()
+                .and_then(|policy| policy.rule_id.as_deref()),
+            Some("net.public.unallowlisted.requires_approval")
+        );
+        assert_eq!(request.approval_id, "apr_poc_network_connect_5252_8_tcp");
+        assert_eq!(request.status, ApprovalStatus::Pending);
+        assert_eq!(
+            request.event_id.as_deref(),
+            Some("poc_network_connect_5252_8_tcp")
+        );
+        assert_eq!(request.request.action_class, ActionClass::Network);
+        assert_eq!(request.request.action_verb, "connect");
+        assert_eq!(request.request.target.as_deref(), Some("203.0.113.10:443"));
+        assert_eq!(
+            request.request.summary.as_deref(),
+            Some("public destination without allowlisted domain requires approval")
+        );
+        assert_eq!(
+            request.policy.rule_id,
+            "net.public.unallowlisted.requires_approval"
+        );
+        assert_eq!(request.policy.scope, Some(ApprovalScope::SingleAction));
+        assert_eq!(request.policy.ttl_seconds, Some(900));
+        assert_eq!(
+            request.policy.reviewer_hint.as_deref(),
+            Some("security-oncall")
+        );
+        assert_eq!(
+            request
+                .requester_context
+                .as_ref()
+                .and_then(|context| context.agent_reason.as_deref()),
+            Some("public destination without allowlisted domain requires approval")
+        );
+        assert!(request.expires_at.is_some());
+    }
+
+    #[test]
+    fn require_approval_network_audit_record_persists_enriched_policy_metadata() {
+        let (_, enriched, decision, approval_request) = preview_network_policy_from_connect(
+            sample_connect_event(Ipv4Addr::new(203, 0, 113, 10), 443, 5252, 8),
+        );
+        let store = NetworkPocStore::fresh(unique_test_root()).expect("store should init");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert!(approval_request.is_some());
+
+        store
+            .append_audit_record(&enriched)
+            .expect("approval-required audit record should append");
+
+        let persisted = store
+            .latest_audit_record()
+            .expect("approval-required audit record should read")
+            .expect("approval-required audit record should exist");
+
+        assert_eq!(persisted, enriched);
+        assert_eq!(persisted.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(
+            persisted.policy.as_ref().and_then(|policy| policy.decision),
+            Some(PolicyDecisionKind::RequireApproval)
+        );
+        assert_eq!(
+            persisted
+                .policy
+                .as_ref()
+                .and_then(|policy| policy.rule_id.as_deref()),
+            Some("net.public.unallowlisted.requires_approval")
+        );
+    }
+
+    #[test]
     fn deny_decision_is_reflected_in_network_event_metadata() {
         let (event, decision, approval_request) = preview_network_policy(sample_denied_smtp());
         let enriched = apply_decision_to_event(&event, &decision);
@@ -199,7 +301,7 @@ mod tests {
             enriched.policy.as_ref().and_then(|policy| policy.decision),
             Some(PolicyDecisionKind::Deny)
         );
-        assert_eq!(approval_request, None);
+        assert!(approval_request.is_none());
     }
 
     fn preview_network_policy(
@@ -220,6 +322,29 @@ mod tests {
         let approval_request = approval_request_from_decision(&event, &decision);
 
         (event, decision, approval_request)
+    }
+
+    fn preview_network_policy_from_connect(
+        connect: ConnectEvent,
+    ) -> (
+        agenta_core::EventEnvelope,
+        agenta_core::EventEnvelope,
+        agenta_core::PolicyDecision,
+        Option<agenta_core::ApprovalRequest>,
+    ) {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
+        let plan = NetworkPocPlan::bootstrap();
+        let classified = plan.classify.classify_connect(&connect);
+        let observed = plan
+            .emit
+            .normalize_classified_connect(&classified, &session);
+        let decision = RegoPolicyEvaluator::network_destination_example()
+            .evaluate(&PolicyInput::from_event(&observed))
+            .expect("network rego should evaluate");
+        let enriched = apply_decision_to_event(&observed, &decision);
+        let approval_request = approval_request_from_decision(&enriched, &decision);
+
+        (observed, enriched, decision, approval_request)
     }
 
     fn sample_allowlisted_tls() -> ClassifiedNetworkConnect {
@@ -262,5 +387,28 @@ mod tests {
             domain_candidate: None,
             domain_attribution_source: None,
         }
+    }
+
+    fn sample_connect_event(
+        destination_ip: Ipv4Addr,
+        destination_port: u16,
+        pid: u32,
+        sock_fd: u32,
+    ) -> ConnectEvent {
+        ConnectEvent {
+            pid,
+            sock_fd,
+            address_family: AddressFamily::Inet,
+            transport: TransportProtocol::Tcp,
+            destination: SocketAddr::new(IpAddr::V4(destination_ip), destination_port),
+        }
+    }
+
+    fn unique_test_root() -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time should advance")
+            .as_nanos();
+        env::temp_dir().join(format!("agent-auditor-hostd-network-mod-test-{nonce}"))
     }
 }

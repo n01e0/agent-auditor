@@ -1,24 +1,14 @@
-use std::{collections::BTreeMap, process::Command};
+mod common;
 
 use serde_json::Value;
+
+use self::common::{assert_json_subset, run_hostd_bootstrap};
 
 const FIXTURES: &str = include_str!("fixtures/hostd-smoke-fixtures.json");
 
 #[test]
 fn hostd_bootstrap_smoke_matches_poc_fixtures() {
-    let output = Command::new(env!("CARGO_BIN_EXE_agent-auditor-hostd"))
-        .output()
-        .expect("hostd binary should run for smoke test");
-
-    assert!(
-        output.status.success(),
-        "stdout:\n{}\n\nstderr:\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
-    let lines = keyed_lines(&stdout);
+    let lines = run_hostd_bootstrap();
     let fixtures: Value = serde_json::from_str(FIXTURES).expect("fixture json should parse");
 
     assert_eq!(
@@ -288,32 +278,4 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     );
     assert!(persisted_approval_request["requested_at"].is_string());
     assert!(persisted_approval_request["expires_at"].is_string());
-}
-
-fn keyed_lines(stdout: &str) -> BTreeMap<String, String> {
-    stdout
-        .lines()
-        .filter_map(|line| line.split_once('='))
-        .map(|(key, value)| (key.to_owned(), value.to_owned()))
-        .collect()
-}
-
-fn assert_json_subset(expected: &Value, actual: &Value) {
-    match (expected, actual) {
-        (Value::Object(expected_map), Value::Object(actual_map)) => {
-            for (key, expected_value) in expected_map {
-                let actual_value = actual_map
-                    .get(key)
-                    .unwrap_or_else(|| panic!("missing key `{key}` in actual json: {actual:#}"));
-                assert_json_subset(expected_value, actual_value);
-            }
-        }
-        (Value::Array(expected_values), Value::Array(actual_values)) => {
-            assert_eq!(expected_values.len(), actual_values.len());
-            for (expected_value, actual_value) in expected_values.iter().zip(actual_values.iter()) {
-                assert_json_subset(expected_value, actual_value);
-            }
-        }
-        _ => assert_eq!(expected, actual),
-    }
 }
