@@ -380,3 +380,85 @@ impl SessionRecord {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn placeholder_session_has_expected_bootstrap_defaults() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_test");
+
+        assert_eq!(session.session_id, "sess_test");
+        assert_eq!(session.agent_id, "openclaw-main");
+        assert_eq!(session.status, SessionStatus::Starting);
+        assert_eq!(session.runtime.kind, RuntimeKind::Openclaw);
+        assert_eq!(session.risk_tier, Some(Severity::Medium));
+        assert_eq!(session.labels, vec!["bootstrap"]);
+        assert_eq!(
+            session
+                .coverage
+                .as_ref()
+                .and_then(|coverage| coverage.process),
+            Some(CoverageLevel::Observe)
+        );
+    }
+
+    #[test]
+    fn event_envelope_serializes_expected_shape() {
+        let session = SessionRef {
+            session_id: "sess_evt".to_owned(),
+            agent_id: Some("openclaw-main".to_owned()),
+            initiator_id: Some("user:example".to_owned()),
+            workspace_id: None,
+            policy_bundle_version: Some("bundle-test".to_owned()),
+            environment: Some("dev".to_owned()),
+        };
+        let actor = Actor {
+            kind: ActorKind::Agent,
+            id: Some("openclaw-main".to_owned()),
+            display_name: Some("OpenClaw Main".to_owned()),
+        };
+        let mut attributes = JsonMap::new();
+        attributes.insert("path".to_owned(), json!("/var/run/secrets/demo"));
+        let action = Action {
+            class: ActionClass::Filesystem,
+            verb: Some("read".to_owned()),
+            target: Some("/var/run/secrets/demo".to_owned()),
+            attributes,
+        };
+        let result = ResultInfo {
+            status: ResultStatus::ApprovalRequired,
+            reason: Some("sensitive path".to_owned()),
+            exit_code: None,
+            error: None,
+        };
+        let source = SourceInfo {
+            collector: CollectorKind::Fanotify,
+            host_id: Some("host-a".to_owned()),
+            container_id: Some("ctr-1".to_owned()),
+            pod_uid: None,
+            pid: Some(1234),
+            ppid: Some(42),
+        };
+
+        let envelope = EventEnvelope::new(
+            "evt_1",
+            EventType::FilesystemAccess,
+            session,
+            actor,
+            action,
+            result,
+            source,
+        );
+
+        let value = serde_json::to_value(&envelope).expect("event envelope should serialize");
+        assert_eq!(value["event_id"], json!("evt_1"));
+        assert_eq!(value["event_type"], json!("filesystem_access"));
+        assert_eq!(value["session"]["session_id"], json!("sess_evt"));
+        assert_eq!(value["action"]["class"], json!("filesystem"));
+        assert_eq!(value["result"]["status"], json!("approval_required"));
+        assert_eq!(value["source"]["collector"], json!("fanotify"));
+    }
+}
