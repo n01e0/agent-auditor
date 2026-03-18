@@ -5,12 +5,16 @@
   "event_log_network": "event=network.connect collector=ebpf pid=4242 fd=7 family=inet transport=tcp destination=93.184.216.34:443",
   "event_log_filesystem": "event=filesystem.access collector=fanotify pid=4242 mount_id=17 verb=read target=/home/agent/.ssh/id_ed25519 sensitive=true tags=ssh reasons=path is inside a .ssh directory",
   "event_log_filesystem_allow": "event=filesystem.access collector=fanotify pid=4343 mount_id=18 verb=read target=/workspace/src/main.rs sensitive=false tags= reasons=",
-  "normalized_network": {
+  "normalized_network_observed": {
     "event_id": "poc_network_connect_4242_7_tcp",
     "event_type": "network_connect",
     "session": {
       "session_id": "sess_bootstrap_hostd",
-      "agent_id": "openclaw-main"
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
     },
     "actor": {
       "kind": "system",
@@ -22,15 +26,15 @@
       "verb": "connect",
       "target": "93.184.216.34:443",
       "attributes": {
-        "pid": 4242,
-        "sock_fd": 7,
+        "address_family": "inet",
         "destination_ip": "93.184.216.34",
         "destination_port": 443,
-        "transport": "tcp",
-        "address_family": "inet",
         "destination_scope": "public",
         "domain_attribution_source": "dns_answer_cache_exact_ip",
-        "domain_candidate": "example.com"
+        "domain_candidate": "example.com",
+        "pid": 4242,
+        "sock_fd": 7,
+        "transport": "tcp"
       }
     },
     "result": {
@@ -39,12 +43,70 @@
       "exit_code": null,
       "error": null
     },
+    "policy": null,
     "source": {
       "collector": "ebpf",
       "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
       "pid": 4242,
       "ppid": null
-    }
+    },
+    "integrity": null
+  },
+  "normalized_network": {
+    "event_id": "poc_network_connect_4242_7_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "93.184.216.34:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "93.184.216.34",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": "dns_answer_cache_exact_ip",
+        "domain_candidate": "example.com",
+        "pid": 4242,
+        "sock_fd": 7,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "allowlisted public TLS destination",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "net.public.allowlisted_tls_domain",
+      "severity": "low",
+      "explanation": "allowlisted public TLS destination"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4242,
+      "ppid": null
+    },
+    "integrity": null
   },
   "network_policy_decision": {
     "decision": "allow",
@@ -52,14 +114,356 @@
     "severity": "low",
     "reason": "allowlisted public TLS destination",
     "approval": null,
-    "tags": ["network", "allowlist"]
+    "tags": [
+      "network",
+      "allowlist"
+    ]
+  },
+  "network_approval_request": null,
+  "normalized_network_require_approval": {
+    "event_id": "poc_network_connect_5252_8_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "203.0.113.10:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "203.0.113.10",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 5252,
+        "sock_fd": 8,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "public destination without allowlisted domain requires approval",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "net.public.unallowlisted.requires_approval",
+      "severity": "medium",
+      "explanation": "public destination without allowlisted domain requires approval"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 5252,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "network_policy_decision_require_approval": {
+    "decision": "require_approval",
+    "rule_id": "net.public.unallowlisted.requires_approval",
+    "severity": "medium",
+    "reason": "public destination without allowlisted domain requires approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 900,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": [
+      "network",
+      "approval"
+    ]
+  },
+  "network_approval_request_require_approval": {
+    "approval_id": "apr_poc_network_connect_5252_8_tcp",
+    "status": "pending",
+    "resolved_at": null,
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "poc_network_connect_5252_8_tcp",
+    "request": {
+      "action_class": "network",
+      "action_verb": "connect",
+      "target": "203.0.113.10:443",
+      "summary": "public destination without allowlisted domain requires approval",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "203.0.113.10",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 5252,
+        "sock_fd": 8,
+        "transport": "tcp"
+      }
+    },
+    "policy": {
+      "rule_id": "net.public.unallowlisted.requires_approval",
+      "severity": "medium",
+      "reason": "public destination without allowlisted domain requires approval",
+      "scope": "single_action",
+      "ttl_seconds": 900,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "public destination without allowlisted domain requires approval",
+      "human_request": null
+    },
+    "decision": null
+  },
+  "normalized_network_deny": {
+    "event_id": "poc_network_connect_6262_9_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "198.51.100.25:25",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "198.51.100.25",
+        "destination_port": 25,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 6262,
+        "sock_fd": 9,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "public SMTP destination is denied",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "net.public.smtp.denied",
+      "severity": "high",
+      "explanation": "public SMTP destination is denied"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 6262,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "network_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "net.public.smtp.denied",
+    "severity": "high",
+    "reason": "public SMTP destination is denied",
+    "approval": null,
+    "tags": [
+      "network",
+      "deny"
+    ]
+  },
+  "network_approval_request_deny": null,
+  "persisted_network_audit_record_allow": {
+    "event_id": "poc_network_connect_4242_7_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "93.184.216.34:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "93.184.216.34",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": "dns_answer_cache_exact_ip",
+        "domain_candidate": "example.com",
+        "pid": 4242,
+        "sock_fd": 7,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "allowlisted public TLS destination",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "net.public.allowlisted_tls_domain",
+      "severity": "low",
+      "explanation": "allowlisted public TLS destination"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4242,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "persisted_network_audit_record_require_approval": {
+    "event_id": "poc_network_connect_5252_8_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "203.0.113.10:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "203.0.113.10",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 5252,
+        "sock_fd": 8,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "public destination without allowlisted domain requires approval",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "net.public.unallowlisted.requires_approval",
+      "severity": "medium",
+      "explanation": "public destination without allowlisted domain requires approval"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 5252,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "persisted_network_audit_record_deny": {
+    "event_id": "poc_network_connect_6262_9_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "198.51.100.25:25",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "198.51.100.25",
+        "destination_port": 25,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 6262,
+        "sock_fd": 9,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "public SMTP destination is denied",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "net.public.smtp.denied",
+      "severity": "high",
+      "explanation": "public SMTP destination is denied"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 6262,
+      "ppid": null
+    },
+    "integrity": null
   },
   "normalized_exec": {
     "event_id": "poc_process_exec_4242_1337",
     "event_type": "process_exec",
     "session": {
       "session_id": "sess_bootstrap_hostd",
-      "agent_id": "openclaw-main"
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
     },
     "actor": {
       "kind": "system",
@@ -86,19 +490,27 @@
       "exit_code": null,
       "error": null
     },
+    "policy": null,
     "source": {
       "collector": "ebpf",
       "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
       "pid": 4242,
       "ppid": 1337
-    }
+    },
+    "integrity": null
   },
   "normalized_exit": {
     "event_id": "poc_process_exit_4242_1337",
     "event_type": "process_exit",
     "session": {
       "session_id": "sess_bootstrap_hostd",
-      "agent_id": "openclaw-main"
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
     },
     "actor": {
       "kind": "system",
@@ -125,19 +537,27 @@
       "exit_code": 0,
       "error": null
     },
+    "policy": null,
     "source": {
       "collector": "ebpf",
       "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
       "pid": 4242,
       "ppid": 1337
-    }
+    },
+    "integrity": null
   },
   "normalized_filesystem": {
     "event_id": "poc_filesystem_access_4242_17_read",
     "event_type": "filesystem_access",
     "session": {
       "session_id": "sess_bootstrap_hostd",
-      "agent_id": "openclaw-main"
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
     },
     "actor": {
       "kind": "system",
@@ -149,13 +569,17 @@
       "verb": "read",
       "target": "/home/agent/.ssh/id_ed25519",
       "attributes": {
-        "pid": 4242,
+        "access_verb": "read",
+        "classifier_reason": [
+          "path is inside a .ssh directory"
+        ],
         "mount_id": 17,
         "path": "/home/agent/.ssh/id_ed25519",
-        "access_verb": "read",
-        "sensitivity_tags": ["ssh"],
-        "classifier_reason": ["path is inside a .ssh directory"],
-        "sensitive": true
+        "pid": 4242,
+        "sensitive": true,
+        "sensitivity_tags": [
+          "ssh"
+        ]
       }
     },
     "result": {
@@ -173,9 +597,12 @@
     "source": {
       "collector": "fanotify",
       "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
       "pid": 4242,
       "ppid": null
-    }
+    },
+    "integrity": null
   },
   "filesystem_policy_decision": {
     "decision": "require_approval",
@@ -187,14 +614,21 @@
       "ttl_seconds": 1800,
       "reviewer_hint": "security-oncall"
     },
-    "tags": ["filesystem", "approval"]
+    "tags": [
+      "filesystem",
+      "approval"
+    ]
   },
   "normalized_filesystem_allow": {
     "event_id": "poc_filesystem_access_4343_18_read",
     "event_type": "filesystem_access",
     "session": {
       "session_id": "sess_bootstrap_hostd",
-      "agent_id": "openclaw-main"
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
     },
     "actor": {
       "kind": "system",
@@ -206,13 +640,13 @@
       "verb": "read",
       "target": "/workspace/src/main.rs",
       "attributes": {
-        "pid": 4343,
+        "access_verb": "read",
+        "classifier_reason": [],
         "mount_id": 18,
         "path": "/workspace/src/main.rs",
-        "access_verb": "read",
-        "sensitivity_tags": [],
-        "classifier_reason": [],
-        "sensitive": false
+        "pid": 4343,
+        "sensitive": false,
+        "sensitivity_tags": []
       }
     },
     "result": {
@@ -230,9 +664,12 @@
     "source": {
       "collector": "fanotify",
       "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
       "pid": 4343,
       "ppid": null
-    }
+    },
+    "integrity": null
   },
   "filesystem_policy_decision_allow": {
     "decision": "allow",
@@ -248,7 +685,11 @@
     "event_type": "filesystem_access",
     "session": {
       "session_id": "sess_bootstrap_hostd",
-      "agent_id": "openclaw-main"
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
     },
     "actor": {
       "kind": "system",
@@ -260,13 +701,17 @@
       "verb": "read",
       "target": "/home/agent/.ssh/id_ed25519",
       "attributes": {
-        "pid": 4242,
+        "access_verb": "read",
+        "classifier_reason": [
+          "path is inside a .ssh directory"
+        ],
         "mount_id": 17,
         "path": "/home/agent/.ssh/id_ed25519",
-        "access_verb": "read",
-        "sensitivity_tags": ["ssh"],
-        "classifier_reason": ["path is inside a .ssh directory"],
-        "sensitive": true
+        "pid": 4242,
+        "sensitive": true,
+        "sensitivity_tags": [
+          "ssh"
+        ]
       }
     },
     "result": {
@@ -284,13 +729,17 @@
     "source": {
       "collector": "fanotify",
       "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
       "pid": 4242,
       "ppid": null
-    }
+    },
+    "integrity": null
   },
   "persisted_approval_request": {
     "approval_id": "apr_poc_filesystem_access_4242_17_read",
     "status": "pending",
+    "resolved_at": null,
     "session_id": "sess_bootstrap_hostd",
     "event_id": "poc_filesystem_access_4242_17_read",
     "request": {
@@ -299,13 +748,17 @@
       "target": "/home/agent/.ssh/id_ed25519",
       "summary": "sensitive path access requires approval",
       "attributes": {
-        "pid": 4242,
+        "access_verb": "read",
+        "classifier_reason": [
+          "path is inside a .ssh directory"
+        ],
         "mount_id": 17,
         "path": "/home/agent/.ssh/id_ed25519",
-        "access_verb": "read",
-        "sensitivity_tags": ["ssh"],
-        "classifier_reason": ["path is inside a .ssh directory"],
-        "sensitive": true
+        "pid": 4242,
+        "sensitive": true,
+        "sensitivity_tags": [
+          "ssh"
+        ]
       }
     },
     "policy": {
