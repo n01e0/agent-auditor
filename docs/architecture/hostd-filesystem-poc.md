@@ -94,3 +94,8 @@ This keeps the next tasks cleaner:
 - concrete sensitive-path rules beyond documenting the future seam
 - `agenta-core` filesystem event normalization
 - policy evaluation, approval creation, or persistence wiring
+
+## Related docs
+
+- local runbook: [`../runbooks/hostd-filesystem-poc-local.md`](../runbooks/hostd-filesystem-poc-local.md)
+- known constraints: [`hostd-filesystem-known-constraints.md`](hostd-filesystem-known-constraints.md)
