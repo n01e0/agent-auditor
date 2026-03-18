@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, net::IpAddr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkCollector {
@@ -45,4 +45,71 @@ pub struct ClassificationBoundary {
     pub collector: NetworkCollector,
     pub semantic_fields: Vec<&'static str>,
     pub emitted_verbs: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DestinationScope {
+    Loopback,
+    Private,
+    LinkLocal,
+    Multicast,
+    Public,
+}
+
+impl DestinationScope {
+    pub fn from_ip(ip: IpAddr) -> Self {
+        match ip {
+            IpAddr::V4(ip) => {
+                if ip.is_loopback() {
+                    Self::Loopback
+                } else if ip.is_private() {
+                    Self::Private
+                } else if ip.is_link_local() {
+                    Self::LinkLocal
+                } else if ip.is_multicast() {
+                    Self::Multicast
+                } else {
+                    Self::Public
+                }
+            }
+            IpAddr::V6(ip) => {
+                if ip.is_loopback() {
+                    Self::Loopback
+                } else if ip.is_unique_local() {
+                    Self::Private
+                } else if ip.is_unicast_link_local() {
+                    Self::LinkLocal
+                } else if ip.is_multicast() {
+                    Self::Multicast
+                } else {
+                    Self::Public
+                }
+            }
+        }
+    }
+}
+
+impl fmt::Display for DestinationScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let label = match self {
+            Self::Loopback => "loopback",
+            Self::Private => "private",
+            Self::LinkLocal => "link_local",
+            Self::Multicast => "multicast",
+            Self::Public => "public",
+        };
+        f.write_str(label)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassifiedNetworkConnect {
+    pub pid: u32,
+    pub sock_fd: u32,
+    pub destination_ip: String,
+    pub destination_port: u16,
+    pub transport: String,
+    pub address_family: String,
+    pub destination_scope: DestinationScope,
+    pub domain_candidate: Option<String>,
 }

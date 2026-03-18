@@ -34,6 +34,10 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         fixtures["lifecycle_log"].as_str()
     );
     assert_eq!(
+        lines.get("event_log_network").map(String::as_str),
+        fixtures["event_log_network"].as_str()
+    );
+    assert_eq!(
         lines.get("event_log_filesystem").map(String::as_str),
         fixtures["event_log_filesystem"].as_str()
     );
@@ -41,6 +45,15 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         lines.get("event_log_filesystem_allow").map(String::as_str),
         fixtures["event_log_filesystem_allow"].as_str()
     );
+
+    let normalized_network: Value = serde_json::from_str(
+        lines
+            .get("normalized_network")
+            .expect("smoke output should include normalized_network"),
+    )
+    .expect("normalized_network should be valid json");
+    assert_json_subset(&fixtures["normalized_network"], &normalized_network);
+    assert!(normalized_network["timestamp"].is_string());
 
     let normalized_exec: Value = serde_json::from_str(
         lines

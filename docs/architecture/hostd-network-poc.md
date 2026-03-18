@@ -53,6 +53,7 @@ Does **not** own:
 Current PoC milestone notes:
 
 - P3-2 decodes a deterministic outbound-connect payload into a userspace `network.connect` log line so the receive / decode / minimal logging path stays testable in unprivileged CI
+- P3-3 classifies the deterministic connect payload into destination IP / port / protocol fields and normalizes that shape into a provisional `agenta-core::EventEnvelope`
 
 ### Classify
 
