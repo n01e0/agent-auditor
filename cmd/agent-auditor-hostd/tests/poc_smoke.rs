@@ -55,6 +55,17 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     assert_json_subset(&fixtures["normalized_network"], &normalized_network);
     assert!(normalized_network["timestamp"].is_string());
 
+    let network_policy_decision: Value = serde_json::from_str(
+        lines
+            .get("network_policy_decision")
+            .expect("smoke output should include network_policy_decision"),
+    )
+    .expect("network_policy_decision should be valid json");
+    assert_json_subset(
+        &fixtures["network_policy_decision"],
+        &network_policy_decision,
+    );
+
     let normalized_exec: Value = serde_json::from_str(
         lines
             .get("normalized_exec")
