@@ -19,6 +19,9 @@ fn main() {
         }
     }
     println!("event_path={}", plan.event_path.summary());
+    println!("filesystem_watch={}", plan.filesystem.watch.summary());
+    println!("filesystem_classify={}", plan.filesystem.classify.summary());
+    println!("filesystem_emit={}", plan.filesystem.emit.summary());
 
     let exec_delivery = match plan.event_path.preview_exec_delivery() {
         Ok(delivered) => delivered,

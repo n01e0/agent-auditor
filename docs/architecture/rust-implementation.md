@@ -65,6 +65,15 @@ For the exec / exit PoC, the initial internal split is:
 
 See [`hostd-exec-exit-poc.md`](hostd-exec-exit-poc.md) for the concrete P1-1 module boundary.
 
+For the filesystem PoC, the initial internal split is:
+
+- `watch` owns fanotify lifecycle, marks, and raw access handoff
+- `classify` owns sensitive-path matching and provisional read / write intent
+- `emit` owns normalization and publish fanout
+- `contract` defines the watch → classify and classify → emit seams
+
+See [`hostd-filesystem-poc.md`](hostd-filesystem-poc.md) for the concrete P2-1 module boundary.
+
 ### `agent-auditor-controld`
 
 Responsibilities:
