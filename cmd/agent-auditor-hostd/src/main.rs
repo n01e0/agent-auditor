@@ -39,6 +39,22 @@ fn main() {
     };
     println!("event_log_network={}", network_delivery.log_line);
 
+    let classified_network = plan
+        .network
+        .classify
+        .classify_connect(&network_delivery.event);
+    let normalized_network = plan
+        .network
+        .emit
+        .normalize_classified_connect(&classified_network, &session);
+    match serde_json::to_string(&normalized_network) {
+        Ok(json) => println!("normalized_network={json}"),
+        Err(error) => {
+            eprintln!("normalized_network_error={error}");
+            std::process::exit(1);
+        }
+    }
+
     let exec_delivery = match plan.event_path.preview_exec_delivery() {
         Ok(delivered) => delivered,
         Err(error) => {
