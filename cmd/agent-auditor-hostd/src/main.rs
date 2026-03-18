@@ -19,11 +19,34 @@ fn main() {
         }
     }
     println!("event_path={}", plan.event_path.summary());
-    match plan.event_path.preview_exec_delivery() {
-        Ok(delivered) => println!("event_log={}", delivered.log_line),
+
+    let exec_delivery = match plan.event_path.preview_exec_delivery() {
+        Ok(delivered) => delivered,
         Err(error) => {
-            eprintln!("event_log_error={error}");
+            eprintln!("event_log_exec_error={error}");
             std::process::exit(1);
         }
-    }
+    };
+    println!("event_log_exec={}", exec_delivery.log_line);
+
+    let exit_delivery = match plan.event_path.preview_exit_delivery() {
+        Ok(delivered) => delivered,
+        Err(error) => {
+            eprintln!("event_log_exit_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!("event_log_exit={}", exit_delivery.log_line);
+
+    let lifecycle_record = match plan.event_path.preview_exec_exit_lifecycle() {
+        Ok(record) => record,
+        Err(error) => {
+            eprintln!("lifecycle_log_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "lifecycle_log={}",
+        lifecycle_record.summary_line(plan.event_path.transport)
+    );
 }
