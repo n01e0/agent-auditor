@@ -108,10 +108,16 @@
       }
     },
     "result": {
-      "status": "observed",
-      "reason": "observed by hostd filesystem PoC",
+      "status": "approval_required",
+      "reason": "sensitive path access requires approval",
       "exit_code": null,
       "error": null
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "fs.sensitive.read",
+      "severity": "high",
+      "explanation": "sensitive path access requires approval"
     },
     "source": {
       "collector": "fanotify",
