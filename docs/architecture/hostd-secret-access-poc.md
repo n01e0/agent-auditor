@@ -27,7 +27,8 @@ Unlike the filesystem and network PoCs, there is no standalone **observe** stage
   - future home for secret taxonomy and mounted-secret / broker-request identification
 - `evaluate.rs`
   - normalization + policy bridge plan after classification
-  - future home for `agenta-core` secret event shaping and `agenta-policy` secret evaluation
+  - current home for `agenta-core` secret event shaping from classified secret-access candidates
+  - future home for `agenta-policy` secret evaluation
 - `record.rs`
   - audit / approval record plan after evaluation
   - future home for append-only storage and publish fanout
@@ -66,6 +67,13 @@ Owns:
 - bridging those normalized candidates into `agenta-policy`
 - projecting `allow` / `deny` / `require_approval` plus approval-request candidates for recording
 - carrying the redaction contract forward into the record stage
+
+Current P4-3 normalization notes:
+
+- normalized events use `event_type=secret_access` and `action.class=secret`
+- `action.target` carries only the redaction-safe locator hint, never plaintext secret material
+- classifier metadata (`taxonomy_kind`, `taxonomy_variant`, labels, reasons, source kind) is preserved in action attributes for later policy and audit stages
+- fanotify-derived secret access normalizes as a host-side collector event, while broker-adapter access normalizes as a control-plane sourced event
 
 Does **not** own:
 
