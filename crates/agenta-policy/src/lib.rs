@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use agenta_core::{Action, Actor, CollectorKind, EventEnvelope, PolicyDecision, SessionRef};
+use agenta_core::{
+    Action, Actor, CollectorKind, EventEnvelope, PolicyDecision, PolicyDecisionKind,
+    PolicyMetadata, ResultStatus, SessionRef,
+};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -184,6 +187,30 @@ impl PolicyEvaluator for RegoPolicyEvaluator {
         }
 
         serde_json::from_str(&result.to_string()).map_err(PolicyError::SerializeInput)
+    }
+}
+
+pub fn apply_decision_to_event(event: &EventEnvelope, decision: &PolicyDecision) -> EventEnvelope {
+    let mut enriched = event.clone();
+    enriched.result.status = result_status_for_decision(decision.decision);
+    enriched.result.reason = decision
+        .reason
+        .clone()
+        .or_else(|| enriched.result.reason.clone());
+    enriched.policy = Some(PolicyMetadata {
+        decision: Some(decision.decision),
+        rule_id: decision.rule_id.clone(),
+        severity: decision.severity,
+        explanation: decision.reason.clone(),
+    });
+    enriched
+}
+
+fn result_status_for_decision(decision: PolicyDecisionKind) -> ResultStatus {
+    match decision {
+        PolicyDecisionKind::Allow => ResultStatus::Allowed,
+        PolicyDecisionKind::Deny => ResultStatus::Denied,
+        PolicyDecisionKind::RequireApproval => ResultStatus::ApprovalRequired,
     }
 }
 
@@ -400,6 +427,94 @@ mod tests {
         assert_eq!(decision.reason.as_deref(), Some("blocked for test"));
         assert!(decision.approval.is_none());
         assert_eq!(decision.tags, vec!["filesystem", "deny"]);
+    }
+
+    #[test]
+    fn apply_decision_to_event_reflects_allow_result_in_metadata() {
+        let event = filesystem_event("/workspace/src/main.rs", "read");
+        let decision = PolicyDecision {
+            decision: PolicyDecisionKind::Allow,
+            rule_id: Some("default.allow".to_owned()),
+            severity: Some(Severity::Low),
+            reason: Some("no matching rule".to_owned()),
+            approval: None,
+            tags: vec![],
+        };
+
+        let enriched = apply_decision_to_event(&event, &decision);
+
+        assert_eq!(enriched.result.status, ResultStatus::Allowed);
+        assert_eq!(enriched.result.reason.as_deref(), Some("no matching rule"));
+        assert_eq!(
+            enriched.policy,
+            Some(PolicyMetadata {
+                decision: Some(PolicyDecisionKind::Allow),
+                rule_id: Some("default.allow".to_owned()),
+                severity: Some(Severity::Low),
+                explanation: Some("no matching rule".to_owned()),
+            })
+        );
+    }
+
+    #[test]
+    fn apply_decision_to_event_reflects_deny_result_in_metadata() {
+        let event = filesystem_event("/tmp/blocked", "read");
+        let decision = PolicyDecision {
+            decision: PolicyDecisionKind::Deny,
+            rule_id: Some("fs.deny.demo".to_owned()),
+            severity: Some(Severity::Critical),
+            reason: Some("blocked for test".to_owned()),
+            approval: None,
+            tags: vec!["filesystem".to_owned(), "deny".to_owned()],
+        };
+
+        let enriched = apply_decision_to_event(&event, &decision);
+
+        assert_eq!(enriched.result.status, ResultStatus::Denied);
+        assert_eq!(enriched.result.reason.as_deref(), Some("blocked for test"));
+        assert_eq!(
+            enriched.policy,
+            Some(PolicyMetadata {
+                decision: Some(PolicyDecisionKind::Deny),
+                rule_id: Some("fs.deny.demo".to_owned()),
+                severity: Some(Severity::Critical),
+                explanation: Some("blocked for test".to_owned()),
+            })
+        );
+    }
+
+    #[test]
+    fn apply_decision_to_event_reflects_require_approval_result_in_metadata() {
+        let event = filesystem_event("/home/agent/.ssh/id_ed25519", "read");
+        let decision = PolicyDecision {
+            decision: PolicyDecisionKind::RequireApproval,
+            rule_id: Some("fs.sensitive.read".to_owned()),
+            severity: Some(Severity::High),
+            reason: Some("sensitive path access requires approval".to_owned()),
+            approval: Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            }),
+            tags: vec!["filesystem".to_owned(), "approval".to_owned()],
+        };
+
+        let enriched = apply_decision_to_event(&event, &decision);
+
+        assert_eq!(enriched.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(
+            enriched.result.reason.as_deref(),
+            Some("sensitive path access requires approval")
+        );
+        assert_eq!(
+            enriched.policy,
+            Some(PolicyMetadata {
+                decision: Some(PolicyDecisionKind::RequireApproval),
+                rule_id: Some("fs.sensitive.read".to_owned()),
+                severity: Some(Severity::High),
+                explanation: Some("sensitive path access requires approval".to_owned()),
+            })
+        );
     }
 
     fn filesystem_event(path: &str, verb: &str) -> EventEnvelope {
