@@ -1,5 +1,6 @@
 use agent_auditor_hostd::poc::HostdPocPlan;
 use agenta_core::SessionRecord;
+use agenta_policy::{PolicyEvaluator, PolicyInput, RegoPolicyEvaluator};
 
 fn main() {
     let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
@@ -91,6 +92,24 @@ fn main() {
         Ok(json) => println!("normalized_filesystem={json}"),
         Err(error) => {
             eprintln!("normalized_filesystem_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let filesystem_policy_input = PolicyInput::from_event(&normalized_filesystem);
+    let filesystem_policy_decision = match RegoPolicyEvaluator::sensitive_filesystem_example()
+        .evaluate(&filesystem_policy_input)
+    {
+        Ok(decision) => decision,
+        Err(error) => {
+            eprintln!("filesystem_policy_error={error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&filesystem_policy_decision) {
+        Ok(json) => println!("filesystem_policy_decision={json}"),
+        Err(error) => {
+            eprintln!("filesystem_policy_decision_error={error}");
             std::process::exit(1);
         }
     }

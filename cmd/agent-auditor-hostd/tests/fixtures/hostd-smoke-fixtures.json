@@ -119,5 +119,17 @@
       "pid": 4242,
       "ppid": null
     }
+  },
+  "filesystem_policy_decision": {
+    "decision": "require_approval",
+    "rule_id": "fs.sensitive.read",
+    "severity": "high",
+    "reason": "sensitive path access requires approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": ["filesystem", "approval"]
   }
 }
