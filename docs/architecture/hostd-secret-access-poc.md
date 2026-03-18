@@ -82,6 +82,12 @@ Current P4-4 policy notes:
 - the current sample policy requires approval for brokered secret retrievals and SSH secret-file access
 - unmatched secret events fall back to the default allow path so taxonomy and normalization can stay testable before stricter policy arrives
 
+Current P4-5 reflection notes:
+
+- secret policy outcomes are reflected through the shared event-enrichment path, updating `result.status`, `result.reason`, and `policy.{decision,rule_id,severity,explanation}` on the normalized secret event
+- the enriched secret `EventEnvelope` is treated as the audit-record shape for this stage, so audit consumers see the same allow / deny / require_approval outcome that the policy layer produced
+- approval-gated secret outcomes also produce approval-request candidates, but append-only persistence remains deferred to P4-6
+
 Does **not** own:
 
 - upstream path / broker classification heuristics
