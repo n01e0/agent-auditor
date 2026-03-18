@@ -128,6 +128,8 @@ This keeps the next tasks cleaner:
 
 ## Related docs
 
+- local runbook: [`../runbooks/hostd-secret-access-poc-local.md`](../runbooks/hostd-secret-access-poc-local.md)
+- known constraints: [`hostd-secret-access-known-constraints.md`](hostd-secret-access-known-constraints.md)
 - product requirements: [`../PRD.md`](../PRD.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
 - roadmap: [`../roadmaps/secret-access-model-broker-mvp-tasklist.md`](../roadmaps/secret-access-model-broker-mvp-tasklist.md)
