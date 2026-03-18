@@ -1,6 +1,9 @@
-use agent_auditor_hostd::poc::HostdPocPlan;
+use agent_auditor_hostd::poc::{HostdPocPlan, filesystem::persist::FilesystemPocStore};
 use agenta_core::SessionRecord;
-use agenta_policy::{PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event};
+use agenta_policy::{
+    PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
+    approval_request_from_decision,
+};
 
 fn main() {
     let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
@@ -116,5 +119,62 @@ fn main() {
             eprintln!("filesystem_policy_decision_error={error}");
             std::process::exit(1);
         }
+    }
+
+    let store = match FilesystemPocStore::bootstrap() {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("filesystem_store_error={error}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(error) = store.append_audit_record(&normalized_filesystem) {
+        eprintln!("persisted_audit_record_error={error}");
+        std::process::exit(1);
+    }
+    let approval_request =
+        approval_request_from_decision(&normalized_filesystem, &filesystem_policy_decision);
+    if let Some(request) = &approval_request
+        && let Err(error) = store.append_approval_request(request)
+    {
+        eprintln!("persisted_approval_request_error={error}");
+        std::process::exit(1);
+    }
+
+    match store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_audit_record={json}"),
+            Err(error) => {
+                eprintln!("persisted_audit_record_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!("persisted_audit_record_error=missing persisted audit record");
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_audit_record_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match (approval_request, store.latest_approval_request()) {
+        (Some(_), Ok(Some(record))) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_approval_request={json}"),
+            Err(error) => {
+                eprintln!("persisted_approval_request_error={error}");
+                std::process::exit(1);
+            }
+        },
+        (Some(_), Ok(None)) => {
+            eprintln!("persisted_approval_request_error=missing persisted approval request");
+            std::process::exit(1);
+        }
+        (Some(_), Err(error)) => {
+            eprintln!("persisted_approval_request_error={error}");
+            std::process::exit(1);
+        }
+        (None, _) => {}
     }
 }

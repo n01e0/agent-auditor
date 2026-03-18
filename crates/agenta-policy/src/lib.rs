@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use agenta_core::{
-    Action, Actor, CollectorKind, EventEnvelope, PolicyDecision, PolicyDecisionKind,
-    PolicyMetadata, ResultStatus, SessionRef,
+    Action, Actor, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction, ApprovalStatus,
+    CollectorKind, EventEnvelope, PolicyDecision, PolicyDecisionKind, PolicyMetadata,
+    RequesterContext, ResultStatus, SessionRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -204,6 +205,51 @@ pub fn apply_decision_to_event(event: &EventEnvelope, decision: &PolicyDecision)
         explanation: decision.reason.clone(),
     });
     enriched
+}
+
+pub fn approval_request_from_decision(
+    event: &EventEnvelope,
+    decision: &PolicyDecision,
+) -> Option<ApprovalRequest> {
+    if decision.decision != PolicyDecisionKind::RequireApproval {
+        return None;
+    }
+
+    let rule_id = decision.rule_id.clone()?;
+    let constraint = decision.approval.clone()?;
+    let action_verb = event.action.verb.clone()?;
+
+    Some(ApprovalRequest {
+        approval_id: format!("apr_{}", event.event_id),
+        status: ApprovalStatus::Pending,
+        requested_at: event.timestamp,
+        resolved_at: None,
+        expires_at: constraint
+            .ttl_seconds
+            .map(|seconds| event.timestamp + chrono::Duration::seconds(seconds as i64)),
+        session_id: event.session.session_id.clone(),
+        event_id: Some(event.event_id.clone()),
+        request: ApprovalRequestAction {
+            action_class: event.action.class,
+            action_verb,
+            target: event.action.target.clone(),
+            summary: decision.reason.clone(),
+            attributes: event.action.attributes.clone(),
+        },
+        policy: ApprovalPolicy {
+            rule_id,
+            severity: decision.severity,
+            reason: decision.reason.clone(),
+            scope: constraint.scope,
+            ttl_seconds: constraint.ttl_seconds,
+            reviewer_hint: constraint.reviewer_hint,
+        },
+        requester_context: Some(RequesterContext {
+            agent_reason: decision.reason.clone(),
+            human_request: None,
+        }),
+        decision: None,
+    })
 }
 
 fn result_status_for_decision(decision: PolicyDecisionKind) -> ResultStatus {
@@ -486,18 +532,7 @@ mod tests {
     #[test]
     fn apply_decision_to_event_reflects_require_approval_result_in_metadata() {
         let event = filesystem_event("/home/agent/.ssh/id_ed25519", "read");
-        let decision = PolicyDecision {
-            decision: PolicyDecisionKind::RequireApproval,
-            rule_id: Some("fs.sensitive.read".to_owned()),
-            severity: Some(Severity::High),
-            reason: Some("sensitive path access requires approval".to_owned()),
-            approval: Some(ApprovalConstraint {
-                scope: Some(ApprovalScope::SingleAction),
-                ttl_seconds: Some(1800),
-                reviewer_hint: Some("security-oncall".to_owned()),
-            }),
-            tags: vec!["filesystem".to_owned(), "approval".to_owned()],
-        };
+        let decision = require_approval_decision();
 
         let enriched = apply_decision_to_event(&event, &decision);
 
@@ -515,6 +550,76 @@ mod tests {
                 explanation: Some("sensitive path access requires approval".to_owned()),
             })
         );
+    }
+
+    #[test]
+    fn approval_request_from_decision_builds_pending_record_for_require_approval() {
+        let event = filesystem_event("/home/agent/.ssh/id_ed25519", "read");
+        let decision = require_approval_decision();
+
+        let request = approval_request_from_decision(&event, &decision)
+            .expect("require_approval should yield approval request");
+
+        assert_eq!(request.approval_id, "apr_evt_fs_1");
+        assert_eq!(request.status, ApprovalStatus::Pending);
+        assert_eq!(request.session_id, "sess_bootstrap_hostd");
+        assert_eq!(request.event_id.as_deref(), Some("evt_fs_1"));
+        assert_eq!(request.request.action_class, ActionClass::Filesystem);
+        assert_eq!(request.request.action_verb, "read");
+        assert_eq!(
+            request.request.target.as_deref(),
+            Some("/home/agent/.ssh/id_ed25519")
+        );
+        assert_eq!(
+            request.request.summary.as_deref(),
+            Some("sensitive path access requires approval")
+        );
+        assert_eq!(request.policy.rule_id, "fs.sensitive.read");
+        assert_eq!(request.policy.scope, Some(ApprovalScope::SingleAction));
+        assert_eq!(request.policy.ttl_seconds, Some(1800));
+        assert_eq!(
+            request.policy.reviewer_hint.as_deref(),
+            Some("security-oncall")
+        );
+        assert!(request.expires_at.is_some());
+        assert_eq!(
+            request
+                .requester_context
+                .as_ref()
+                .and_then(|context| context.agent_reason.as_deref()),
+            Some("sensitive path access requires approval")
+        );
+        assert!(request.decision.is_none());
+    }
+
+    #[test]
+    fn approval_request_from_decision_skips_non_gated_decisions() {
+        let event = filesystem_event("/workspace/src/main.rs", "read");
+        let decision = PolicyDecision {
+            decision: PolicyDecisionKind::Allow,
+            rule_id: Some("default.allow".to_owned()),
+            severity: Some(Severity::Low),
+            reason: Some("no matching rule".to_owned()),
+            approval: None,
+            tags: vec![],
+        };
+
+        assert!(approval_request_from_decision(&event, &decision).is_none());
+    }
+
+    fn require_approval_decision() -> PolicyDecision {
+        PolicyDecision {
+            decision: PolicyDecisionKind::RequireApproval,
+            rule_id: Some("fs.sensitive.read".to_owned()),
+            severity: Some(Severity::High),
+            reason: Some("sensitive path access requires approval".to_owned()),
+            approval: Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            }),
+            tags: vec!["filesystem".to_owned(), "approval".to_owned()],
+        }
     }
 
     fn filesystem_event(path: &str, verb: &str) -> EventEnvelope {

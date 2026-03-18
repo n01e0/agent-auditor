@@ -11,4 +11,6 @@ agenta-policy = { path = "../../crates/agenta-policy" }
 agent-auditor-hostd-ebpf = { path = "../agent-auditor-hostd-ebpf" }
 aya.workspace = true
 chrono.workspace = true
+serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
