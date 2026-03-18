@@ -55,6 +55,8 @@ Current PoC milestone notes:
 - P3-2 decodes a deterministic outbound-connect payload into a userspace `network.connect` log line so the receive / decode / minimal logging path stays testable in unprivileged CI
 - P3-3 classifies the deterministic connect payload into destination IP / port / protocol fields and normalizes that shape into a provisional `agenta-core::EventEnvelope`
 - P3-4 attributes a provisional domain candidate only from recent DNS-answer exact-IP matches and leaves ambiguous or unmatched destinations empty
+- P3-5 evaluates normalized network connect previews through `agenta-policy`
+- P3-6 reflects `allow / deny / require_approval` decisions back into network event metadata and persisted audit records
 
 ### Classify
 

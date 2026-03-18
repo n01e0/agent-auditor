@@ -27,6 +27,13 @@ is_allowlisted_tls_domain if {
   input.action.attributes.domain_candidate == domain
 }
 
+is_denied_public_smtp if {
+  is_network_connect
+  is_public_destination
+  input.action.attributes.transport == "tcp"
+  input.action.attributes.destination_port == 25
+}
+
 decision := {
   "decision": "allow",
   "rule_id": "net.public.allowlisted_tls_domain",
@@ -40,6 +47,17 @@ decision := {
   input.action.attributes.transport == "tcp"
   input.action.attributes.destination_port == 443
   is_allowlisted_tls_domain
+}
+
+decision := {
+  "decision": "deny",
+  "rule_id": "net.public.smtp.denied",
+  "severity": "high",
+  "reason": "public SMTP destination is denied",
+  "approval": null,
+  "tags": ["network", "deny"]
+} if {
+  is_denied_public_smtp
 }
 
 decision := {
@@ -57,4 +75,5 @@ decision := {
   is_network_connect
   is_public_destination
   not is_allowlisted_tls_domain
+  not is_denied_public_smtp
 }

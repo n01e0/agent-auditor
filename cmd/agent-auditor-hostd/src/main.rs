@@ -1,4 +1,11 @@
-use agent_auditor_hostd::poc::{HostdPocPlan, filesystem::persist::FilesystemPocStore};
+use agent_auditor_hostd::poc::{
+    HostdPocPlan,
+    filesystem::persist::FilesystemPocStore,
+    network::{
+        contract::{ClassifiedNetworkConnect, DestinationScope},
+        persist::NetworkPocStore,
+    },
+};
 use agenta_core::SessionRecord;
 use agenta_policy::{
     PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
@@ -43,10 +50,41 @@ fn main() {
         .network
         .classify
         .classify_connect(&network_delivery.event);
-    let normalized_network = plan
-        .network
-        .emit
-        .normalize_classified_connect(&classified_network, &session);
+
+    let preview_network_policy = |classified: &ClassifiedNetworkConnect| {
+        let normalized = plan
+            .network
+            .emit
+            .normalize_classified_connect(classified, &session);
+        let input = PolicyInput::from_event(&normalized);
+        RegoPolicyEvaluator::network_destination_example()
+            .evaluate(&input)
+            .map(|decision| {
+                let enriched = apply_decision_to_event(&normalized, &decision);
+                let approval_request = approval_request_from_decision(&enriched, &decision);
+                (normalized, enriched, decision, approval_request)
+            })
+    };
+
+    let (
+        normalized_network_observed,
+        normalized_network,
+        network_policy_decision,
+        network_approval_request,
+    ) = match preview_network_policy(&classified_network) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("network_policy_error={error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&normalized_network_observed) {
+        Ok(json) => println!("normalized_network_observed={json}"),
+        Err(error) => {
+            eprintln!("normalized_network_observed_error={error}");
+            std::process::exit(1);
+        }
+    }
     match serde_json::to_string(&normalized_network) {
         Ok(json) => println!("normalized_network={json}"),
         Err(error) => {
@@ -54,20 +92,183 @@ fn main() {
             std::process::exit(1);
         }
     }
-
-    let network_policy_decision = match RegoPolicyEvaluator::network_destination_example()
-        .evaluate(&PolicyInput::from_event(&normalized_network))
-    {
-        Ok(decision) => decision,
-        Err(error) => {
-            eprintln!("network_policy_error={error}");
-            std::process::exit(1);
-        }
-    };
     match serde_json::to_string(&network_policy_decision) {
         Ok(json) => println!("network_policy_decision={json}"),
         Err(error) => {
             eprintln!("network_policy_decision_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&network_approval_request) {
+        Ok(json) => println!("network_approval_request={json}"),
+        Err(error) => {
+            eprintln!("network_approval_request_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let network_require_approval = ClassifiedNetworkConnect {
+        pid: 5252,
+        sock_fd: 8,
+        destination_ip: "203.0.113.10".to_owned(),
+        destination_port: 443,
+        transport: "tcp".to_owned(),
+        address_family: "inet".to_owned(),
+        destination_scope: DestinationScope::Public,
+        domain_candidate: None,
+        domain_attribution_source: None,
+    };
+    let (
+        _,
+        normalized_network_require_approval,
+        network_policy_decision_require_approval,
+        network_approval_request_require_approval,
+    ) = match preview_network_policy(&network_require_approval) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("network_policy_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&normalized_network_require_approval) {
+        Ok(json) => println!("normalized_network_require_approval={json}"),
+        Err(error) => {
+            eprintln!("normalized_network_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&network_policy_decision_require_approval) {
+        Ok(json) => println!("network_policy_decision_require_approval={json}"),
+        Err(error) => {
+            eprintln!("network_policy_decision_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&network_approval_request_require_approval) {
+        Ok(json) => println!("network_approval_request_require_approval={json}"),
+        Err(error) => {
+            eprintln!("network_approval_request_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let network_deny = ClassifiedNetworkConnect {
+        pid: 6262,
+        sock_fd: 9,
+        destination_ip: "198.51.100.25".to_owned(),
+        destination_port: 25,
+        transport: "tcp".to_owned(),
+        address_family: "inet".to_owned(),
+        destination_scope: DestinationScope::Public,
+        domain_candidate: None,
+        domain_attribution_source: None,
+    };
+    let (_, normalized_network_deny, network_policy_decision_deny, network_approval_request_deny) =
+        match preview_network_policy(&network_deny) {
+            Ok(preview) => preview,
+            Err(error) => {
+                eprintln!("network_policy_deny_error={error}");
+                std::process::exit(1);
+            }
+        };
+    match serde_json::to_string(&normalized_network_deny) {
+        Ok(json) => println!("normalized_network_deny={json}"),
+        Err(error) => {
+            eprintln!("normalized_network_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&network_policy_decision_deny) {
+        Ok(json) => println!("network_policy_decision_deny={json}"),
+        Err(error) => {
+            eprintln!("network_policy_decision_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&network_approval_request_deny) {
+        Ok(json) => println!("network_approval_request_deny={json}"),
+        Err(error) => {
+            eprintln!("network_approval_request_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let network_store = match NetworkPocStore::bootstrap() {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("network_store_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(error) = network_store.append_audit_record(&normalized_network) {
+        eprintln!("persisted_network_audit_record_allow_error={error}");
+        std::process::exit(1);
+    }
+    match network_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_network_audit_record_allow={json}"),
+            Err(error) => {
+                eprintln!("persisted_network_audit_record_allow_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_network_audit_record_allow_error=missing persisted network audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_network_audit_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    if let Err(error) = network_store.append_audit_record(&normalized_network_require_approval) {
+        eprintln!("persisted_network_audit_record_require_approval_error={error}");
+        std::process::exit(1);
+    }
+    match network_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_network_audit_record_require_approval={json}"),
+            Err(error) => {
+                eprintln!("persisted_network_audit_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_network_audit_record_require_approval_error=missing persisted network audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_network_audit_record_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    if let Err(error) = network_store.append_audit_record(&normalized_network_deny) {
+        eprintln!("persisted_network_audit_record_deny_error={error}");
+        std::process::exit(1);
+    }
+    match network_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_network_audit_record_deny={json}"),
+            Err(error) => {
+                eprintln!("persisted_network_audit_record_deny_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_network_audit_record_deny_error=missing persisted network audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_network_audit_record_deny_error={error}");
             std::process::exit(1);
         }
     }

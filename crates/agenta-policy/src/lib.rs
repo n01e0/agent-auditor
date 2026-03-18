@@ -672,6 +672,26 @@ mod tests {
         assert_eq!(decision.tags, vec!["network", "approval"]);
     }
 
+    #[test]
+    fn network_destination_rego_denies_public_smtp_destinations() {
+        let event = network_event("198.51.100.25", 25, "tcp", None);
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::network_destination_example()
+            .evaluate(&input)
+            .expect("network rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(decision.rule_id.as_deref(), Some("net.public.smtp.denied"));
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("public SMTP destination is denied")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(decision.tags, vec!["network", "deny"]);
+    }
+
     fn require_approval_decision() -> PolicyDecision {
         PolicyDecision {
             decision: PolicyDecisionKind::RequireApproval,
