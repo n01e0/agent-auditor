@@ -11,5 +11,12 @@ fn main() {
         session.session_id, session.agent_id
     );
     println!("loader={}", plan.loader.summary());
+    match plan.loader.load_embedded_object() {
+        Ok(loaded) => println!("loader_runtime={}", loaded.summary()),
+        Err(error) => {
+            eprintln!("loader_runtime_error={error}");
+            std::process::exit(1);
+        }
+    }
     println!("event_path={}", plan.event_path.summary());
 }
