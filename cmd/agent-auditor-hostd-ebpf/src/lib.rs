@@ -16,12 +16,20 @@ pub struct ExecEventFixture {
     pub filename: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExitEventFixture {
+    pub pid: u32,
+    pub ppid: u32,
+    pub exit_code: i32,
+}
+
 pub const CRATE_NAME: &str = "agent-auditor-hostd-ebpf";
 pub const OBJECT_FILENAME: &str = "agent-auditor-hostd-poc.bpf.o";
 pub const LICENSE: &str = "GPL";
 pub const EXEC_COMM_LEN: usize = 16;
 pub const EXEC_FILENAME_LEN: usize = 64;
 pub const EXEC_EVENT_LEN: usize = (4 * 4) + EXEC_COMM_LEN + EXEC_FILENAME_LEN;
+pub const EXIT_EVENT_LEN: usize = 12;
 pub const PROGRAMS: &[ProgramSpec] = &[
     ProgramSpec {
         name: "hostd_sched_process_exec",
@@ -74,6 +82,25 @@ pub fn fixture_exec_event_bytes() -> Vec<u8> {
     bytes
 }
 
+pub fn fixture_exit_event() -> ExitEventFixture {
+    ExitEventFixture {
+        pid: 4242,
+        ppid: 1337,
+        exit_code: 0,
+    }
+}
+
+pub fn fixture_exit_event_bytes() -> Vec<u8> {
+    let fixture = fixture_exit_event();
+    let mut bytes = Vec::with_capacity(EXIT_EVENT_LEN);
+
+    bytes.extend_from_slice(&fixture.pid.to_le_bytes());
+    bytes.extend_from_slice(&fixture.ppid.to_le_bytes());
+    bytes.extend_from_slice(&fixture.exit_code.to_le_bytes());
+
+    bytes
+}
+
 fn encode_c_string<const N: usize>(value: &str) -> [u8; N] {
     let mut buffer = [0_u8; N];
     let bytes = value.as_bytes();
@@ -86,8 +113,8 @@ fn encode_c_string<const N: usize>(value: &str) -> [u8; N] {
 #[cfg(test)]
 mod tests {
     use super::{
-        EXEC_EVENT_LEN, LICENSE, PROGRAMS, fixture_exec_event, fixture_exec_event_bytes,
-        object_bytes,
+        EXEC_EVENT_LEN, EXIT_EVENT_LEN, LICENSE, PROGRAMS, fixture_exec_event,
+        fixture_exec_event_bytes, fixture_exit_event, fixture_exit_event_bytes, object_bytes,
     };
 
     #[test]
@@ -115,5 +142,23 @@ mod tests {
         assert_eq!(fixture.command, "cargo");
         assert_eq!(fixture.filename, "/usr/bin/cargo");
         assert_eq!(bytes.len(), EXEC_EVENT_LEN);
+    }
+
+    #[test]
+    fn fixture_exit_event_bytes_have_the_expected_wire_length() {
+        let fixture = fixture_exit_event();
+        let bytes = fixture_exit_event_bytes();
+
+        assert_eq!(fixture.exit_code, 0);
+        assert_eq!(bytes.len(), EXIT_EVENT_LEN);
+    }
+
+    #[test]
+    fn fixture_exec_and_exit_share_the_same_lifecycle_key() {
+        let exec = fixture_exec_event();
+        let exit = fixture_exit_event();
+
+        assert_eq!(exec.pid, exit.pid);
+        assert_eq!(exec.ppid, exit.ppid);
     }
 }
