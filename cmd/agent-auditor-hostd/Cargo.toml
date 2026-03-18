@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 agenta-core = { path = "../../crates/agenta-core" }
+agenta-policy = { path = "../../crates/agenta-policy" }
 agent-auditor-hostd-ebpf = { path = "../agent-auditor-hostd-ebpf" }
 aya.workspace = true
 chrono.workspace = true
