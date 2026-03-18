@@ -12,6 +12,7 @@ This repository currently contains the initial product framing and core design c
 - Rust implementation direction: [`docs/architecture/rust-implementation.md`](docs/architecture/rust-implementation.md)
 - hostd exec/exit PoC boundary: [`docs/architecture/hostd-exec-exit-poc.md`](docs/architecture/hostd-exec-exit-poc.md)
 - hostd filesystem PoC boundary: [`docs/architecture/hostd-filesystem-poc.md`](docs/architecture/hostd-filesystem-poc.md)
+- hostd network PoC boundary: [`docs/architecture/hostd-network-poc.md`](docs/architecture/hostd-network-poc.md)
 - hostd filesystem PoC known constraints: [`docs/architecture/hostd-filesystem-known-constraints.md`](docs/architecture/hostd-filesystem-known-constraints.md)
 - hostd exec/exit PoC local runbook: [`docs/runbooks/hostd-exec-exit-poc-local.md`](docs/runbooks/hostd-exec-exit-poc-local.md)
 - hostd filesystem PoC local runbook: [`docs/runbooks/hostd-filesystem-poc-local.md`](docs/runbooks/hostd-filesystem-poc-local.md)

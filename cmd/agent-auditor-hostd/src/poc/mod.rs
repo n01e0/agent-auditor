@@ -2,14 +2,19 @@ pub mod contract;
 pub mod event_path;
 pub mod filesystem;
 pub mod loader;
+pub mod network;
 
-use self::{event_path::EventPathPlan, filesystem::FilesystemPocPlan, loader::LoaderPlan};
+use self::{
+    event_path::EventPathPlan, filesystem::FilesystemPocPlan, loader::LoaderPlan,
+    network::NetworkPocPlan,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostdPocPlan {
     pub loader: LoaderPlan,
     pub event_path: EventPathPlan,
     pub filesystem: FilesystemPocPlan,
+    pub network: NetworkPocPlan,
 }
 
 impl HostdPocPlan {
@@ -17,11 +22,13 @@ impl HostdPocPlan {
         let loader = LoaderPlan::default();
         let event_path = EventPathPlan::from_loader_boundary(loader.handoff());
         let filesystem = FilesystemPocPlan::bootstrap();
+        let network = NetworkPocPlan::bootstrap();
 
         Self {
             loader,
             event_path,
             filesystem,
+            network,
         }
     }
 }
