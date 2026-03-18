@@ -5,6 +5,10 @@ use agent_auditor_hostd::poc::{
         contract::{ClassifiedNetworkConnect, DestinationScope},
         persist::NetworkPocStore,
     },
+    secret::{
+        contract::{BrokeredSecretRequest, ClassifiedSecretAccess, SecretPathAccess},
+        persist::SecretPocStore,
+    },
 };
 use agenta_core::SessionRecord;
 use agenta_policy::{
@@ -36,6 +40,9 @@ fn main() {
     println!("network_observe={}", plan.network.observe.summary());
     println!("network_classify={}", plan.network.classify.summary());
     println!("network_emit={}", plan.network.emit.summary());
+    println!("secret_classify={}", plan.secret.classify.summary());
+    println!("secret_evaluate={}", plan.secret.evaluate.summary());
+    println!("secret_record={}", plan.secret.record.summary());
 
     let network_delivery = match plan.network.observe.preview_connect_delivery() {
         Ok(delivered) => delivered,
@@ -468,5 +475,303 @@ fn main() {
             std::process::exit(1);
         }
         (None, _) => {}
+    }
+
+    let preview_secret_policy = |classified: &ClassifiedSecretAccess| {
+        let normalized = plan
+            .secret
+            .evaluate
+            .normalize_classified_access(classified, &session);
+        let input = PolicyInput::from_event(&normalized);
+        RegoPolicyEvaluator::secret_access_example()
+            .evaluate(&input)
+            .map(|decision| {
+                let enriched = apply_decision_to_event(&normalized, &decision);
+                let approval_request = approval_request_from_decision(&enriched, &decision);
+                (normalized, enriched, decision, approval_request)
+            })
+    };
+
+    let secret_access_allow = match plan
+        .secret
+        .classify
+        .classify_path_access(&SecretPathAccess {
+            operation: "read".to_owned(),
+            path: "/workspace/.env.production".to_owned(),
+            mount_id: Some(18),
+        }) {
+        Some(classified) => classified,
+        None => {
+            eprintln!(
+                "secret_allow_classification_error=expected env file secret access to classify"
+            );
+            std::process::exit(1);
+        }
+    };
+    println!("event_log_secret_allow={}", secret_access_allow.log_line());
+
+    let (
+        normalized_secret_allow_observed,
+        normalized_secret_allow,
+        secret_policy_decision_allow,
+        secret_approval_request_allow,
+    ) = match preview_secret_policy(&secret_access_allow) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("secret_policy_allow_error={error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&normalized_secret_allow_observed) {
+        Ok(json) => println!("normalized_secret_allow_observed={json}"),
+        Err(error) => {
+            eprintln!("normalized_secret_allow_observed_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&normalized_secret_allow) {
+        Ok(json) => println!("normalized_secret_allow={json}"),
+        Err(error) => {
+            eprintln!("normalized_secret_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&secret_policy_decision_allow) {
+        Ok(json) => println!("secret_policy_decision_allow={json}"),
+        Err(error) => {
+            eprintln!("secret_policy_decision_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&secret_approval_request_allow) {
+        Ok(json) => println!("secret_approval_request_allow={json}"),
+        Err(error) => {
+            eprintln!("secret_approval_request_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let secret_access_require_approval =
+        plan.secret
+            .classify
+            .classify_broker_request(&BrokeredSecretRequest {
+                operation: "fetch".to_owned(),
+                broker_id: "vault".to_owned(),
+                broker_action: "read".to_owned(),
+                secret_locator_hint: "kv/prod/db/password".to_owned(),
+            });
+    println!(
+        "event_log_secret_require_approval={}",
+        secret_access_require_approval.log_line()
+    );
+
+    let (
+        normalized_secret_require_approval_observed,
+        normalized_secret_require_approval,
+        secret_policy_decision_require_approval,
+        secret_approval_request_require_approval,
+    ) = match preview_secret_policy(&secret_access_require_approval) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("secret_policy_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&normalized_secret_require_approval_observed) {
+        Ok(json) => println!("normalized_secret_require_approval_observed={json}"),
+        Err(error) => {
+            eprintln!("normalized_secret_require_approval_observed_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&normalized_secret_require_approval) {
+        Ok(json) => println!("normalized_secret_require_approval={json}"),
+        Err(error) => {
+            eprintln!("normalized_secret_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&secret_policy_decision_require_approval) {
+        Ok(json) => println!("secret_policy_decision_require_approval={json}"),
+        Err(error) => {
+            eprintln!("secret_policy_decision_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&secret_approval_request_require_approval) {
+        Ok(json) => println!("secret_approval_request_require_approval={json}"),
+        Err(error) => {
+            eprintln!("secret_approval_request_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let secret_access_deny = match plan
+        .secret
+        .classify
+        .classify_path_access(&SecretPathAccess {
+            operation: "read".to_owned(),
+            path: "/var/run/secrets/kubernetes.io/serviceaccount/token".to_owned(),
+            mount_id: Some(23),
+        }) {
+        Some(classified) => classified,
+        None => {
+            eprintln!(
+                "secret_deny_classification_error=expected kubernetes service account access to classify"
+            );
+            std::process::exit(1);
+        }
+    };
+    println!("event_log_secret_deny={}", secret_access_deny.log_line());
+
+    let (
+        normalized_secret_deny_observed,
+        normalized_secret_deny,
+        secret_policy_decision_deny,
+        secret_approval_request_deny,
+    ) = match preview_secret_policy(&secret_access_deny) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("secret_policy_deny_error={error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&normalized_secret_deny_observed) {
+        Ok(json) => println!("normalized_secret_deny_observed={json}"),
+        Err(error) => {
+            eprintln!("normalized_secret_deny_observed_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&normalized_secret_deny) {
+        Ok(json) => println!("normalized_secret_deny={json}"),
+        Err(error) => {
+            eprintln!("normalized_secret_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&secret_policy_decision_deny) {
+        Ok(json) => println!("secret_policy_decision_deny={json}"),
+        Err(error) => {
+            eprintln!("secret_policy_decision_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match serde_json::to_string(&secret_approval_request_deny) {
+        Ok(json) => println!("secret_approval_request_deny={json}"),
+        Err(error) => {
+            eprintln!("secret_approval_request_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let secret_store = match SecretPocStore::bootstrap() {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("secret_store_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(error) = secret_store.append_audit_record(&normalized_secret_allow) {
+        eprintln!("persisted_secret_audit_record_allow_error={error}");
+        std::process::exit(1);
+    }
+    match secret_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_secret_audit_record_allow={json}"),
+            Err(error) => {
+                eprintln!("persisted_secret_audit_record_allow_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_secret_audit_record_allow_error=missing persisted secret audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_secret_audit_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    if let Err(error) = secret_store.append_audit_record(&normalized_secret_require_approval) {
+        eprintln!("persisted_secret_audit_record_require_approval_error={error}");
+        std::process::exit(1);
+    }
+    match secret_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_secret_audit_record_require_approval={json}"),
+            Err(error) => {
+                eprintln!("persisted_secret_audit_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_secret_audit_record_require_approval_error=missing persisted secret audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_secret_audit_record_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    if let Some(request) = &secret_approval_request_require_approval
+        && let Err(error) = secret_store.append_approval_request(request)
+    {
+        eprintln!("persisted_secret_approval_request_error={error}");
+        std::process::exit(1);
+    }
+    match (
+        &secret_approval_request_require_approval,
+        secret_store.latest_approval_request(),
+    ) {
+        (Some(_), Ok(Some(record))) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_secret_approval_request={json}"),
+            Err(error) => {
+                eprintln!("persisted_secret_approval_request_error={error}");
+                std::process::exit(1);
+            }
+        },
+        (Some(_), Ok(None)) => {
+            eprintln!(
+                "persisted_secret_approval_request_error=missing persisted secret approval request"
+            );
+            std::process::exit(1);
+        }
+        (Some(_), Err(error)) => {
+            eprintln!("persisted_secret_approval_request_error={error}");
+            std::process::exit(1);
+        }
+        (None, _) => {}
+    }
+
+    if let Err(error) = secret_store.append_audit_record(&normalized_secret_deny) {
+        eprintln!("persisted_secret_audit_record_deny_error={error}");
+        std::process::exit(1);
+    }
+    match secret_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_secret_audit_record_deny={json}"),
+            Err(error) => {
+                eprintln!("persisted_secret_audit_record_deny_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_secret_audit_record_deny_error=missing persisted secret audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_secret_audit_record_deny_error={error}");
+            std::process::exit(1);
+        }
     }
 }

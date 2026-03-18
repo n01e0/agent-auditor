@@ -50,6 +50,7 @@ mod tests {
     use super::RecordPlan;
     use crate::poc::secret::{
         classify::ClassifyPlan, contract::SecretSignalSource, evaluate::EvaluatePlan,
+        persist::SecretPocStore,
     };
 
     #[test]
@@ -82,5 +83,18 @@ mod tests {
             vec!["structured_log", "audit_store", "approval_store"]
         );
         assert_eq!(plan.stages, vec!["persist", "publish"]);
+    }
+
+    #[test]
+    fn record_plan_store_bootstrap_exposes_audit_and_approval_logs() {
+        let store = SecretPocStore::bootstrap().expect("secret store should bootstrap");
+
+        assert!(store.paths().audit_log.ends_with("audit-records.jsonl"));
+        assert!(
+            store
+                .paths()
+                .approval_log
+                .ends_with("approval-requests.jsonl")
+        );
     }
 }
