@@ -772,6 +772,46 @@ mod tests {
     }
 
     #[test]
+    fn secret_access_rego_requires_approval_for_ssh_secret_files() {
+        let event = secret_event(SecretEventFixture {
+            event_id: "evt_secret_ssh_approval",
+            verb: "read",
+            target: "/home/agent/.ssh/id_ed25519",
+            source_kind: "fanotify",
+            taxonomy_kind: "secret_file",
+            taxonomy_variant: "ssh_material",
+            path: Some("/home/agent/.ssh/id_ed25519"),
+            broker_id: None,
+            broker_action: None,
+        });
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::secret_access_example()
+            .evaluate(&input)
+            .expect("secret rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("secret.file.ssh_material.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("ssh secret file access requires approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1200),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(decision.tags, vec!["secret", "approval"]);
+    }
+
+    #[test]
     fn secret_access_rego_denies_kubernetes_service_account_access() {
         let event = secret_event(SecretEventFixture {
             event_id: "evt_secret_deny",
