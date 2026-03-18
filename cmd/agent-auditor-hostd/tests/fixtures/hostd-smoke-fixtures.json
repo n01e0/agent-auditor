@@ -2,8 +2,49 @@
   "event_log_exec": "event=process.exec transport=ring_buffer pid=4242 ppid=1337 uid=1000 gid=1000 command=cargo target=/usr/bin/cargo",
   "event_log_exit": "event=process.exit transport=ring_buffer pid=4242 ppid=1337 exit_code=0",
   "lifecycle_log": "event=process.lifecycle transport=ring_buffer correlation=pid_ppid pid=4242 ppid=1337 command=cargo target=/usr/bin/cargo exit_code=0",
+  "event_log_network": "event=network.connect collector=ebpf pid=4242 fd=7 family=inet transport=tcp destination=93.184.216.34:443",
   "event_log_filesystem": "event=filesystem.access collector=fanotify pid=4242 mount_id=17 verb=read target=/home/agent/.ssh/id_ed25519 sensitive=true tags=ssh reasons=path is inside a .ssh directory",
   "event_log_filesystem_allow": "event=filesystem.access collector=fanotify pid=4343 mount_id=18 verb=read target=/workspace/src/main.rs sensitive=false tags= reasons=",
+  "normalized_network": {
+    "event_id": "poc_network_connect_4242_7_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "93.184.216.34:443",
+      "attributes": {
+        "pid": 4242,
+        "sock_fd": 7,
+        "destination_ip": "93.184.216.34",
+        "destination_port": 443,
+        "transport": "tcp",
+        "address_family": "inet",
+        "destination_scope": "public",
+        "domain_candidate": null
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd network PoC",
+      "exit_code": null,
+      "error": null
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "pid": 4242,
+      "ppid": null
+    }
+  },
   "normalized_exec": {
     "event_id": "poc_process_exec_4242_1337",
     "event_type": "process_exec",

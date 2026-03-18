@@ -27,7 +27,7 @@ Approved-At: 2026-03-18T06:29:24.979767123+00:00
 ## Tasks
 - [x] P3-1: network PoC 境界を定義し、observe / classify / emit の責務を分離する
 - [x] P3-2: outbound connect event を hostd で取得し、最小ログ出力まで通す
-- [ ] P3-3: destination IP / port / protocol を `agenta-core` に正規化する
+- [x] P3-3: destination IP / port / protocol を `agenta-core` に正規化する
 - [ ] P3-4: domain attribution の最小戦略を実装し、制約を明文化する
 - [ ] P3-5: destination policy を `agenta-policy` から評価できるようにする
 - [ ] P3-6: `allow / deny / require_approval` を network event metadata と audit record に反映する
