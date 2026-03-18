@@ -3,10 +3,11 @@ pub mod event_path;
 pub mod filesystem;
 pub mod loader;
 pub mod network;
+pub mod secret;
 
 use self::{
     event_path::EventPathPlan, filesystem::FilesystemPocPlan, loader::LoaderPlan,
-    network::NetworkPocPlan,
+    network::NetworkPocPlan, secret::SecretAccessPocPlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,6 +16,7 @@ pub struct HostdPocPlan {
     pub event_path: EventPathPlan,
     pub filesystem: FilesystemPocPlan,
     pub network: NetworkPocPlan,
+    pub secret: SecretAccessPocPlan,
 }
 
 impl HostdPocPlan {
@@ -23,12 +25,14 @@ impl HostdPocPlan {
         let event_path = EventPathPlan::from_loader_boundary(loader.handoff());
         let filesystem = FilesystemPocPlan::bootstrap();
         let network = NetworkPocPlan::bootstrap();
+        let secret = SecretAccessPocPlan::bootstrap();
 
         Self {
             loader,
             event_path,
             filesystem,
             network,
+            secret,
         }
     }
 }
@@ -36,6 +40,7 @@ impl HostdPocPlan {
 #[cfg(test)]
 mod tests {
     use super::{HostdPocPlan, contract::EventTransport};
+    use crate::poc::secret::contract::SecretSignalSource;
 
     #[test]
     fn bootstrap_plan_keeps_loader_and_event_path_responsibilities_separate() {
@@ -74,5 +79,27 @@ mod tests {
         assert_eq!(plan.loader.handoff().transport, EventTransport::RingBuffer);
         assert_eq!(plan.event_path.transport, EventTransport::RingBuffer);
         assert_eq!(plan.event_path.raw_event_types, vec!["exec", "exit"]);
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_secret_access_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(
+            plan.secret.classify.sources,
+            vec![
+                SecretSignalSource::Fanotify,
+                SecretSignalSource::BrokerAdapter
+            ]
+        );
+        assert_eq!(
+            plan.secret.record.record_fields,
+            vec![
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "redaction_status",
+            ]
+        );
     }
 }
