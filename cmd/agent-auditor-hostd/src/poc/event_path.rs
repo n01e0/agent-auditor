@@ -1,6 +1,11 @@
 use std::{error::Error, fmt};
 
 use agent_auditor_hostd_ebpf as poc_ebpf;
+use agenta_core::{
+    Action, ActionClass, Actor, ActorKind, CollectorKind, EventEnvelope, EventType, JsonMap,
+    ResultInfo, ResultStatus, SessionRecord, SessionRef, SourceInfo,
+};
+use serde_json::json;
 
 use super::contract::{EventTransport, LoaderBoundary};
 
@@ -205,6 +210,76 @@ impl EventPathPlan {
         )
     }
 
+    pub fn normalize_exec_event(
+        &self,
+        event: &ExecEvent,
+        session: &SessionRecord,
+    ) -> EventEnvelope {
+        let mut attributes = process_attributes(event.pid, event.ppid);
+        attributes.insert("uid".to_owned(), json!(event.uid));
+        attributes.insert("gid".to_owned(), json!(event.gid));
+        attributes.insert("command".to_owned(), json!(event.command));
+        attributes.insert("filename".to_owned(), json!(event.filename));
+
+        EventEnvelope::new(
+            format!("poc_process_exec_{}_{}", event.pid, event.ppid),
+            EventType::ProcessExec,
+            session_ref_from_record(session),
+            hostd_actor(),
+            Action {
+                class: ActionClass::Process,
+                verb: Some("exec".to_owned()),
+                target: Some(event.filename.clone()),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd exec/exit PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            source_info(event.pid, event.ppid),
+        )
+    }
+
+    pub fn normalize_exit_event(
+        &self,
+        event: &ExitEvent,
+        lifecycle: Option<&ProcessLifecycleRecord>,
+        session: &SessionRecord,
+    ) -> EventEnvelope {
+        let mut attributes = process_attributes(event.pid, event.ppid);
+        attributes.insert("exit_code".to_owned(), json!(event.exit_code));
+        if let Some(lifecycle) = lifecycle {
+            attributes.insert("command".to_owned(), json!(lifecycle.exec.command));
+            attributes.insert("filename".to_owned(), json!(lifecycle.exec.filename));
+            attributes.insert(
+                "correlation_key_kind".to_owned(),
+                json!("ProcessLifecycleKey { pid, ppid }"),
+            );
+        }
+
+        EventEnvelope::new(
+            format!("poc_process_exit_{}_{}", event.pid, event.ppid),
+            EventType::ProcessExit,
+            session_ref_from_record(session),
+            hostd_actor(),
+            Action {
+                class: ActionClass::Process,
+                verb: Some("exit".to_owned()),
+                target: lifecycle.map(|record| record.exec.filename.clone()),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd exec/exit PoC".to_owned()),
+                exit_code: Some(event.exit_code),
+                error: None,
+            },
+            source_info(event.pid, event.ppid),
+        )
+    }
+
     pub fn summary(&self) -> String {
         format!(
             "transport={} raw_events={} stages={}",
@@ -292,6 +367,47 @@ impl ProcessLifecycleRecord {
     }
 }
 
+fn session_ref_from_record(session: &SessionRecord) -> SessionRef {
+    SessionRef {
+        session_id: session.session_id.clone(),
+        agent_id: Some(session.agent_id.clone()),
+        initiator_id: session.initiator_id.clone(),
+        workspace_id: session
+            .workspace
+            .as_ref()
+            .and_then(|workspace| workspace.workspace_id.clone()),
+        policy_bundle_version: session.policy_bundle_version.clone(),
+        environment: None,
+    }
+}
+
+fn hostd_actor() -> Actor {
+    Actor {
+        kind: ActorKind::System,
+        id: Some("agent-auditor-hostd".to_owned()),
+        display_name: Some("agent-auditor-hostd PoC".to_owned()),
+    }
+}
+
+fn source_info(pid: u32, ppid: u32) -> SourceInfo {
+    SourceInfo {
+        collector: CollectorKind::Ebpf,
+        host_id: Some("hostd-poc".to_owned()),
+        container_id: None,
+        pod_uid: None,
+        pid: Some(pid as i32),
+        ppid: Some(ppid as i32),
+    }
+}
+
+fn process_attributes(pid: u32, ppid: u32) -> JsonMap {
+    let mut attributes = JsonMap::new();
+    attributes.insert("pid".to_owned(), json!(pid));
+    attributes.insert("ppid".to_owned(), json!(ppid));
+    attributes.insert("lifecycle_key".to_owned(), json!(format!("{pid}:{ppid}")));
+    attributes
+}
+
 fn read_u32(bytes: &[u8], start: usize) -> u32 {
     u32::from_le_bytes(
         bytes[start..start + 4]
@@ -319,6 +435,10 @@ fn decode_c_string(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use agent_auditor_hostd_ebpf as poc_ebpf;
+    use agenta_core::{
+        ActionClass, ActorKind, CollectorKind, EventType, ResultStatus, SessionRecord,
+    };
+    use serde_json::json;
 
     use super::{
         EventCorrelationError, EventDecodeError, EventPathPlan, ExecEvent, ExitEvent,
@@ -426,7 +546,7 @@ mod tests {
             record.key,
             ProcessLifecycleKey {
                 pid: 4242,
-                ppid: 1337
+                ppid: 1337,
             }
         );
         assert_eq!(record.exec.command, "cargo");
@@ -464,6 +584,68 @@ mod tests {
                 exit_pid: 4243,
                 exit_ppid: 1337,
             }
+        );
+    }
+
+    #[test]
+    fn normalize_exec_event_uses_agenta_core_process_exec_shape() {
+        let plan = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer());
+        let delivered = plan
+            .preview_exec_delivery()
+            .expect("fixture exec delivery should succeed");
+        let session = SessionRecord::placeholder("openclaw-main", "sess_norm_exec");
+        let envelope = plan.normalize_exec_event(&delivered.event, &session);
+
+        assert_eq!(envelope.event_type, EventType::ProcessExec);
+        assert_eq!(envelope.session.session_id, "sess_norm_exec");
+        assert_eq!(envelope.session.agent_id.as_deref(), Some("openclaw-main"));
+        assert_eq!(envelope.actor.kind, ActorKind::System);
+        assert_eq!(envelope.action.class, ActionClass::Process);
+        assert_eq!(envelope.action.verb.as_deref(), Some("exec"));
+        assert_eq!(envelope.action.target.as_deref(), Some("/usr/bin/cargo"));
+        assert_eq!(envelope.result.status, ResultStatus::Observed);
+        assert_eq!(envelope.result.exit_code, None);
+        assert_eq!(envelope.source.collector, CollectorKind::Ebpf);
+        assert_eq!(envelope.source.pid, Some(4242));
+        assert_eq!(envelope.source.ppid, Some(1337));
+        assert_eq!(
+            envelope.action.attributes.get("command"),
+            Some(&json!("cargo"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("lifecycle_key"),
+            Some(&json!("4242:1337"))
+        );
+    }
+
+    #[test]
+    fn normalize_exit_event_uses_agenta_core_process_exit_shape() {
+        let plan = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer());
+        let session = SessionRecord::placeholder("openclaw-main", "sess_norm_exit");
+        let lifecycle = plan
+            .preview_exec_exit_lifecycle()
+            .expect("fixtures should correlate");
+        let envelope = plan.normalize_exit_event(&lifecycle.exit, Some(&lifecycle), &session);
+
+        assert_eq!(envelope.event_type, EventType::ProcessExit);
+        assert_eq!(envelope.session.session_id, "sess_norm_exit");
+        assert_eq!(envelope.action.class, ActionClass::Process);
+        assert_eq!(envelope.action.verb.as_deref(), Some("exit"));
+        assert_eq!(envelope.action.target.as_deref(), Some("/usr/bin/cargo"));
+        assert_eq!(envelope.result.status, ResultStatus::Observed);
+        assert_eq!(envelope.result.exit_code, Some(0));
+        assert_eq!(envelope.source.collector, CollectorKind::Ebpf);
+        assert_eq!(
+            envelope.action.attributes.get("command"),
+            Some(&json!("cargo"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("correlation_key_kind"),
+            Some(&json!("ProcessLifecycleKey { pid, ppid }"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("lifecycle_key"),
+            Some(&json!("4242:1337"))
         );
     }
 }
