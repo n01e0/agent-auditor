@@ -99,6 +99,7 @@ mod tests {
                 "address_family",
                 "destination_scope",
                 "domain_candidate",
+                "domain_attribution_source",
             ]
         );
         assert_eq!(plan.observe.handoff().raw_connect_kinds, vec!["connect"]);

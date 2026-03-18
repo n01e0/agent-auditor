@@ -112,4 +112,5 @@ pub struct ClassifiedNetworkConnect {
     pub address_family: String,
     pub destination_scope: DestinationScope,
     pub domain_candidate: Option<String>,
+    pub domain_attribution_source: Option<String>,
 }

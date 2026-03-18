@@ -53,6 +53,10 @@ impl EmitPlan {
             "domain_candidate".to_owned(),
             json!(connect.domain_candidate),
         );
+        attributes.insert(
+            "domain_attribution_source".to_owned(),
+            json!(connect.domain_attribution_source),
+        );
 
         EventEnvelope::new(
             format!(
@@ -181,7 +185,11 @@ mod tests {
         );
         assert_eq!(
             envelope.action.attributes.get("domain_candidate"),
-            Some(&json!(null))
+            Some(&json!("example.com"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("domain_attribution_source"),
+            Some(&json!("dns_answer_cache_exact_ip"))
         );
         assert_eq!(envelope.result.status, ResultStatus::Observed);
         assert_eq!(
