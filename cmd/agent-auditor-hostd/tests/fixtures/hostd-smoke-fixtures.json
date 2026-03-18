@@ -1,0 +1,83 @@
+{
+  "event_log_exec": "event=process.exec transport=ring_buffer pid=4242 ppid=1337 uid=1000 gid=1000 command=cargo target=/usr/bin/cargo",
+  "event_log_exit": "event=process.exit transport=ring_buffer pid=4242 ppid=1337 exit_code=0",
+  "lifecycle_log": "event=process.lifecycle transport=ring_buffer correlation=pid_ppid pid=4242 ppid=1337 command=cargo target=/usr/bin/cargo exit_code=0",
+  "normalized_exec": {
+    "event_id": "poc_process_exec_4242_1337",
+    "event_type": "process_exec",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "process",
+      "verb": "exec",
+      "target": "/usr/bin/cargo",
+      "attributes": {
+        "command": "cargo",
+        "filename": "/usr/bin/cargo",
+        "gid": 1000,
+        "lifecycle_key": "4242:1337",
+        "pid": 4242,
+        "ppid": 1337,
+        "uid": 1000
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd exec/exit PoC",
+      "exit_code": null,
+      "error": null
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "pid": 4242,
+      "ppid": 1337
+    }
+  },
+  "normalized_exit": {
+    "event_id": "poc_process_exit_4242_1337",
+    "event_type": "process_exit",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "process",
+      "verb": "exit",
+      "target": "/usr/bin/cargo",
+      "attributes": {
+        "command": "cargo",
+        "correlation_key_kind": "ProcessLifecycleKey { pid, ppid }",
+        "exit_code": 0,
+        "filename": "/usr/bin/cargo",
+        "lifecycle_key": "4242:1337",
+        "pid": 4242,
+        "ppid": 1337
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd exec/exit PoC",
+      "exit_code": 0,
+      "error": null
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "pid": 4242,
+      "ppid": 1337
+    }
+  }
+}

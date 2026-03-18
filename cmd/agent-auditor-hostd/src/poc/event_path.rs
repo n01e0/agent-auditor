@@ -648,4 +648,23 @@ mod tests {
             Some(&json!("4242:1337"))
         );
     }
+
+    #[test]
+    fn normalize_exit_event_without_lifecycle_still_emits_a_minimal_process_exit_record() {
+        let plan = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer());
+        let session = SessionRecord::placeholder("openclaw-main", "sess_norm_exit_minimal");
+        let exit = ExitEvent::from_bytes(&poc_ebpf::fixture_exit_event_bytes())
+            .expect("fixture exit event should decode");
+        let envelope = plan.normalize_exit_event(&exit, None, &session);
+
+        assert_eq!(envelope.event_type, EventType::ProcessExit);
+        assert_eq!(envelope.action.target, None);
+        assert_eq!(envelope.result.exit_code, Some(0));
+        assert_eq!(
+            envelope.action.attributes.get("lifecycle_key"),
+            Some(&json!("4242:1337"))
+        );
+        assert_eq!(envelope.action.attributes.get("command"), None);
+        assert_eq!(envelope.action.attributes.get("correlation_key_kind"), None);
+    }
 }
