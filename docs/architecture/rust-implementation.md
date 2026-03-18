@@ -74,6 +74,15 @@ For the filesystem PoC, the initial internal split is:
 
 See [`hostd-filesystem-poc.md`](hostd-filesystem-poc.md) for the concrete P2-1 module boundary.
 
+For the network PoC, the initial internal split is:
+
+- `observe` owns outbound-connect eBPF lifecycle and raw socket tuple handoff
+- `classify` owns destination semantics plus the seam for lossy domain attribution
+- `emit` owns normalization and publish fanout
+- `contract` defines the observe → classify and classify → emit seams
+
+See [`hostd-network-poc.md`](hostd-network-poc.md) for the concrete P3-1 module boundary.
+
 ### `agent-auditor-controld`
 
 Responsibilities:
