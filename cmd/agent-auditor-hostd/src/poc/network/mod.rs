@@ -2,6 +2,7 @@ pub mod classify;
 pub mod contract;
 pub mod emit;
 pub mod observe;
+pub mod persist;
 
 use self::{classify::ClassifyPlan, emit::EmitPlan, observe::ObservePlan};
 
@@ -28,10 +29,16 @@ impl NetworkPocPlan {
 
 #[cfg(test)]
 mod tests {
-    use agenta_core::{CollectorKind, PolicyDecisionKind, SessionRecord, Severity};
-    use agenta_policy::{PolicyCoverageContext, PolicyEvaluator, PolicyInput, RegoPolicyEvaluator};
+    use agenta_core::{CollectorKind, PolicyDecisionKind, ResultStatus, SessionRecord, Severity};
+    use agenta_policy::{
+        PolicyCoverageContext, PolicyEvaluator, PolicyInput, RegoPolicyEvaluator,
+        apply_decision_to_event, approval_request_from_decision,
+    };
 
-    use super::{NetworkPocPlan, contract::NetworkCollector};
+    use super::{
+        NetworkPocPlan,
+        contract::{ClassifiedNetworkConnect, DestinationScope, NetworkCollector},
+    };
 
     #[test]
     fn bootstrap_plan_keeps_observe_classify_and_emit_responsibilities_separate() {
@@ -150,5 +157,110 @@ mod tests {
             decision.reason.as_deref(),
             Some("allowlisted public TLS destination")
         );
+    }
+
+    #[test]
+    fn allow_decision_is_reflected_in_network_event_metadata() {
+        let (event, decision, approval_request) = preview_network_policy(sample_allowlisted_tls());
+        let enriched = apply_decision_to_event(&event, &decision);
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(enriched.result.status, ResultStatus::Allowed);
+        assert_eq!(
+            enriched.policy.as_ref().and_then(|policy| policy.decision),
+            Some(PolicyDecisionKind::Allow)
+        );
+        assert_eq!(approval_request, None);
+    }
+
+    #[test]
+    fn require_approval_decision_is_reflected_in_network_event_metadata() {
+        let (event, decision, approval_request) =
+            preview_network_policy(sample_public_unknown_destination());
+        let enriched = apply_decision_to_event(&event, &decision);
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(enriched.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(
+            enriched.policy.as_ref().and_then(|policy| policy.decision),
+            Some(PolicyDecisionKind::RequireApproval)
+        );
+        assert!(approval_request.is_some());
+    }
+
+    #[test]
+    fn deny_decision_is_reflected_in_network_event_metadata() {
+        let (event, decision, approval_request) = preview_network_policy(sample_denied_smtp());
+        let enriched = apply_decision_to_event(&event, &decision);
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(enriched.result.status, ResultStatus::Denied);
+        assert_eq!(
+            enriched.policy.as_ref().and_then(|policy| policy.decision),
+            Some(PolicyDecisionKind::Deny)
+        );
+        assert_eq!(approval_request, None);
+    }
+
+    fn preview_network_policy(
+        classified: ClassifiedNetworkConnect,
+    ) -> (
+        agenta_core::EventEnvelope,
+        agenta_core::PolicyDecision,
+        Option<agenta_core::ApprovalRequest>,
+    ) {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
+        let plan = NetworkPocPlan::bootstrap();
+        let event = plan
+            .emit
+            .normalize_classified_connect(&classified, &session);
+        let decision = RegoPolicyEvaluator::network_destination_example()
+            .evaluate(&PolicyInput::from_event(&event))
+            .expect("network rego should evaluate");
+        let approval_request = approval_request_from_decision(&event, &decision);
+
+        (event, decision, approval_request)
+    }
+
+    fn sample_allowlisted_tls() -> ClassifiedNetworkConnect {
+        ClassifiedNetworkConnect {
+            pid: 4242,
+            sock_fd: 7,
+            destination_ip: "93.184.216.34".to_owned(),
+            destination_port: 443,
+            transport: "tcp".to_owned(),
+            address_family: "inet".to_owned(),
+            destination_scope: DestinationScope::Public,
+            domain_candidate: Some("example.com".to_owned()),
+            domain_attribution_source: Some("dns_answer_cache_exact_ip".to_owned()),
+        }
+    }
+
+    fn sample_public_unknown_destination() -> ClassifiedNetworkConnect {
+        ClassifiedNetworkConnect {
+            pid: 5252,
+            sock_fd: 8,
+            destination_ip: "203.0.113.10".to_owned(),
+            destination_port: 443,
+            transport: "tcp".to_owned(),
+            address_family: "inet".to_owned(),
+            destination_scope: DestinationScope::Public,
+            domain_candidate: None,
+            domain_attribution_source: None,
+        }
+    }
+
+    fn sample_denied_smtp() -> ClassifiedNetworkConnect {
+        ClassifiedNetworkConnect {
+            pid: 6262,
+            sock_fd: 9,
+            destination_ip: "198.51.100.25".to_owned(),
+            destination_port: 25,
+            transport: "tcp".to_owned(),
+            address_family: "inet".to_owned(),
+            destination_scope: DestinationScope::Public,
+            domain_candidate: None,
+            domain_attribution_source: None,
+        }
     }
 }
