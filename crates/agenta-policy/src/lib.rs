@@ -706,17 +706,17 @@ mod tests {
 
     #[test]
     fn secret_access_rego_allows_unmatched_env_file_access() {
-        let event = secret_event(
-            "evt_secret_allow",
-            "read",
-            "/workspace/.env.production",
-            "fanotify",
-            "secret_file",
-            "env_file",
-            Some("/workspace/.env.production"),
-            None,
-            None,
-        );
+        let event = secret_event(SecretEventFixture {
+            event_id: "evt_secret_allow",
+            verb: "read",
+            target: "/workspace/.env.production",
+            source_kind: "fanotify",
+            taxonomy_kind: "secret_file",
+            taxonomy_variant: "env_file",
+            path: Some("/workspace/.env.production"),
+            broker_id: None,
+            broker_action: None,
+        });
         let input = PolicyInput::from_event(&event);
 
         let decision = RegoPolicyEvaluator::secret_access_example()
@@ -733,17 +733,17 @@ mod tests {
 
     #[test]
     fn secret_access_rego_requires_approval_for_brokered_requests() {
-        let event = secret_event(
-            "evt_secret_approval",
-            "fetch",
-            "kv/prod/db/password",
-            "broker_adapter",
-            "brokered_secret_request",
-            "secret_reference",
-            None,
-            Some("vault"),
-            Some("read"),
-        );
+        let event = secret_event(SecretEventFixture {
+            event_id: "evt_secret_approval",
+            verb: "fetch",
+            target: "kv/prod/db/password",
+            source_kind: "broker_adapter",
+            taxonomy_kind: "brokered_secret_request",
+            taxonomy_variant: "secret_reference",
+            path: None,
+            broker_id: Some("vault"),
+            broker_action: Some("read"),
+        });
         let input = PolicyInput::from_event(&event);
 
         let decision = RegoPolicyEvaluator::secret_access_example()
@@ -773,17 +773,17 @@ mod tests {
 
     #[test]
     fn secret_access_rego_denies_kubernetes_service_account_access() {
-        let event = secret_event(
-            "evt_secret_deny",
-            "read",
-            "/var/run/secrets/kubernetes.io/serviceaccount/token",
-            "fanotify",
-            "mounted_secret",
-            "kubernetes_service_account",
-            Some("/var/run/secrets/kubernetes.io/serviceaccount/token"),
-            None,
-            None,
-        );
+        let event = secret_event(SecretEventFixture {
+            event_id: "evt_secret_deny",
+            verb: "read",
+            target: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+            source_kind: "fanotify",
+            taxonomy_kind: "mounted_secret",
+            taxonomy_variant: "kubernetes_service_account",
+            path: Some("/var/run/secrets/kubernetes.io/serviceaccount/token"),
+            broker_id: None,
+            broker_action: None,
+        });
         let input = PolicyInput::from_event(&event);
 
         let decision = RegoPolicyEvaluator::secret_access_example()
@@ -923,17 +923,31 @@ mod tests {
         )
     }
 
-    fn secret_event(
-        event_id: &str,
-        verb: &str,
-        target: &str,
-        source_kind: &str,
-        taxonomy_kind: &str,
-        taxonomy_variant: &str,
-        path: Option<&str>,
-        broker_id: Option<&str>,
-        broker_action: Option<&str>,
-    ) -> EventEnvelope {
+    struct SecretEventFixture<'a> {
+        event_id: &'a str,
+        verb: &'a str,
+        target: &'a str,
+        source_kind: &'a str,
+        taxonomy_kind: &'a str,
+        taxonomy_variant: &'a str,
+        path: Option<&'a str>,
+        broker_id: Option<&'a str>,
+        broker_action: Option<&'a str>,
+    }
+
+    fn secret_event(fixture: SecretEventFixture<'_>) -> EventEnvelope {
+        let SecretEventFixture {
+            event_id,
+            verb,
+            target,
+            source_kind,
+            taxonomy_kind,
+            taxonomy_variant,
+            path,
+            broker_id,
+            broker_action,
+        } = fixture;
+
         let mut attributes = JsonMap::new();
         attributes.insert("source_kind".to_owned(), json!(source_kind));
         attributes.insert("taxonomy_kind".to_owned(), json!(taxonomy_kind));
