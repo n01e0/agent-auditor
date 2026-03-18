@@ -2,6 +2,7 @@
   "event_log_exec": "event=process.exec transport=ring_buffer pid=4242 ppid=1337 uid=1000 gid=1000 command=cargo target=/usr/bin/cargo",
   "event_log_exit": "event=process.exit transport=ring_buffer pid=4242 ppid=1337 exit_code=0",
   "lifecycle_log": "event=process.lifecycle transport=ring_buffer correlation=pid_ppid pid=4242 ppid=1337 command=cargo target=/usr/bin/cargo exit_code=0",
+  "event_log_filesystem": "event=filesystem.access collector=fanotify pid=4242 mount_id=17 verb=read target=/home/agent/.ssh/id_ed25519 sensitive=true tags=ssh reasons=path is inside a .ssh directory",
   "normalized_exec": {
     "event_id": "poc_process_exec_4242_1337",
     "event_type": "process_exec",
@@ -78,6 +79,45 @@
       "host_id": "hostd-poc",
       "pid": 4242,
       "ppid": 1337
+    }
+  },
+  "normalized_filesystem": {
+    "event_id": "poc_filesystem_access_4242_17_read",
+    "event_type": "filesystem_access",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "filesystem",
+      "verb": "read",
+      "target": "/home/agent/.ssh/id_ed25519",
+      "attributes": {
+        "pid": 4242,
+        "mount_id": 17,
+        "path": "/home/agent/.ssh/id_ed25519",
+        "access_verb": "read",
+        "sensitivity_tags": ["ssh"],
+        "classifier_reason": ["path is inside a .ssh directory"],
+        "sensitive": true
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd filesystem PoC",
+      "exit_code": null,
+      "error": null
+    },
+    "source": {
+      "collector": "fanotify",
+      "host_id": "hostd-poc",
+      "pid": 4242,
+      "ppid": null
     }
   }
 }

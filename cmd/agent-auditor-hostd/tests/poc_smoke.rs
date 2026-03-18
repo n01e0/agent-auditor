@@ -33,6 +33,10 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         lines.get("lifecycle_log").map(String::as_str),
         fixtures["lifecycle_log"].as_str()
     );
+    assert_eq!(
+        lines.get("event_log_filesystem").map(String::as_str),
+        fixtures["event_log_filesystem"].as_str()
+    );
 
     let normalized_exec: Value = serde_json::from_str(
         lines
@@ -51,6 +55,15 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     .expect("normalized_exit should be valid json");
     assert_json_subset(&fixtures["normalized_exit"], &normalized_exit);
     assert!(normalized_exit["timestamp"].is_string());
+
+    let normalized_filesystem: Value = serde_json::from_str(
+        lines
+            .get("normalized_filesystem")
+            .expect("smoke output should include normalized_filesystem"),
+    )
+    .expect("normalized_filesystem should be valid json");
+    assert_json_subset(&fixtures["normalized_filesystem"], &normalized_filesystem);
+    assert!(normalized_filesystem["timestamp"].is_string());
 }
 
 fn keyed_lines(stdout: &str) -> BTreeMap<String, String> {
