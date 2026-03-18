@@ -19,4 +19,11 @@ fn main() {
         }
     }
     println!("event_path={}", plan.event_path.summary());
+    match plan.event_path.preview_exec_delivery() {
+        Ok(delivered) => println!("event_log={}", delivered.log_line),
+        Err(error) => {
+            eprintln!("event_log_error={error}");
+            std::process::exit(1);
+        }
+    }
 }
