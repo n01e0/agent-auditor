@@ -1,6 +1,7 @@
 pub mod classify;
 pub mod contract;
 pub mod evaluate;
+pub mod persist;
 pub mod record;
 
 use self::{classify::ClassifyPlan, evaluate::EvaluatePlan, record::RecordPlan};
