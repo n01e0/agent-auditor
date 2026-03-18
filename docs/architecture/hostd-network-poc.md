@@ -50,6 +50,10 @@ Does **not** own:
 - `agenta-core` normalization
 - publish fanout to logs or control-plane sinks
 
+Current PoC milestone notes:
+
+- P3-2 decodes a deterministic outbound-connect payload into a userspace `network.connect` log line so the receive / decode / minimal logging path stays testable in unprivileged CI
+
 ### Classify
 
 Owns:
