@@ -28,7 +28,7 @@
 - [x] P2-3: filesystem access event を `agenta-core` に正規化して出力する
 - [x] P2-4: `agenta-policy` から Rego 判定を呼ぶ最小経路を実装する
 - [x] P2-5: `allow / deny / require_approval` の判定結果を event metadata に反映する
-- [ ] P2-6: approval request record と audit record の最小永続化を追加する
+- [x] P2-6: approval request record と audit record の最小永続化を追加する
 - [ ] P2-7: fanotify + policy の unit test / smoke test を追加する
 - [ ] P2-8: local runbook と既知制約を docs に残す
 - [ ] P2-9: PR を分割作成し、CI green で main に取り込む

@@ -137,5 +137,84 @@
       "reviewer_hint": "security-oncall"
     },
     "tags": ["filesystem", "approval"]
+  },
+  "persisted_audit_record": {
+    "event_id": "poc_filesystem_access_4242_17_read",
+    "event_type": "filesystem_access",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "filesystem",
+      "verb": "read",
+      "target": "/home/agent/.ssh/id_ed25519",
+      "attributes": {
+        "pid": 4242,
+        "mount_id": 17,
+        "path": "/home/agent/.ssh/id_ed25519",
+        "access_verb": "read",
+        "sensitivity_tags": ["ssh"],
+        "classifier_reason": ["path is inside a .ssh directory"],
+        "sensitive": true
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "sensitive path access requires approval",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "fs.sensitive.read",
+      "severity": "high",
+      "explanation": "sensitive path access requires approval"
+    },
+    "source": {
+      "collector": "fanotify",
+      "host_id": "hostd-poc",
+      "pid": 4242,
+      "ppid": null
+    }
+  },
+  "persisted_approval_request": {
+    "approval_id": "apr_poc_filesystem_access_4242_17_read",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "poc_filesystem_access_4242_17_read",
+    "request": {
+      "action_class": "filesystem",
+      "action_verb": "read",
+      "target": "/home/agent/.ssh/id_ed25519",
+      "summary": "sensitive path access requires approval",
+      "attributes": {
+        "pid": 4242,
+        "mount_id": 17,
+        "path": "/home/agent/.ssh/id_ed25519",
+        "access_verb": "read",
+        "sensitivity_tags": ["ssh"],
+        "classifier_reason": ["path is inside a .ssh directory"],
+        "sensitive": true
+      }
+    },
+    "policy": {
+      "rule_id": "fs.sensitive.read",
+      "severity": "high",
+      "reason": "sensitive path access requires approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "sensitive path access requires approval",
+      "human_request": null
+    },
+    "decision": null
   }
 }
