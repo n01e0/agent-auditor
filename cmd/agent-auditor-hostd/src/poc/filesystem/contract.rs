@@ -83,6 +83,31 @@ impl SensitivePathClassification {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClassifiedFilesystemAccess {
+    pub pid: u32,
+    pub mount_id: u32,
+    pub path: String,
+    pub access_verb: String,
+    pub classification: SensitivePathClassification,
+}
+
+impl ClassifiedFilesystemAccess {
+    pub fn log_line(&self, collector: FilesystemCollector) -> String {
+        format!(
+            "event=filesystem.access collector={} pid={} mount_id={} verb={} target={} sensitive={} tags={} reasons={}",
+            collector,
+            self.pid,
+            self.mount_id,
+            self.access_verb,
+            self.path,
+            self.classification.is_sensitive(),
+            self.classification.tags().join(","),
+            self.classification.reasons().join("|")
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WatchBoundary {
     pub collector: FilesystemCollector,
     pub raw_fields: Vec<&'static str>,

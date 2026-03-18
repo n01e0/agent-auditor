@@ -76,4 +76,22 @@ fn main() {
             std::process::exit(1);
         }
     }
+
+    let filesystem_access = plan.filesystem.classify.preview_sensitive_access();
+    println!(
+        "event_log_filesystem={}",
+        filesystem_access.log_line(plan.filesystem.emit.collector)
+    );
+
+    let normalized_filesystem = plan
+        .filesystem
+        .emit
+        .normalize_classified_access(&filesystem_access, &session);
+    match serde_json::to_string(&normalized_filesystem) {
+        Ok(json) => println!("normalized_filesystem={json}"),
+        Err(error) => {
+            eprintln!("normalized_filesystem_error={error}");
+            std::process::exit(1);
+        }
+    }
 }

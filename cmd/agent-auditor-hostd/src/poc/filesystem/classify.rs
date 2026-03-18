@@ -1,6 +1,6 @@
 use super::contract::{
-    ClassificationBoundary, FilesystemCollector, SensitivePathClassification, SensitivePathKind,
-    SensitivePathMatch, WatchBoundary,
+    ClassificationBoundary, ClassifiedFilesystemAccess, FilesystemCollector,
+    SensitivePathClassification, SensitivePathKind, SensitivePathMatch, WatchBoundary,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,6 +89,28 @@ impl ClassifyPlan {
 
     pub fn classify(&self, path: impl Into<String>) -> SensitivePathClassification {
         self.classifier.classify(path)
+    }
+
+    pub fn classify_access(
+        &self,
+        pid: u32,
+        mount_id: u32,
+        access_verb: impl Into<String>,
+        path: impl Into<String>,
+    ) -> ClassifiedFilesystemAccess {
+        let path = path.into();
+
+        ClassifiedFilesystemAccess {
+            pid,
+            mount_id,
+            access_verb: access_verb.into(),
+            classification: self.classify(path.clone()),
+            path,
+        }
+    }
+
+    pub fn preview_sensitive_access(&self) -> ClassifiedFilesystemAccess {
+        self.classify_access(4242, 17, "read", "/home/agent/.ssh/id_ed25519")
     }
 
     pub fn summary(&self) -> String {
@@ -201,6 +223,30 @@ mod tests {
             ]
         );
         assert!(plan.classify("/run/secrets/demo/key").is_sensitive());
+    }
+
+    #[test]
+    fn classify_access_carries_mount_and_pid_metadata_into_the_emit_boundary() {
+        let plan = ClassifyPlan::from_watch_boundary(WatchBoundary::fanotify_poc());
+        let access = plan.classify_access(4242, 17, "read", "/workspace/.env.local");
+
+        assert_eq!(access.pid, 4242);
+        assert_eq!(access.mount_id, 17);
+        assert_eq!(access.access_verb, "read");
+        assert_eq!(access.path, "/workspace/.env.local");
+        assert_eq!(access.classification.tags(), vec!["env_file"]);
+    }
+
+    #[test]
+    fn preview_sensitive_access_uses_the_checked_in_ssh_fixture() {
+        let plan = ClassifyPlan::from_watch_boundary(WatchBoundary::fanotify_poc());
+        let access = plan.preview_sensitive_access();
+
+        assert_eq!(access.pid, 4242);
+        assert_eq!(access.mount_id, 17);
+        assert_eq!(access.access_verb, "read");
+        assert_eq!(access.path, "/home/agent/.ssh/id_ed25519");
+        assert_eq!(access.classification.tags(), vec!["ssh"]);
     }
 
     #[test]
