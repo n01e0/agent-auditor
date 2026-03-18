@@ -49,4 +49,28 @@ fn main() {
         "lifecycle_log={}",
         lifecycle_record.summary_line(plan.event_path.transport)
     );
+
+    let normalized_exec = plan
+        .event_path
+        .normalize_exec_event(&exec_delivery.event, &session);
+    match serde_json::to_string(&normalized_exec) {
+        Ok(json) => println!("normalized_exec={json}"),
+        Err(error) => {
+            eprintln!("normalized_exec_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let normalized_exit = plan.event_path.normalize_exit_event(
+        &exit_delivery.event,
+        Some(&lifecycle_record),
+        &session,
+    );
+    match serde_json::to_string(&normalized_exit) {
+        Ok(json) => println!("normalized_exit={json}"),
+        Err(error) => {
+            eprintln!("normalized_exit_error={error}");
+            std::process::exit(1);
+        }
+    }
 }
