@@ -62,6 +62,7 @@ Current PoC milestone notes:
 - P1-4 decodes a deterministic exit payload and uses `ProcessLifecycleKey { pid, ppid }` as the minimal exec/exit correlation shape
 - P1-5 normalizes the deterministic exec / exit PoC payloads into temporary `agenta-core::EventEnvelope` records before any richer attribution work lands
 - P1-6 adds a checked-in smoke fixture plus hostd unit/integration coverage so the PoC output stays stable in unprivileged CI
+- P1-7 records the local run steps and current PoC limitations in [`../runbooks/hostd-exec-exit-poc-local.md`](../runbooks/hostd-exec-exit-poc-local.md)
 
 Does **not** own:
 
