@@ -1,0 +1,452 @@
+{
+  "event_log_network": "event=network.connect collector=ebpf pid=4242 fd=7 family=inet transport=tcp destination=93.184.216.34:443",
+  "normalized_network_observed": {
+    "event_id": "poc_network_connect_4242_7_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "93.184.216.34:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "93.184.216.34",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": "dns_answer_cache_exact_ip",
+        "domain_candidate": "example.com",
+        "pid": 4242,
+        "sock_fd": 7,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd network PoC",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": null,
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4242,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "normalized_network": {
+    "event_id": "poc_network_connect_4242_7_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "93.184.216.34:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "93.184.216.34",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": "dns_answer_cache_exact_ip",
+        "domain_candidate": "example.com",
+        "pid": 4242,
+        "sock_fd": 7,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "allowlisted public TLS destination",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "net.public.allowlisted_tls_domain",
+      "severity": "low",
+      "explanation": "allowlisted public TLS destination"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4242,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "network_policy_decision": {
+    "decision": "allow",
+    "rule_id": "net.public.allowlisted_tls_domain",
+    "severity": "low",
+    "reason": "allowlisted public TLS destination",
+    "approval": null,
+    "tags": [
+      "network",
+      "allowlist"
+    ]
+  },
+  "network_approval_request": null,
+  "normalized_network_require_approval": {
+    "event_id": "poc_network_connect_5252_8_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "203.0.113.10:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "203.0.113.10",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 5252,
+        "sock_fd": 8,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "public destination without allowlisted domain requires approval",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "net.public.unallowlisted.requires_approval",
+      "severity": "medium",
+      "explanation": "public destination without allowlisted domain requires approval"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 5252,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "network_policy_decision_require_approval": {
+    "decision": "require_approval",
+    "rule_id": "net.public.unallowlisted.requires_approval",
+    "severity": "medium",
+    "reason": "public destination without allowlisted domain requires approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 900,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": [
+      "network",
+      "approval"
+    ]
+  },
+  "network_approval_request_require_approval": {
+    "approval_id": "apr_poc_network_connect_5252_8_tcp",
+    "status": "pending",
+    "resolved_at": null,
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "poc_network_connect_5252_8_tcp",
+    "request": {
+      "action_class": "network",
+      "action_verb": "connect",
+      "target": "203.0.113.10:443",
+      "summary": "public destination without allowlisted domain requires approval",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "203.0.113.10",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 5252,
+        "sock_fd": 8,
+        "transport": "tcp"
+      }
+    },
+    "policy": {
+      "rule_id": "net.public.unallowlisted.requires_approval",
+      "severity": "medium",
+      "reason": "public destination without allowlisted domain requires approval",
+      "scope": "single_action",
+      "ttl_seconds": 900,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "public destination without allowlisted domain requires approval",
+      "human_request": null
+    },
+    "decision": null
+  },
+  "normalized_network_deny": {
+    "event_id": "poc_network_connect_6262_9_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "198.51.100.25:25",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "198.51.100.25",
+        "destination_port": 25,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 6262,
+        "sock_fd": 9,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "public SMTP destination is denied",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "net.public.smtp.denied",
+      "severity": "high",
+      "explanation": "public SMTP destination is denied"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 6262,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "network_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "net.public.smtp.denied",
+    "severity": "high",
+    "reason": "public SMTP destination is denied",
+    "approval": null,
+    "tags": [
+      "network",
+      "deny"
+    ]
+  },
+  "network_approval_request_deny": null,
+  "persisted_network_audit_record_allow": {
+    "event_id": "poc_network_connect_4242_7_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "93.184.216.34:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "93.184.216.34",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": "dns_answer_cache_exact_ip",
+        "domain_candidate": "example.com",
+        "pid": 4242,
+        "sock_fd": 7,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "allowlisted public TLS destination",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "net.public.allowlisted_tls_domain",
+      "severity": "low",
+      "explanation": "allowlisted public TLS destination"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4242,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "persisted_network_audit_record_require_approval": {
+    "event_id": "poc_network_connect_5252_8_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "203.0.113.10:443",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "203.0.113.10",
+        "destination_port": 443,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 5252,
+        "sock_fd": 8,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "public destination without allowlisted domain requires approval",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "net.public.unallowlisted.requires_approval",
+      "severity": "medium",
+      "explanation": "public destination without allowlisted domain requires approval"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 5252,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "persisted_network_audit_record_deny": {
+    "event_id": "poc_network_connect_6262_9_tcp",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "network",
+      "verb": "connect",
+      "target": "198.51.100.25:25",
+      "attributes": {
+        "address_family": "inet",
+        "destination_ip": "198.51.100.25",
+        "destination_port": 25,
+        "destination_scope": "public",
+        "domain_attribution_source": null,
+        "domain_candidate": null,
+        "pid": 6262,
+        "sock_fd": 9,
+        "transport": "tcp"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "public SMTP destination is denied",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "net.public.smtp.denied",
+      "severity": "high",
+      "explanation": "public SMTP destination is denied"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 6262,
+      "ppid": null
+    },
+    "integrity": null
+  }
+}
