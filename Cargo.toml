@@ -4,6 +4,7 @@ members = [
   "cmd/agent-auditor-cli",
   "cmd/agent-auditor-controld",
   "cmd/agent-auditor-hostd",
+  "cmd/agent-auditor-hostd-ebpf",
   "crates/agenta-core",
   "crates/agenta-policy",
 ]

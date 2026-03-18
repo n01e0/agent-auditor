@@ -25,10 +25,18 @@ dependencies = [
 name = "agent-auditor-hostd"
 version = "0.1.0"
 dependencies = [
+ "agent-auditor-hostd-ebpf",
  "agenta-core",
  "aya",
  "chrono",
  "serde_json",
+]
+
+[[package]]
+name = "agent-auditor-hostd-ebpf"
+version = "0.1.0"
+dependencies = [
+ "object",
 ]
 
 [[package]]
