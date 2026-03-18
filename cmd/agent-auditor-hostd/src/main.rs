@@ -1,6 +1,6 @@
 use agent_auditor_hostd::poc::HostdPocPlan;
 use agenta_core::SessionRecord;
-use agenta_policy::{PolicyEvaluator, PolicyInput, RegoPolicyEvaluator};
+use agenta_policy::{PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event};
 
 fn main() {
     let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
@@ -88,13 +88,6 @@ fn main() {
         .filesystem
         .emit
         .normalize_classified_access(&filesystem_access, &session);
-    match serde_json::to_string(&normalized_filesystem) {
-        Ok(json) => println!("normalized_filesystem={json}"),
-        Err(error) => {
-            eprintln!("normalized_filesystem_error={error}");
-            std::process::exit(1);
-        }
-    }
 
     let filesystem_policy_input = PolicyInput::from_event(&normalized_filesystem);
     let filesystem_policy_decision = match RegoPolicyEvaluator::sensitive_filesystem_example()
@@ -106,6 +99,17 @@ fn main() {
             std::process::exit(1);
         }
     };
+    let normalized_filesystem =
+        apply_decision_to_event(&normalized_filesystem, &filesystem_policy_decision);
+
+    match serde_json::to_string(&normalized_filesystem) {
+        Ok(json) => println!("normalized_filesystem={json}"),
+        Err(error) => {
+            eprintln!("normalized_filesystem_error={error}");
+            std::process::exit(1);
+        }
+    }
+
     match serde_json::to_string(&filesystem_policy_decision) {
         Ok(json) => println!("filesystem_policy_decision={json}"),
         Err(error) => {
