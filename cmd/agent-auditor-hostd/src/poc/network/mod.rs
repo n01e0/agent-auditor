@@ -28,6 +28,9 @@ impl NetworkPocPlan {
 
 #[cfg(test)]
 mod tests {
+    use agenta_core::{CollectorKind, PolicyDecisionKind, SessionRecord, Severity};
+    use agenta_policy::{PolicyCoverageContext, PolicyEvaluator, PolicyInput, RegoPolicyEvaluator};
+
     use super::{NetworkPocPlan, contract::NetworkCollector};
 
     #[test]
@@ -108,5 +111,44 @@ mod tests {
             vec!["inet", "inet6"]
         );
         assert_eq!(plan.classify.handoff().emitted_verbs, vec!["connect"]);
+    }
+
+    #[test]
+    fn ebpf_pipeline_evaluates_destination_policy_for_normalized_connects() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
+        let plan = NetworkPocPlan::bootstrap();
+        let delivered = plan
+            .observe
+            .preview_connect_delivery()
+            .expect("fixture connect delivery should succeed");
+        let classified = plan.classify.classify_connect(&delivered.event);
+        let event = plan
+            .emit
+            .normalize_classified_connect(&classified, &session);
+        let input = PolicyInput::from_event(&event);
+
+        assert_eq!(event.source.collector, CollectorKind::Ebpf);
+        assert_eq!(
+            input.context.coverage,
+            Some(PolicyCoverageContext {
+                collector: Some("ebpf".to_owned()),
+                enforce_capable: false,
+            })
+        );
+
+        let decision = RegoPolicyEvaluator::network_destination_example()
+            .evaluate(&input)
+            .expect("network rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("net.public.allowlisted_tls_domain")
+        );
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("allowlisted public TLS destination")
+        );
     }
 }

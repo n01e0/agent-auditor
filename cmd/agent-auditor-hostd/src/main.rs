@@ -55,6 +55,23 @@ fn main() {
         }
     }
 
+    let network_policy_decision = match RegoPolicyEvaluator::network_destination_example()
+        .evaluate(&PolicyInput::from_event(&normalized_network))
+    {
+        Ok(decision) => decision,
+        Err(error) => {
+            eprintln!("network_policy_error={error}");
+            std::process::exit(1);
+        }
+    };
+    match serde_json::to_string(&network_policy_decision) {
+        Ok(json) => println!("network_policy_decision={json}"),
+        Err(error) => {
+            eprintln!("network_policy_decision_error={error}");
+            std::process::exit(1);
+        }
+    }
+
     let exec_delivery = match plan.event_path.preview_exec_delivery() {
         Ok(delivered) => delivered,
         Err(error) => {

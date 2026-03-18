@@ -46,6 +46,14 @@
       "ppid": null
     }
   },
+  "network_policy_decision": {
+    "decision": "allow",
+    "rule_id": "net.public.allowlisted_tls_domain",
+    "severity": "low",
+    "reason": "allowlisted public TLS destination",
+    "approval": null,
+    "tags": ["network", "allowlist"]
+  },
   "normalized_exec": {
     "event_id": "poc_process_exec_4242_1337",
     "event_type": "process_exec",
