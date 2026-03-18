@@ -2,11 +2,11 @@ use std::{error::Error, fmt};
 
 use agent_auditor_hostd_ebpf as poc_ebpf;
 
-use super::contract::LoaderBoundary;
+use super::contract::{EventTransport, LoaderBoundary};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EventPathPlan {
-    pub transport: super::contract::EventTransport,
+    pub transport: EventTransport,
     pub raw_event_types: Vec<&'static str>,
     pub stages: Vec<&'static str>,
     pub responsibilities: Vec<&'static str>,
@@ -23,6 +23,13 @@ pub struct ExecEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExitEvent {
+    pub pid: u32,
+    pub ppid: u32,
+    pub exit_code: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeliveredExecEvent {
     pub raw_len: usize,
     pub event: ExecEvent,
@@ -30,24 +37,80 @@ pub struct DeliveredExecEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExecEventDecodeError {
-    WrongLength { expected: usize, actual: usize },
+pub struct DeliveredExitEvent {
+    pub raw_len: usize,
+    pub event: ExitEvent,
+    pub log_line: String,
 }
 
-impl fmt::Display for ExecEventDecodeError {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProcessLifecycleKey {
+    pub pid: u32,
+    pub ppid: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProcessLifecycleRecord {
+    pub key: ProcessLifecycleKey,
+    pub exec: ExecEvent,
+    pub exit: ExitEvent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventDecodeError {
+    WrongLength {
+        event_kind: &'static str,
+        expected: usize,
+        actual: usize,
+    },
+}
+
+impl fmt::Display for EventDecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::WrongLength { expected, actual } => {
+            Self::WrongLength {
+                event_kind,
+                expected,
+                actual,
+            } => {
                 write!(
                     f,
-                    "invalid exec event length: expected {expected}, got {actual}"
+                    "invalid {event_kind} event length: expected {expected}, got {actual}"
                 )
             }
         }
     }
 }
 
-impl Error for ExecEventDecodeError {}
+impl Error for EventDecodeError {}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventCorrelationError {
+    MismatchedLifecycleKey {
+        exec_pid: u32,
+        exec_ppid: u32,
+        exit_pid: u32,
+        exit_ppid: u32,
+    },
+}
+
+impl fmt::Display for EventCorrelationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MismatchedLifecycleKey {
+                exec_pid,
+                exec_ppid,
+                exit_pid,
+                exit_ppid,
+            } => write!(
+                f,
+                "mismatched lifecycle key: exec pid={exec_pid} ppid={exec_ppid}, exit pid={exit_pid} ppid={exit_ppid}"
+            ),
+        }
+    }
+}
+
+impl Error for EventCorrelationError {}
 
 impl EventPathPlan {
     pub fn from_loader_boundary(boundary: LoaderBoundary) -> Self {
@@ -68,7 +131,7 @@ impl EventPathPlan {
     pub fn deliver_exec_to_log(
         &self,
         bytes: &[u8],
-    ) -> Result<DeliveredExecEvent, ExecEventDecodeError> {
+    ) -> Result<DeliveredExecEvent, EventDecodeError> {
         let event = ExecEvent::from_bytes(bytes)?;
         let log_line = event.log_line(self.transport);
 
@@ -79,9 +142,67 @@ impl EventPathPlan {
         })
     }
 
-    pub fn preview_exec_delivery(&self) -> Result<DeliveredExecEvent, ExecEventDecodeError> {
+    pub fn preview_exec_delivery(&self) -> Result<DeliveredExecEvent, EventDecodeError> {
         let fixture = poc_ebpf::fixture_exec_event_bytes();
         self.deliver_exec_to_log(&fixture)
+    }
+
+    pub fn deliver_exit_to_log(
+        &self,
+        bytes: &[u8],
+    ) -> Result<DeliveredExitEvent, EventDecodeError> {
+        let event = ExitEvent::from_bytes(bytes)?;
+        let log_line = event.log_line(self.transport);
+
+        Ok(DeliveredExitEvent {
+            raw_len: bytes.len(),
+            event,
+            log_line,
+        })
+    }
+
+    pub fn preview_exit_delivery(&self) -> Result<DeliveredExitEvent, EventDecodeError> {
+        let fixture = poc_ebpf::fixture_exit_event_bytes();
+        self.deliver_exit_to_log(&fixture)
+    }
+
+    pub fn correlate_exec_and_exit(
+        &self,
+        exec: &ExecEvent,
+        exit: &ExitEvent,
+    ) -> Option<ProcessLifecycleRecord> {
+        let exec_key = ProcessLifecycleKey {
+            pid: exec.pid,
+            ppid: exec.ppid,
+        };
+        let exit_key = ProcessLifecycleKey {
+            pid: exit.pid,
+            ppid: exit.ppid,
+        };
+
+        (exec_key == exit_key).then(|| ProcessLifecycleRecord {
+            key: exec_key,
+            exec: exec.clone(),
+            exit: exit.clone(),
+        })
+    }
+
+    pub fn preview_exec_exit_lifecycle(
+        &self,
+    ) -> Result<ProcessLifecycleRecord, EventCorrelationError> {
+        let exec = ExecEvent::from_bytes(&poc_ebpf::fixture_exec_event_bytes())
+            .expect("exec fixture should decode");
+        let exit = ExitEvent::from_bytes(&poc_ebpf::fixture_exit_event_bytes())
+            .expect("exit fixture should decode");
+
+        self.correlate_exec_and_exit(&exec, &exit).ok_or(
+            EventCorrelationError::MismatchedLifecycleKey {
+                exec_pid: exec.pid,
+                exec_ppid: exec.ppid,
+                exit_pid: exit.pid,
+                exit_ppid: exit.ppid,
+            },
+        )
     }
 
     pub fn summary(&self) -> String {
@@ -95,9 +216,10 @@ impl EventPathPlan {
 }
 
 impl ExecEvent {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ExecEventDecodeError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, EventDecodeError> {
         if bytes.len() != poc_ebpf::EXEC_EVENT_LEN {
-            return Err(ExecEventDecodeError::WrongLength {
+            return Err(EventDecodeError::WrongLength {
+                event_kind: "exec",
                 expected: poc_ebpf::EXEC_EVENT_LEN,
                 actual: bytes.len(),
             });
@@ -123,7 +245,7 @@ impl ExecEvent {
         })
     }
 
-    pub fn log_line(&self, transport: super::contract::EventTransport) -> String {
+    pub fn log_line(&self, transport: EventTransport) -> String {
         format!(
             "event=process.exec transport={} pid={} ppid={} uid={} gid={} command={} target={}",
             transport, self.pid, self.ppid, self.uid, self.gid, self.command, self.filename
@@ -131,8 +253,55 @@ impl ExecEvent {
     }
 }
 
+impl ExitEvent {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, EventDecodeError> {
+        if bytes.len() != poc_ebpf::EXIT_EVENT_LEN {
+            return Err(EventDecodeError::WrongLength {
+                event_kind: "exit",
+                expected: poc_ebpf::EXIT_EVENT_LEN,
+                actual: bytes.len(),
+            });
+        }
+
+        Ok(Self {
+            pid: read_u32(bytes, 0),
+            ppid: read_u32(bytes, 4),
+            exit_code: read_i32(bytes, 8),
+        })
+    }
+
+    pub fn log_line(&self, transport: EventTransport) -> String {
+        format!(
+            "event=process.exit transport={} pid={} ppid={} exit_code={}",
+            transport, self.pid, self.ppid, self.exit_code
+        )
+    }
+}
+
+impl ProcessLifecycleRecord {
+    pub fn summary_line(&self, transport: EventTransport) -> String {
+        format!(
+            "event=process.lifecycle transport={} correlation=pid_ppid pid={} ppid={} command={} target={} exit_code={}",
+            transport,
+            self.key.pid,
+            self.key.ppid,
+            self.exec.command,
+            self.exec.filename,
+            self.exit.exit_code
+        )
+    }
+}
+
 fn read_u32(bytes: &[u8], start: usize) -> u32 {
     u32::from_le_bytes(
+        bytes[start..start + 4]
+            .try_into()
+            .expect("slice length should match"),
+    )
+}
+
+fn read_i32(bytes: &[u8], start: usize) -> i32 {
+    i32::from_le_bytes(
         bytes[start..start + 4]
             .try_into()
             .expect("slice length should match"),
@@ -151,7 +320,10 @@ fn decode_c_string(bytes: &[u8]) -> String {
 mod tests {
     use agent_auditor_hostd_ebpf as poc_ebpf;
 
-    use super::{EventPathPlan, ExecEvent, ExecEventDecodeError};
+    use super::{
+        EventCorrelationError, EventDecodeError, EventPathPlan, ExecEvent, ExitEvent,
+        ProcessLifecycleKey,
+    };
     use crate::poc::contract::{EventTransport, LoaderBoundary};
 
     #[test]
@@ -165,6 +337,16 @@ mod tests {
         assert_eq!(event.gid, 1000);
         assert_eq!(event.command, "cargo");
         assert_eq!(event.filename, "/usr/bin/cargo");
+    }
+
+    #[test]
+    fn exit_fixture_decodes_into_process_metadata() {
+        let event = ExitEvent::from_bytes(&poc_ebpf::fixture_exit_event_bytes())
+            .expect("fixture exit event should decode");
+
+        assert_eq!(event.pid, 4242);
+        assert_eq!(event.ppid, 1337);
+        assert_eq!(event.exit_code, 0);
     }
 
     #[test]
@@ -185,6 +367,22 @@ mod tests {
     }
 
     #[test]
+    fn preview_exit_delivery_emits_a_process_exit_log_line() {
+        let plan = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer());
+        let delivered = plan
+            .preview_exit_delivery()
+            .expect("fixture exit delivery should succeed");
+
+        assert_eq!(delivered.raw_len, poc_ebpf::EXIT_EVENT_LEN);
+        assert_eq!(delivered.event.pid, 4242);
+        assert_eq!(delivered.event.ppid, 1337);
+        assert_eq!(delivered.event.exit_code, 0);
+        assert!(delivered.log_line.contains("event=process.exit"));
+        assert!(delivered.log_line.contains("transport=ring_buffer"));
+        assert!(delivered.log_line.contains("exit_code=0"));
+    }
+
+    #[test]
     fn invalid_exec_payload_length_is_rejected() {
         let error = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer())
             .deliver_exec_to_log(&[0; 8])
@@ -192,7 +390,8 @@ mod tests {
 
         assert_eq!(
             error,
-            ExecEventDecodeError::WrongLength {
+            EventDecodeError::WrongLength {
+                event_kind: "exec",
                 expected: poc_ebpf::EXEC_EVENT_LEN,
                 actual: 8,
             }
@@ -200,12 +399,71 @@ mod tests {
     }
 
     #[test]
-    fn exec_log_line_keeps_transport_visible() {
-        let event = ExecEvent::from_bytes(&poc_ebpf::fixture_exec_event_bytes())
-            .expect("fixture exec event should decode");
-        let log_line = event.log_line(EventTransport::RingBuffer);
+    fn invalid_exit_payload_length_is_rejected() {
+        let error = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer())
+            .deliver_exit_to_log(&[0; 8])
+            .expect_err("short payload should fail");
 
-        assert!(log_line.contains("transport=ring_buffer"));
-        assert!(log_line.contains("pid=4242"));
+        assert_eq!(
+            error,
+            EventDecodeError::WrongLength {
+                event_kind: "exit",
+                expected: poc_ebpf::EXIT_EVENT_LEN,
+                actual: 8,
+            }
+        );
+    }
+
+    #[test]
+    fn exec_and_exit_can_be_correlated_by_pid_and_ppid() {
+        let plan = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer());
+        let record = plan
+            .preview_exec_exit_lifecycle()
+            .expect("fixtures should correlate");
+        let log_line = record.summary_line(EventTransport::RingBuffer);
+
+        assert_eq!(
+            record.key,
+            ProcessLifecycleKey {
+                pid: 4242,
+                ppid: 1337
+            }
+        );
+        assert_eq!(record.exec.command, "cargo");
+        assert_eq!(record.exit.exit_code, 0);
+        assert!(log_line.contains("event=process.lifecycle"));
+        assert!(log_line.contains("correlation=pid_ppid"));
+        assert!(log_line.contains("target=/usr/bin/cargo"));
+        assert!(log_line.contains("exit_code=0"));
+    }
+
+    #[test]
+    fn mismatched_exec_and_exit_do_not_correlate() {
+        let plan = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer());
+        let exec = ExecEvent::from_bytes(&poc_ebpf::fixture_exec_event_bytes())
+            .expect("fixture exec event should decode");
+        let exit = ExitEvent {
+            pid: exec.pid + 1,
+            ppid: exec.ppid,
+            exit_code: 17,
+        };
+
+        assert_eq!(plan.correlate_exec_and_exit(&exec, &exit), None);
+
+        let error = EventCorrelationError::MismatchedLifecycleKey {
+            exec_pid: exec.pid,
+            exec_ppid: exec.ppid,
+            exit_pid: exit.pid,
+            exit_ppid: exit.ppid,
+        };
+        assert_eq!(
+            error,
+            EventCorrelationError::MismatchedLifecycleKey {
+                exec_pid: 4242,
+                exec_ppid: 1337,
+                exit_pid: 4243,
+                exit_ppid: 1337,
+            }
+        );
     }
 }

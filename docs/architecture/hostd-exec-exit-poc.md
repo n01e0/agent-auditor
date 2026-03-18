@@ -59,6 +59,7 @@ Current PoC milestone notes:
 
 - P1-2 loads the embedded `aya` object without attaching it
 - P1-3 decodes a deterministic exec payload into a userspace `process.exec` log line so the receive/decode/logging path stays testable in unprivileged CI
+- P1-4 decodes a deterministic exit payload and uses `ProcessLifecycleKey { pid, ppid }` as the minimal exec/exit correlation shape
 
 Does **not** own:
 
