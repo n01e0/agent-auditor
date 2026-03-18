@@ -85,4 +85,4 @@ Future work should bound attribution by observed answer age and resolver context
 
 - P3-5 can evaluate network destination policy against `destination_ip`, `destination_port`, `transport`, and a provisional `domain_candidate`
 - P3-6 can surface policy outcomes while preserving whether hostname attribution was present or absent
-- P3-8 can document local run steps and operational caveats for the domain-attribution path
+- P3-8 documents the local run steps and operational caveats in [`../runbooks/hostd-network-poc-local.md`](../runbooks/hostd-network-poc-local.md) and [`hostd-network-known-constraints.md`](hostd-network-known-constraints.md)
