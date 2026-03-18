@@ -3,6 +3,7 @@
   "event_log_exit": "event=process.exit transport=ring_buffer pid=4242 ppid=1337 exit_code=0",
   "lifecycle_log": "event=process.lifecycle transport=ring_buffer correlation=pid_ppid pid=4242 ppid=1337 command=cargo target=/usr/bin/cargo exit_code=0",
   "event_log_filesystem": "event=filesystem.access collector=fanotify pid=4242 mount_id=17 verb=read target=/home/agent/.ssh/id_ed25519 sensitive=true tags=ssh reasons=path is inside a .ssh directory",
+  "event_log_filesystem_allow": "event=filesystem.access collector=fanotify pid=4343 mount_id=18 verb=read target=/workspace/src/main.rs sensitive=false tags= reasons=",
   "normalized_exec": {
     "event_id": "poc_process_exec_4242_1337",
     "event_type": "process_exec",
@@ -138,6 +139,60 @@
     },
     "tags": ["filesystem", "approval"]
   },
+  "normalized_filesystem_allow": {
+    "event_id": "poc_filesystem_access_4343_18_read",
+    "event_type": "filesystem_access",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "filesystem",
+      "verb": "read",
+      "target": "/workspace/src/main.rs",
+      "attributes": {
+        "pid": 4343,
+        "mount_id": 18,
+        "path": "/workspace/src/main.rs",
+        "access_verb": "read",
+        "sensitivity_tags": [],
+        "classifier_reason": [],
+        "sensitive": false
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "no matching rule",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "default.allow",
+      "severity": "low",
+      "explanation": "no matching rule"
+    },
+    "source": {
+      "collector": "fanotify",
+      "host_id": "hostd-poc",
+      "pid": 4343,
+      "ppid": null
+    }
+  },
+  "filesystem_policy_decision_allow": {
+    "decision": "allow",
+    "rule_id": "default.allow",
+    "severity": "low",
+    "reason": "no matching rule",
+    "approval": null,
+    "tags": []
+  },
+  "filesystem_approval_request_allow": null,
   "persisted_audit_record": {
     "event_id": "poc_filesystem_access_4242_17_read",
     "event_type": "filesystem_access",
