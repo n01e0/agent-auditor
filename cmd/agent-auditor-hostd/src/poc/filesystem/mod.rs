@@ -1,6 +1,7 @@
 pub mod classify;
 pub mod contract;
 pub mod emit;
+pub mod persist;
 pub mod watch;
 
 use self::{classify::ClassifyPlan, emit::EmitPlan, watch::WatchPlan};

@@ -75,6 +75,28 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         &fixtures["filesystem_policy_decision"],
         &filesystem_policy_decision,
     );
+
+    let persisted_audit_record: Value = serde_json::from_str(
+        lines
+            .get("persisted_audit_record")
+            .expect("smoke output should include persisted_audit_record"),
+    )
+    .expect("persisted_audit_record should be valid json");
+    assert_json_subset(&fixtures["persisted_audit_record"], &persisted_audit_record);
+    assert!(persisted_audit_record["timestamp"].is_string());
+
+    let persisted_approval_request: Value = serde_json::from_str(
+        lines
+            .get("persisted_approval_request")
+            .expect("smoke output should include persisted_approval_request"),
+    )
+    .expect("persisted_approval_request should be valid json");
+    assert_json_subset(
+        &fixtures["persisted_approval_request"],
+        &persisted_approval_request,
+    );
+    assert!(persisted_approval_request["requested_at"].is_string());
+    assert!(persisted_approval_request["expires_at"].is_string());
 }
 
 fn keyed_lines(stdout: &str) -> BTreeMap<String, String> {
