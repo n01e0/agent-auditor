@@ -23,7 +23,7 @@
 
 ## Tasks
 - [x] P4-1: secret access MVP 境界を定義し、classify / evaluate / record の責務を分離する
-- [ ] P4-2: secret taxonomy を実装し、secret file / mounted secret / brokered secret request を識別できるようにする
+- [x] P4-2: secret taxonomy を実装し、secret file / mounted secret / brokered secret request を識別できるようにする
 - [ ] P4-3: secret access event を `agenta-core` に正規化する
 - [ ] P4-4: secret policy を `agenta-policy` から評価できるようにする
 - [ ] P4-5: `allow / deny / require_approval` を secret event metadata と audit record に反映する

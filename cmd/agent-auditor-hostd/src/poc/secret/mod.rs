@@ -111,10 +111,20 @@ mod tests {
             ]
         );
         assert_eq!(
+            plan.classify.taxonomy_kinds,
+            vec![
+                crate::poc::secret::contract::SecretTaxonomyKind::SecretFile,
+                crate::poc::secret::contract::SecretTaxonomyKind::MountedSecret,
+                crate::poc::secret::contract::SecretTaxonomyKind::BrokeredSecretRequest,
+            ]
+        );
+        assert_eq!(
             plan.evaluate.classification_fields,
             vec![
                 "source_kind",
                 "operation",
+                "taxonomy_kind",
+                "taxonomy_variant",
                 "locator_hint",
                 "classifier_labels",
                 "classifier_reasons",
