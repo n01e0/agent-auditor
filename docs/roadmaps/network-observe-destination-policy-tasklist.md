@@ -29,5 +29,5 @@
 - [x] P3-5: destination policy を `agenta-policy` から評価できるようにする
 - [x] P3-6: `allow / deny / require_approval` を network event metadata と audit record に反映する
 - [x] P3-7: network observe + policy の unit test / smoke test を追加する
-- [ ] P3-8: local runbook と既知制約を docs に残す
+- [x] P3-8: local runbook と既知制約を docs に残す
 - [ ] P3-9: PR を分割作成し、CI green で main に取り込む

@@ -57,6 +57,8 @@ Current PoC milestone notes:
 - P3-4 attributes a provisional domain candidate only from recent DNS-answer exact-IP matches and leaves ambiguous or unmatched destinations empty
 - P3-5 evaluates normalized network connect previews through `agenta-policy`
 - P3-6 reflects `allow / deny / require_approval` decisions back into network event metadata and persisted audit records
+- P3-7 adds focused network unit coverage plus a dedicated fixture-backed network smoke test
+- P3-8 records the local run steps and current PoC limitations in `../runbooks/hostd-network-poc-local.md` and `hostd-network-known-constraints.md`
 
 ### Classify
 
@@ -109,4 +111,6 @@ This keeps the next tasks cleaner:
 
 - implementation direction: [`rust-implementation.md`](rust-implementation.md)
 - domain attribution strategy: [`hostd-network-domain-attribution.md`](hostd-network-domain-attribution.md)
+- local runbook: [`../runbooks/hostd-network-poc-local.md`](../runbooks/hostd-network-poc-local.md)
+- known constraints: [`hostd-network-known-constraints.md`](hostd-network-known-constraints.md)
 - roadmap: [`../roadmaps/network-observe-destination-policy-tasklist.md`](../roadmaps/network-observe-destination-policy-tasklist.md)
