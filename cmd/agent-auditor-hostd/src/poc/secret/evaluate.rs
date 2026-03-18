@@ -322,8 +322,8 @@ mod tests {
             envelope.action.attributes.get("broker_action"),
             Some(&json!("read"))
         );
-        assert!(envelope.action.attributes.get("path").is_none());
-        assert!(envelope.action.attributes.get("mount_id").is_none());
+        assert!(!envelope.action.attributes.contains_key("path"));
+        assert!(!envelope.action.attributes.contains_key("mount_id"));
         assert_eq!(envelope.source.collector, CollectorKind::ControlPlane);
     }
 }
