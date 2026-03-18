@@ -35,3 +35,4 @@ Approved-At: 2026-03-18T04:16:59.099814497+00:00
 - [ ] P2-7: fanotify + policy の unit test / smoke test を追加する
 - [ ] P2-8: local runbook と既知制約を docs に残す
 - [ ] P2-9: PR を分割作成し、CI green で main に取り込む
+- [x] P2-5-RECOVER: resolve runner block for task P2-5 (`allow / deny / require_approval` の判定結果を event metadata に反映する): runner stderr と関連ログを確認し、詰まっているコード/設定を直してから再実行する (blocked: runner exit=Some(2): TASK_BLOCKED: P2-4 is still open and unmerged, so `origin/mai
