@@ -76,6 +76,8 @@ mod tests {
             vec![
                 "source_kind",
                 "operation",
+                "taxonomy_kind",
+                "taxonomy_variant",
                 "locator_hint",
                 "classifier_labels",
                 "classifier_reasons",

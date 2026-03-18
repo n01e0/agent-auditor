@@ -41,9 +41,16 @@ Unlike the filesystem and network PoCs, there is no standalone **observe** stage
 Owns:
 
 - accepting path-like and broker-request secret signals from upstream collectors
+- identifying `secret_file`, `mounted_secret`, and `brokered_secret_request` taxonomy kinds
 - attaching redaction-safe locator hints, classifier labels, and rationale
 - preserving enough source context for policy while dropping plaintext secret material
 - handing off classified secret-access candidates downstream
+
+Current P4-2 taxonomy notes:
+
+- mounted secret paths win before generic secret-file heuristics so `/run/secrets/...` stays `mounted_secret` even if the basename looks like `.env`
+- Kubernetes service-account token paths are a more specific mounted-secret subtype
+- brokered secret requests are identified from broker-adapter input plus a redaction-safe locator hint, never from plaintext secret payloads
 
 Does **not** own:
 
