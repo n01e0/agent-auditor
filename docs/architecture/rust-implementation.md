@@ -57,6 +57,14 @@ Responsibilities:
 - enforce or hold actions where node-local gating is required
 - buffer and forward normalized events
 
+For the exec / exit PoC, the initial internal split is:
+
+- `loader` owns eBPF artifact lifecycle, hook attachment, and raw transport handoff
+- `event_path` owns userspace receive / decode / correlate / normalize / publish flow
+- `contract` is the only shared seam between them
+
+See [`hostd-exec-exit-poc.md`](hostd-exec-exit-poc.md) for the concrete P1-1 module boundary.
+
 ### `agent-auditor-controld`
 
 Responsibilities:
