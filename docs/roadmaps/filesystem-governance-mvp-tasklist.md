@@ -29,7 +29,7 @@ Approved-At: 2026-03-18T04:16:59.099814497+00:00
 - [x] P2-1: `fanotify` 前提の filesystem PoC 境界を定義し、watch / classify / emit の責務を分離する
 - [x] P2-2: sensitive path classifier を実装し、`.ssh` / `.env` / mounted secrets を暫定対象として扱えるようにする
 - [x] P2-3: filesystem access event を `agenta-core` に正規化して出力する
-- [ ] P2-4: `agenta-policy` から Rego 判定を呼ぶ最小経路を実装する
+- [x] P2-4: `agenta-policy` から Rego 判定を呼ぶ最小経路を実装する
 - [ ] P2-5: `allow / deny / require_approval` の判定結果を event metadata に反映する
 - [ ] P2-6: approval request record と audit record の最小永続化を追加する
 - [ ] P2-7: fanotify + policy の unit test / smoke test を追加する
