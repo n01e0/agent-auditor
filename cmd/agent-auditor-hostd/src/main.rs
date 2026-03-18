@@ -26,6 +26,9 @@ fn main() {
     println!("filesystem_watch={}", plan.filesystem.watch.summary());
     println!("filesystem_classify={}", plan.filesystem.classify.summary());
     println!("filesystem_emit={}", plan.filesystem.emit.summary());
+    println!("network_observe={}", plan.network.observe.summary());
+    println!("network_classify={}", plan.network.classify.summary());
+    println!("network_emit={}", plan.network.emit.summary());
 
     let exec_delivery = match plan.event_path.preview_exec_delivery() {
         Ok(delivered) => delivered,
