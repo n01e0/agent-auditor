@@ -12,8 +12,10 @@ use thiserror::Error;
 
 pub type JsonMap = BTreeMap<String, Value>;
 
-const FILESYSTEM_POLICY_ENTRYPOINT: &str = "data.agentauditor.authz.decision";
+const POLICY_ENTRYPOINT: &str = "data.agentauditor.authz.decision";
 const FILESYSTEM_POLICY_MODULE: &str = include_str!("../../../examples/policies/sensitive_fs.rego");
+const NETWORK_DESTINATION_POLICY_MODULE: &str =
+    include_str!("../../../examples/policies/network_destination.rego");
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCoverageContext {
@@ -154,10 +156,20 @@ impl RegoPolicyEvaluator {
 
     pub fn sensitive_filesystem_example() -> Self {
         Self::new(
-            FILESYSTEM_POLICY_ENTRYPOINT,
+            POLICY_ENTRYPOINT,
             vec![(
                 "examples/policies/sensitive_fs.rego".to_owned(),
                 FILESYSTEM_POLICY_MODULE.to_owned(),
+            )],
+        )
+    }
+
+    pub fn network_destination_example() -> Self {
+        Self::new(
+            POLICY_ENTRYPOINT,
+            vec![(
+                "examples/policies/network_destination.rego".to_owned(),
+                NETWORK_DESTINATION_POLICY_MODULE.to_owned(),
             )],
         )
     }
@@ -444,7 +456,7 @@ mod tests {
         let event = filesystem_event("/tmp/blocked", "read");
         let input = PolicyInput::from_event(&event);
         let evaluator = RegoPolicyEvaluator::new(
-            FILESYSTEM_POLICY_ENTRYPOINT,
+            POLICY_ENTRYPOINT,
             vec![(
                 "deny.rego".to_owned(),
                 r#"
@@ -607,6 +619,59 @@ mod tests {
         assert!(approval_request_from_decision(&event, &decision).is_none());
     }
 
+    #[test]
+    fn network_destination_rego_allows_allowlisted_public_tls_destination() {
+        let event = network_event("93.184.216.34", 443, "tcp", Some("example.com"));
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::network_destination_example()
+            .evaluate(&input)
+            .expect("network rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("net.public.allowlisted_tls_domain")
+        );
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("allowlisted public TLS destination")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(decision.tags, vec!["network", "allowlist"]);
+    }
+
+    #[test]
+    fn network_destination_rego_requires_approval_for_public_unknown_destinations() {
+        let event = network_event("203.0.113.10", 443, "tcp", None);
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::network_destination_example()
+            .evaluate(&input)
+            .expect("network rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("net.public.unallowlisted.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::Medium));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("public destination without allowlisted domain requires approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(900),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(decision.tags, vec!["network", "approval"]);
+    }
+
     fn require_approval_decision() -> PolicyDecision {
         PolicyDecision {
             decision: PolicyDecisionKind::RequireApproval,
@@ -658,6 +723,65 @@ mod tests {
             },
             SourceInfo {
                 collector: CollectorKind::Fanotify,
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: Some(4242),
+                ppid: None,
+            },
+        )
+    }
+
+    fn network_event(
+        destination_ip: &str,
+        destination_port: u16,
+        transport: &str,
+        domain_candidate: Option<&str>,
+    ) -> EventEnvelope {
+        let mut attributes = JsonMap::new();
+        attributes.insert("pid".to_owned(), json!(4242));
+        attributes.insert("sock_fd".to_owned(), json!(7));
+        attributes.insert("destination_ip".to_owned(), json!(destination_ip));
+        attributes.insert("destination_port".to_owned(), json!(destination_port));
+        attributes.insert("transport".to_owned(), json!(transport));
+        attributes.insert("address_family".to_owned(), json!("inet"));
+        attributes.insert("destination_scope".to_owned(), json!("public"));
+        attributes.insert("domain_candidate".to_owned(), json!(domain_candidate));
+        attributes.insert(
+            "domain_attribution_source".to_owned(),
+            json!(domain_candidate.map(|_| "dns_answer_cache_exact_ip")),
+        );
+
+        EventEnvelope::new(
+            "evt_net_1",
+            EventType::NetworkConnect,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: Some("bundle-bootstrap".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: ActionClass::Network,
+                verb: Some("connect".to_owned()),
+                target: Some(format!("{destination_ip}:{destination_port}")),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd network PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: CollectorKind::Ebpf,
                 host_id: Some("hostd-poc".to_owned()),
                 container_id: None,
                 pod_uid: None,

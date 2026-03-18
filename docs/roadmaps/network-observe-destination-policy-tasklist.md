@@ -26,7 +26,7 @@
 - [x] P3-2: outbound connect event を hostd で取得し、最小ログ出力まで通す
 - [x] P3-3: destination IP / port / protocol を `agenta-core` に正規化する
 - [x] P3-4: domain attribution の最小戦略を実装し、制約を明文化する
-- [ ] P3-5: destination policy を `agenta-policy` から評価できるようにする
+- [x] P3-5: destination policy を `agenta-policy` から評価できるようにする
 - [ ] P3-6: `allow / deny / require_approval` を network event metadata と audit record に反映する
 - [ ] P3-7: network observe + policy の unit test / smoke test を追加する
 - [ ] P3-8: local runbook と既知制約を docs に残す
