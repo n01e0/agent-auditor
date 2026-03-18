@@ -75,6 +75,13 @@ Current P4-3 normalization notes:
 - classifier metadata (`taxonomy_kind`, `taxonomy_variant`, labels, reasons, source kind) is preserved in action attributes for later policy and audit stages
 - fanotify-derived secret access normalizes as a host-side collector event, while broker-adapter access normalizes as a control-plane sourced event
 
+Current P4-4 policy notes:
+
+- `agenta-policy` evaluates normalized secret events through a dedicated `examples/policies/secret_access.rego` bundle
+- the current sample policy denies Kubernetes service-account mounted secret access
+- the current sample policy requires approval for brokered secret retrievals and SSH secret-file access
+- unmatched secret events fall back to the default allow path so taxonomy and normalization can stay testable before stricter policy arrives
+
 Does **not** own:
 
 - upstream path / broker classification heuristics

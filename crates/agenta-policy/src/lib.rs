@@ -16,6 +16,8 @@ const POLICY_ENTRYPOINT: &str = "data.agentauditor.authz.decision";
 const FILESYSTEM_POLICY_MODULE: &str = include_str!("../../../examples/policies/sensitive_fs.rego");
 const NETWORK_DESTINATION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/network_destination.rego");
+const SECRET_ACCESS_POLICY_MODULE: &str =
+    include_str!("../../../examples/policies/secret_access.rego");
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCoverageContext {
@@ -170,6 +172,16 @@ impl RegoPolicyEvaluator {
             vec![(
                 "examples/policies/network_destination.rego".to_owned(),
                 NETWORK_DESTINATION_POLICY_MODULE.to_owned(),
+            )],
+        )
+    }
+
+    pub fn secret_access_example() -> Self {
+        Self::new(
+            POLICY_ENTRYPOINT,
+            vec![(
+                "examples/policies/secret_access.rego".to_owned(),
+                SECRET_ACCESS_POLICY_MODULE.to_owned(),
             )],
         )
     }
@@ -692,6 +704,106 @@ mod tests {
         assert_eq!(decision.tags, vec!["network", "deny"]);
     }
 
+    #[test]
+    fn secret_access_rego_allows_unmatched_env_file_access() {
+        let event = secret_event(
+            "evt_secret_allow",
+            "read",
+            "/workspace/.env.production",
+            "fanotify",
+            "secret_file",
+            "env_file",
+            Some("/workspace/.env.production"),
+            None,
+            None,
+        );
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::secret_access_example()
+            .evaluate(&input)
+            .expect("secret rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(decision.rule_id.as_deref(), Some("default.allow"));
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(decision.reason.as_deref(), Some("no matching rule"));
+        assert!(decision.approval.is_none());
+        assert!(decision.tags.is_empty());
+    }
+
+    #[test]
+    fn secret_access_rego_requires_approval_for_brokered_requests() {
+        let event = secret_event(
+            "evt_secret_approval",
+            "fetch",
+            "kv/prod/db/password",
+            "broker_adapter",
+            "brokered_secret_request",
+            "secret_reference",
+            None,
+            Some("vault"),
+            Some("read"),
+        );
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::secret_access_example()
+            .evaluate(&input)
+            .expect("secret rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("secret.brokered.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("brokered secret retrieval requires approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1200),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(decision.tags, vec!["secret", "approval"]);
+    }
+
+    #[test]
+    fn secret_access_rego_denies_kubernetes_service_account_access() {
+        let event = secret_event(
+            "evt_secret_deny",
+            "read",
+            "/var/run/secrets/kubernetes.io/serviceaccount/token",
+            "fanotify",
+            "mounted_secret",
+            "kubernetes_service_account",
+            Some("/var/run/secrets/kubernetes.io/serviceaccount/token"),
+            None,
+            None,
+        );
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::secret_access_example()
+            .evaluate(&input)
+            .expect("secret rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("secret.mounted.kubernetes_service_account.denied")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("kubernetes service account secret access is denied")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(decision.tags, vec!["secret", "deny"]);
+    }
+
     fn require_approval_decision() -> PolicyDecision {
         PolicyDecision {
             decision: PolicyDecisionKind::RequireApproval,
@@ -806,6 +918,83 @@ mod tests {
                 container_id: None,
                 pod_uid: None,
                 pid: Some(4242),
+                ppid: None,
+            },
+        )
+    }
+
+    fn secret_event(
+        event_id: &str,
+        verb: &str,
+        target: &str,
+        source_kind: &str,
+        taxonomy_kind: &str,
+        taxonomy_variant: &str,
+        path: Option<&str>,
+        broker_id: Option<&str>,
+        broker_action: Option<&str>,
+    ) -> EventEnvelope {
+        let mut attributes = JsonMap::new();
+        attributes.insert("source_kind".to_owned(), json!(source_kind));
+        attributes.insert("taxonomy_kind".to_owned(), json!(taxonomy_kind));
+        attributes.insert("taxonomy_variant".to_owned(), json!(taxonomy_variant));
+        attributes.insert("locator_hint".to_owned(), json!(target));
+        attributes.insert(
+            "classifier_labels".to_owned(),
+            json!([taxonomy_kind, taxonomy_variant]),
+        );
+        attributes.insert(
+            "classifier_reasons".to_owned(),
+            json!(["classified for test"]),
+        );
+        attributes.insert("plaintext_retained".to_owned(), json!(false));
+        if let Some(path) = path {
+            attributes.insert("path".to_owned(), json!(path));
+        }
+        if let Some(broker_id) = broker_id {
+            attributes.insert("broker_id".to_owned(), json!(broker_id));
+        }
+        if let Some(broker_action) = broker_action {
+            attributes.insert("broker_action".to_owned(), json!(broker_action));
+        }
+
+        EventEnvelope::new(
+            event_id,
+            EventType::SecretAccess,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: Some("bundle-bootstrap".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: ActionClass::Secret,
+                verb: Some(verb.to_owned()),
+                target: Some(target.to_owned()),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd secret access PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: match source_kind {
+                    "fanotify" => CollectorKind::Fanotify,
+                    _ => CollectorKind::ControlPlane,
+                },
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: None,
                 ppid: None,
             },
         )
