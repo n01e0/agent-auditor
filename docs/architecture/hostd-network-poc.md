@@ -54,6 +54,7 @@ Current PoC milestone notes:
 
 - P3-2 decodes a deterministic outbound-connect payload into a userspace `network.connect` log line so the receive / decode / minimal logging path stays testable in unprivileged CI
 - P3-3 classifies the deterministic connect payload into destination IP / port / protocol fields and normalizes that shape into a provisional `agenta-core::EventEnvelope`
+- P3-4 attributes a provisional domain candidate only from recent DNS-answer exact-IP matches and leaves ambiguous or unmatched destinations empty
 
 ### Classify
 
@@ -105,4 +106,5 @@ This keeps the next tasks cleaner:
 ## Related docs
 
 - implementation direction: [`rust-implementation.md`](rust-implementation.md)
+- domain attribution strategy: [`hostd-network-domain-attribution.md`](hostd-network-domain-attribution.md)
 - roadmap: [`../roadmaps/network-observe-destination-policy-tasklist.md`](../roadmaps/network-observe-destination-policy-tasklist.md)

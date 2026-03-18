@@ -29,7 +29,8 @@
         "transport": "tcp",
         "address_family": "inet",
         "destination_scope": "public",
-        "domain_candidate": null
+        "domain_attribution_source": "dns_answer_cache_exact_ip",
+        "domain_candidate": "example.com"
       }
     },
     "result": {
