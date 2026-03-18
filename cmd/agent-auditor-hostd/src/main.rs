@@ -30,6 +30,15 @@ fn main() {
     println!("network_classify={}", plan.network.classify.summary());
     println!("network_emit={}", plan.network.emit.summary());
 
+    let network_delivery = match plan.network.observe.preview_connect_delivery() {
+        Ok(delivered) => delivered,
+        Err(error) => {
+            eprintln!("event_log_network_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!("event_log_network={}", network_delivery.log_line);
+
     let exec_delivery = match plan.event_path.preview_exec_delivery() {
         Ok(delivered) => delivered,
         Err(error) => {
