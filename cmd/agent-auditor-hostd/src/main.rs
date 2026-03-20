@@ -46,12 +46,12 @@ fn main() {
     println!("secret_evaluate={}", plan.secret.evaluate.summary());
     println!("secret_record={}", plan.secret.record.summary());
     println!(
-        "browser_session_linkage={}",
-        plan.browser.session_linkage.summary()
+        "gws_session_linkage={}",
+        plan.api_network_gws.session_linkage.summary()
     );
-    println!("browser_classify={}", plan.browser.classify.summary());
-    println!("browser_evaluate={}", plan.browser.evaluate.summary());
-    println!("browser_record={}", plan.browser.record.summary());
+    println!("gws_classify={}", plan.api_network_gws.classify.summary());
+    println!("gws_evaluate={}", plan.api_network_gws.evaluate.summary());
+    println!("gws_record={}", plan.api_network_gws.record.summary());
     println!(
         "enforcement_decision={}",
         plan.enforcement.decision.summary()

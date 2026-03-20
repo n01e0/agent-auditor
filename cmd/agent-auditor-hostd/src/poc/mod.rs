@@ -1,15 +1,15 @@
-pub mod browser;
 pub mod contract;
 pub mod enforcement;
 pub mod event_path;
 pub mod filesystem;
+pub mod gws;
 pub mod loader;
 pub mod network;
 pub mod secret;
 
 use self::{
-    browser::BrowserGwsPocPlan, enforcement::EnforcementPocPlan, event_path::EventPathPlan,
-    filesystem::FilesystemPocPlan, loader::LoaderPlan, network::NetworkPocPlan,
+    enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
+    gws::ApiNetworkGwsPocPlan, loader::LoaderPlan, network::NetworkPocPlan,
     secret::SecretAccessPocPlan,
 };
 
@@ -20,7 +20,7 @@ pub struct HostdPocPlan {
     pub filesystem: FilesystemPocPlan,
     pub network: NetworkPocPlan,
     pub secret: SecretAccessPocPlan,
-    pub browser: BrowserGwsPocPlan,
+    pub api_network_gws: ApiNetworkGwsPocPlan,
     pub enforcement: EnforcementPocPlan,
 }
 
@@ -31,7 +31,7 @@ impl HostdPocPlan {
         let filesystem = FilesystemPocPlan::bootstrap();
         let network = NetworkPocPlan::bootstrap();
         let secret = SecretAccessPocPlan::bootstrap();
-        let browser = BrowserGwsPocPlan::bootstrap();
+        let api_network_gws = ApiNetworkGwsPocPlan::bootstrap();
         let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
@@ -40,7 +40,7 @@ impl HostdPocPlan {
             filesystem,
             network,
             secret,
-            browser,
+            api_network_gws,
             enforcement,
         }
     }
@@ -50,8 +50,8 @@ impl HostdPocPlan {
 mod tests {
     use super::{HostdPocPlan, contract::EventTransport};
     use crate::poc::{
-        browser::contract::BrowserSignalSource,
         enforcement::contract::{EnforcementDirective, EnforcementScope},
+        gws::contract::GwsSignalSource,
         secret::contract::SecretSignalSource,
     };
 
@@ -117,18 +117,18 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_plan_includes_browser_gws_pipeline() {
+    fn bootstrap_plan_includes_api_network_gws_pipeline() {
         let plan = HostdPocPlan::bootstrap();
 
         assert_eq!(
-            plan.browser.session_linkage.sources,
+            plan.api_network_gws.session_linkage.sources,
             vec![
-                BrowserSignalSource::ExtensionRelay,
-                BrowserSignalSource::AutomationBridge,
+                GwsSignalSource::ApiObservation,
+                GwsSignalSource::NetworkObservation,
             ]
         );
         assert_eq!(
-            plan.browser.classify.classification_fields,
+            plan.api_network_gws.classify.classification_fields,
             vec![
                 "semantic_surface",
                 "semantic_action_label",
@@ -139,7 +139,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            plan.browser.record.record_fields,
+            plan.api_network_gws.record.record_fields,
             vec![
                 "normalized_event",
                 "policy_decision",

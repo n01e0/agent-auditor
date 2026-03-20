@@ -1,9 +1,9 @@
-use super::contract::{BrowserSemanticSurface, BrowserSignalSource, RecordBoundary};
+use super::contract::{GwsSemanticSurface, GwsSignalSource, RecordBoundary};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordPlan {
-    pub sources: Vec<BrowserSignalSource>,
-    pub semantic_surfaces: Vec<BrowserSemanticSurface>,
+    pub sources: Vec<GwsSignalSource>,
+    pub semantic_surfaces: Vec<GwsSemanticSurface>,
     pub record_fields: Vec<&'static str>,
     pub responsibilities: Vec<&'static str>,
     pub sinks: Vec<&'static str>,
@@ -18,10 +18,10 @@ impl RecordPlan {
             semantic_surfaces: boundary.semantic_surfaces,
             record_fields: boundary.record_fields,
             responsibilities: vec![
-                "persist redaction-safe browser and GWS audit records",
-                "persist approval requests created by approval-gated browser semantic actions",
+                "persist redaction-safe GWS audit records",
+                "persist approval requests created by approval-gated GWS semantic actions",
                 "fan out recorded artifacts to structured logs and later control-plane sinks",
-                "avoid re-linking sessions, re-classifying browser semantics, or re-evaluating policy while recording results",
+                "avoid re-linking sessions, re-classifying GWS semantics, or re-evaluating policy while recording results",
             ],
             sinks: vec!["structured_log", "audit_store", "approval_store"],
             stages: vec!["persist", "publish"],
@@ -57,8 +57,8 @@ impl RecordPlan {
 #[cfg(test)]
 mod tests {
     use super::RecordPlan;
-    use crate::poc::browser::{
-        classify::ClassifyPlan, contract::BrowserSignalSource, evaluate::EvaluatePlan,
+    use crate::poc::gws::{
+        classify::ClassifyPlan, contract::GwsSignalSource, evaluate::EvaluatePlan,
         session_linkage::SessionLinkagePlan,
     };
 
@@ -77,13 +77,13 @@ mod tests {
         assert_eq!(
             plan.sources,
             vec![
-                BrowserSignalSource::ExtensionRelay,
-                BrowserSignalSource::AutomationBridge,
+                GwsSignalSource::ApiObservation,
+                GwsSignalSource::NetworkObservation,
             ]
         );
         assert_eq!(
             plan.redaction_contract,
-            "raw page bodies, email bodies, and document contents must not cross the browser linkage boundary"
+            "raw HTTP payloads, email bodies, and document contents must not cross the GWS linkage boundary"
         );
     }
 

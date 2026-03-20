@@ -1,11 +1,11 @@
 use super::contract::{
-    BrowserSemanticSurface, BrowserSignalSource, ClassificationBoundary, RecordBoundary,
+    ClassificationBoundary, GwsSemanticSurface, GwsSignalSource, RecordBoundary,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EvaluatePlan {
-    pub sources: Vec<BrowserSignalSource>,
-    pub semantic_surfaces: Vec<BrowserSemanticSurface>,
+    pub sources: Vec<GwsSignalSource>,
+    pub semantic_surfaces: Vec<GwsSemanticSurface>,
     pub linkage_fields: Vec<&'static str>,
     pub classification_fields: Vec<&'static str>,
     pub responsibilities: Vec<&'static str>,
@@ -21,10 +21,10 @@ impl EvaluatePlan {
             linkage_fields: boundary.linkage_fields,
             classification_fields: boundary.classification_fields,
             responsibilities: vec![
-                "normalize classified browser and GWS semantic action candidates toward agenta-core event shapes",
-                "bridge normalized browser semantic actions into agenta-policy without re-linking sessions or re-running semantic classification",
+                "normalize classified GWS semantic action candidates toward agenta-core event shapes",
+                "bridge normalized GWS semantic actions into agenta-policy without re-linking sessions or re-running semantic classification",
                 "project allow, deny, and require_approval outcomes plus approval-request candidates for recording",
-                "carry the browser redaction contract forward so downstream audit never needs raw page bodies or document or message content",
+                "carry the GWS redaction contract forward so downstream audit never needs raw HTTP payloads or document or message content",
             ],
             stages: vec!["normalize", "policy", "approval_projection"],
             handoff: RecordBoundary {
@@ -73,14 +73,14 @@ impl EvaluatePlan {
 #[cfg(test)]
 mod tests {
     use super::EvaluatePlan;
-    use crate::poc::browser::{
+    use crate::poc::gws::{
         classify::ClassifyPlan,
-        contract::{BrowserSemanticSurface, BrowserSignalSource},
+        contract::{GwsSemanticSurface, GwsSignalSource},
         session_linkage::SessionLinkagePlan,
     };
 
     #[test]
-    fn evaluate_plan_threads_browser_surfaces_and_upstream_fields() {
+    fn evaluate_plan_threads_gws_surfaces_and_upstream_fields() {
         let plan = EvaluatePlan::from_classification_boundary(
             ClassifyPlan::from_session_linkage_boundary(SessionLinkagePlan::default().handoff())
                 .handoff(),
@@ -89,17 +89,17 @@ mod tests {
         assert_eq!(
             plan.sources,
             vec![
-                BrowserSignalSource::ExtensionRelay,
-                BrowserSignalSource::AutomationBridge,
+                GwsSignalSource::ApiObservation,
+                GwsSignalSource::NetworkObservation,
             ]
         );
         assert_eq!(
             plan.semantic_surfaces,
             vec![
-                BrowserSemanticSurface::Browser,
-                BrowserSemanticSurface::GoogleWorkspaceDrive,
-                BrowserSemanticSurface::GoogleWorkspaceGmail,
-                BrowserSemanticSurface::GoogleWorkspaceAdmin,
+                GwsSemanticSurface::GoogleWorkspace,
+                GwsSemanticSurface::GoogleWorkspaceDrive,
+                GwsSemanticSurface::GoogleWorkspaceGmail,
+                GwsSemanticSurface::GoogleWorkspaceAdmin,
             ]
         );
         assert!(plan.linkage_fields.contains(&"session_id"));
@@ -128,7 +128,7 @@ mod tests {
         );
         assert_eq!(
             handoff.redaction_contract,
-            "raw page bodies, email bodies, and document contents must not cross the browser linkage boundary"
+            "raw HTTP payloads, email bodies, and document contents must not cross the GWS linkage boundary"
         );
     }
 
@@ -140,7 +140,7 @@ mod tests {
         )
         .summary();
 
-        assert!(summary.contains("sources=extension_relay,automation_bridge"));
+        assert!(summary.contains("sources=api_observation,network_observation"));
         assert!(summary.contains("stages=normalize->policy->approval_projection"));
         assert!(summary.contains("classification_fields=semantic_surface,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained"));
     }

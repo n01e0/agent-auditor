@@ -10,14 +10,14 @@ use self::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BrowserGwsPocPlan {
+pub struct ApiNetworkGwsPocPlan {
     pub session_linkage: SessionLinkagePlan,
     pub classify: ClassifyPlan,
     pub evaluate: EvaluatePlan,
     pub record: RecordPlan,
 }
 
-impl BrowserGwsPocPlan {
+impl ApiNetworkGwsPocPlan {
     pub fn bootstrap() -> Self {
         let session_linkage = SessionLinkagePlan::default();
         let classify = ClassifyPlan::from_session_linkage_boundary(session_linkage.handoff());
@@ -35,12 +35,12 @@ impl BrowserGwsPocPlan {
 
 #[cfg(test)]
 mod tests {
-    use super::BrowserGwsPocPlan;
-    use crate::poc::browser::contract::{BrowserSemanticSurface, BrowserSignalSource};
+    use super::ApiNetworkGwsPocPlan;
+    use crate::poc::gws::contract::{GwsSemanticSurface, GwsSignalSource};
 
     #[test]
-    fn bootstrap_plan_keeps_browser_phase_responsibilities_separate() {
-        let plan = BrowserGwsPocPlan::bootstrap();
+    fn bootstrap_plan_keeps_gws_phase_responsibilities_separate() {
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
 
         assert!(
             plan.session_linkage
@@ -76,7 +76,7 @@ mod tests {
             plan.evaluate
                 .responsibilities
                 .iter()
-                .all(|item| !item.contains("relay and automation surfaces"))
+                .all(|item| !item.contains("request adapters and egress observation"))
         );
         assert!(
             plan.record
@@ -93,14 +93,14 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_plan_threads_browser_contracts_across_the_pipeline() {
-        let plan = BrowserGwsPocPlan::bootstrap();
+    fn bootstrap_plan_threads_gws_contracts_across_the_pipeline() {
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
 
         assert_eq!(
             plan.session_linkage.sources,
             vec![
-                BrowserSignalSource::ExtensionRelay,
-                BrowserSignalSource::AutomationBridge,
+                GwsSignalSource::ApiObservation,
+                GwsSignalSource::NetworkObservation,
             ]
         );
         assert_eq!(plan.session_linkage.sources, plan.classify.sources);
@@ -109,10 +109,10 @@ mod tests {
         assert_eq!(
             plan.session_linkage.semantic_surfaces,
             vec![
-                BrowserSemanticSurface::Browser,
-                BrowserSemanticSurface::GoogleWorkspaceDrive,
-                BrowserSemanticSurface::GoogleWorkspaceGmail,
-                BrowserSemanticSurface::GoogleWorkspaceAdmin,
+                GwsSemanticSurface::GoogleWorkspace,
+                GwsSemanticSurface::GoogleWorkspaceDrive,
+                GwsSemanticSurface::GoogleWorkspaceGmail,
+                GwsSemanticSurface::GoogleWorkspaceAdmin,
             ]
         );
         assert_eq!(
@@ -149,7 +149,7 @@ mod tests {
         );
         assert_eq!(
             plan.record.redaction_contract,
-            "raw page bodies, email bodies, and document contents must not cross the browser linkage boundary"
+            "raw HTTP payloads, email bodies, and document contents must not cross the GWS linkage boundary"
         );
     }
 }

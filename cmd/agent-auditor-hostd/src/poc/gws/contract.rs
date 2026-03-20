@@ -1,16 +1,16 @@
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BrowserSignalSource {
-    ExtensionRelay,
-    AutomationBridge,
+pub enum GwsSignalSource {
+    ApiObservation,
+    NetworkObservation,
 }
 
-impl fmt::Display for BrowserSignalSource {
+impl fmt::Display for GwsSignalSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let label = match self {
-            Self::ExtensionRelay => "extension_relay",
-            Self::AutomationBridge => "automation_bridge",
+            Self::ApiObservation => "api_observation",
+            Self::NetworkObservation => "network_observation",
         };
 
         f.write_str(label)
@@ -18,17 +18,17 @@ impl fmt::Display for BrowserSignalSource {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BrowserSemanticSurface {
-    Browser,
+pub enum GwsSemanticSurface {
+    GoogleWorkspace,
     GoogleWorkspaceDrive,
     GoogleWorkspaceGmail,
     GoogleWorkspaceAdmin,
 }
 
-impl BrowserSemanticSurface {
+impl GwsSemanticSurface {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Browser => "browser",
+            Self::GoogleWorkspace => "gws",
             Self::GoogleWorkspaceDrive => "gws.drive",
             Self::GoogleWorkspaceGmail => "gws.gmail",
             Self::GoogleWorkspaceAdmin => "gws.admin",
@@ -36,7 +36,7 @@ impl BrowserSemanticSurface {
     }
 }
 
-impl fmt::Display for BrowserSemanticSurface {
+impl fmt::Display for GwsSemanticSurface {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.label())
     }
@@ -44,16 +44,16 @@ impl fmt::Display for BrowserSemanticSurface {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionLinkageBoundary {
-    pub sources: Vec<BrowserSignalSource>,
-    pub semantic_surfaces: Vec<BrowserSemanticSurface>,
+    pub sources: Vec<GwsSignalSource>,
+    pub semantic_surfaces: Vec<GwsSemanticSurface>,
     pub linkage_fields: Vec<&'static str>,
     pub redaction_contract: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassificationBoundary {
-    pub sources: Vec<BrowserSignalSource>,
-    pub semantic_surfaces: Vec<BrowserSemanticSurface>,
+    pub sources: Vec<GwsSignalSource>,
+    pub semantic_surfaces: Vec<GwsSemanticSurface>,
     pub linkage_fields: Vec<&'static str>,
     pub classification_fields: Vec<&'static str>,
     pub redaction_contract: &'static str,
@@ -61,8 +61,8 @@ pub struct ClassificationBoundary {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordBoundary {
-    pub sources: Vec<BrowserSignalSource>,
-    pub semantic_surfaces: Vec<BrowserSemanticSurface>,
+    pub sources: Vec<GwsSignalSource>,
+    pub semantic_surfaces: Vec<GwsSemanticSurface>,
     pub record_fields: Vec<&'static str>,
     pub redaction_contract: &'static str,
 }

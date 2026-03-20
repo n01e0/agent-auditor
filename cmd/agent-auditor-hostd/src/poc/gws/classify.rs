@@ -1,11 +1,11 @@
 use super::contract::{
-    BrowserSemanticSurface, BrowserSignalSource, ClassificationBoundary, SessionLinkageBoundary,
+    ClassificationBoundary, GwsSemanticSurface, GwsSignalSource, SessionLinkageBoundary,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassifyPlan {
-    pub sources: Vec<BrowserSignalSource>,
-    pub semantic_surfaces: Vec<BrowserSemanticSurface>,
+    pub sources: Vec<GwsSignalSource>,
+    pub semantic_surfaces: Vec<GwsSemanticSurface>,
     pub linkage_fields: Vec<&'static str>,
     pub classification_fields: Vec<&'static str>,
     pub responsibilities: Vec<&'static str>,
@@ -28,12 +28,12 @@ impl ClassifyPlan {
                 "content_retained",
             ],
             responsibilities: vec![
-                "accept session-linked browser action candidates without reopening session identity resolution",
-                "classify browser and Google Workspace context into semantic action candidates and target hints",
-                "attach classifier-owned labels and rationale without retaining raw page bodies or document or message content",
+                "accept session-linked API/network action candidates without reopening session identity resolution",
+                "classify GWS request and network context into semantic action candidates and target hints",
+                "attach classifier-owned labels and rationale without retaining raw HTTP payloads or document or message content",
                 "handoff classified semantic actions downstream without normalizing agenta-core events or writing durable records",
             ],
-            stages: vec!["taxonomy", "label", "handoff"],
+            stages: vec!["service_map", "taxonomy", "handoff"],
             handoff: ClassificationBoundary {
                 sources: boundary.sources,
                 semantic_surfaces: boundary.semantic_surfaces,
@@ -83,8 +83,8 @@ impl ClassifyPlan {
 #[cfg(test)]
 mod tests {
     use super::ClassifyPlan;
-    use crate::poc::browser::{
-        contract::{BrowserSemanticSurface, BrowserSignalSource},
+    use crate::poc::gws::{
+        contract::{GwsSemanticSurface, GwsSignalSource},
         session_linkage::SessionLinkagePlan,
     };
 
@@ -96,17 +96,17 @@ mod tests {
         assert_eq!(
             plan.sources,
             vec![
-                BrowserSignalSource::ExtensionRelay,
-                BrowserSignalSource::AutomationBridge,
+                GwsSignalSource::ApiObservation,
+                GwsSignalSource::NetworkObservation,
             ]
         );
         assert_eq!(
             plan.semantic_surfaces,
             vec![
-                BrowserSemanticSurface::Browser,
-                BrowserSemanticSurface::GoogleWorkspaceDrive,
-                BrowserSemanticSurface::GoogleWorkspaceGmail,
-                BrowserSemanticSurface::GoogleWorkspaceAdmin,
+                GwsSemanticSurface::GoogleWorkspace,
+                GwsSemanticSurface::GoogleWorkspaceDrive,
+                GwsSemanticSurface::GoogleWorkspaceGmail,
+                GwsSemanticSurface::GoogleWorkspaceAdmin,
             ]
         );
         assert!(plan.linkage_fields.contains(&"session_id"));
@@ -132,7 +132,7 @@ mod tests {
         );
         assert_eq!(
             handoff.redaction_contract,
-            "raw page bodies, email bodies, and document contents must not cross the browser linkage boundary"
+            "raw HTTP payloads, email bodies, and document contents must not cross the GWS linkage boundary"
         );
     }
 
@@ -142,8 +142,8 @@ mod tests {
             ClassifyPlan::from_session_linkage_boundary(SessionLinkagePlan::default().handoff())
                 .summary();
 
-        assert!(summary.contains("sources=extension_relay,automation_bridge"));
+        assert!(summary.contains("sources=api_observation,network_observation"));
         assert!(summary.contains("classification_fields=semantic_surface,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained"));
-        assert!(summary.contains("stages=taxonomy->label->handoff"));
+        assert!(summary.contains("stages=service_map->taxonomy->handoff"));
     }
 }
