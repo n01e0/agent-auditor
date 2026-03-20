@@ -252,6 +252,7 @@ mod tests {
                 human_request: None,
             }),
             decision: None,
+            enforcement: None,
         }
     }
 }

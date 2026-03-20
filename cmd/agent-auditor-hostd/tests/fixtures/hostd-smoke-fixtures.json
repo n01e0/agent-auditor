@@ -594,6 +594,14 @@
       "severity": "high",
       "explanation": "sensitive path access requires approval"
     },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "sensitive path access requires approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_filesystem_access_4242_17_read"
+    },
     "source": {
       "collector": "fanotify",
       "host_id": "hostd-poc",
@@ -661,6 +669,14 @@
       "severity": "low",
       "explanation": "no matching rule"
     },
+    "enforcement": {
+      "directive": "allow",
+      "status": "allowed",
+      "status_reason": "no matching rule",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": null
+    },
     "source": {
       "collector": "fanotify",
       "host_id": "hostd-poc",
@@ -726,6 +742,14 @@
       "severity": "high",
       "explanation": "sensitive path access requires approval"
     },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "sensitive path access requires approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_filesystem_access_4242_17_read"
+    },
     "source": {
       "collector": "fanotify",
       "host_id": "hostd-poc",
@@ -739,7 +763,6 @@
   "persisted_approval_request": {
     "approval_id": "apr_poc_filesystem_access_4242_17_read",
     "status": "pending",
-    "resolved_at": null,
     "session_id": "sess_bootstrap_hostd",
     "event_id": "poc_filesystem_access_4242_17_read",
     "request": {
@@ -773,7 +796,15 @@
       "agent_reason": "sensitive path access requires approval",
       "human_request": null
     },
-    "decision": null
+    "decision": null,
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "sensitive path access requires approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_filesystem_access_4242_17_read"
+    }
   },
   "event_log_filesystem_deny": "event=filesystem.access collector=fanotify pid=4444 mount_id=19 verb=write target=/home/agent/.ssh/config sensitive=true tags=ssh reasons=path is inside a .ssh directory",
   "filesystem_enforcement": {
@@ -847,6 +878,14 @@
       "rule_id": "fs.sensitive.write",
       "severity": "critical",
       "explanation": "sensitive path write is denied"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "sensitive path write is denied",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": null
     },
     "source": {
       "collector": "fanotify",

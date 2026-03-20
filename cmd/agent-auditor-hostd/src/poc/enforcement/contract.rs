@@ -1,7 +1,8 @@
 use std::fmt;
 
 use agenta_core::{
-    ActionClass, ApprovalRequest, EventEnvelope, PolicyDecision, PolicyDecisionKind, ResultStatus,
+    ActionClass, ApprovalRequest, EnforcementInfo, EventEnvelope, PolicyDecision,
+    PolicyDecisionKind, ResultStatus,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -111,6 +112,29 @@ pub struct EnforcementOutcome {
 }
 
 impl EnforcementOutcome {
+    pub fn record_projection(&self) -> EnforcementInfo {
+        EnforcementInfo {
+            directive: match self.directive {
+                EnforcementDirective::Allow => agenta_core::EnforcementDirective::Allow,
+                EnforcementDirective::Hold => agenta_core::EnforcementDirective::Hold,
+                EnforcementDirective::Deny => agenta_core::EnforcementDirective::Deny,
+            },
+            status: match self.status {
+                EnforcementStatus::Allowed => agenta_core::EnforcementStatus::Allowed,
+                EnforcementStatus::Held => agenta_core::EnforcementStatus::Held,
+                EnforcementStatus::Denied => agenta_core::EnforcementStatus::Denied,
+                EnforcementStatus::ObserveOnlyFallback => {
+                    agenta_core::EnforcementStatus::ObserveOnlyFallback
+                }
+            },
+            status_reason: Some(self.status_reason.clone()),
+            enforced: self.enforced,
+            coverage_gap: self.coverage_gap.clone(),
+            approval_id: self.approval_id.clone(),
+            expires_at: self.expires_at,
+        }
+    }
+
     pub fn from_allowed_event(
         scope: EnforcementScope,
         event: &EventEnvelope,

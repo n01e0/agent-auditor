@@ -15,6 +15,7 @@ The current filesystem PoC is intentionally narrow:
 - `agenta-policy` can evaluate the normalized event against the checked-in Rego example and return `allow` / `require_approval` / `deny`
 - the PoC can derive a pending approval request record from `require_approval`
 - the bootstrap preview can route sensitive reads into an approval-hold outcome and sensitive writes into a deny outcome through the new enforcement foundation seam
+- the normalized `agenta-core::EventEnvelope` plus persisted approval / audit records now carry the realized enforcement result in a shared `enforcement` field
 - the binary bootstrap path can persist a minimal audit record and approval request record to local JSONL files
 - the end-to-end preview path is covered by unit tests plus a fixture-backed smoke test
 
@@ -72,6 +73,7 @@ filesystem_emit=collector=fanotify semantic_fields=path,access_verb,sensitivity_
 event_log_filesystem=event=filesystem.access collector=fanotify pid=4242 mount_id=17 verb=read target=/home/agent/.ssh/id_ed25519 sensitive=true tags=ssh reasons=path is inside a .ssh directory
 normalized_filesystem={...}
 filesystem_policy_decision={...}
+filesystem_enforcement={...}
 persisted_audit_record={...}
 persisted_approval_request={...}
 event_log_filesystem_allow=event=filesystem.access collector=fanotify pid=4343 mount_id=18 verb=read target=/workspace/src/main.rs sensitive=false tags= reasons=
