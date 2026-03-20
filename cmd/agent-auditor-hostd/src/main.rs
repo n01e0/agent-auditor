@@ -64,6 +64,35 @@ fn main() {
             .log_line()
     );
     println!("gws_classify={}", plan.api_network_gws.classify.summary());
+    let gws_classified_api = match plan.api_network_gws.classify.classify_action(
+        &plan
+            .api_network_gws
+            .session_linkage
+            .preview_session_linked_api_action(&session),
+    ) {
+        Some(classified) => classified,
+        None => {
+            eprintln!("gws_classify_api_error=preview action did not classify");
+            std::process::exit(1);
+        }
+    };
+    println!("gws_classified_api={}", gws_classified_api.log_line());
+    let gws_classified_network = match plan.api_network_gws.classify.classify_action(
+        &plan
+            .api_network_gws
+            .session_linkage
+            .preview_session_linked_network_action(&session),
+    ) {
+        Some(classified) => classified,
+        None => {
+            eprintln!("gws_classify_network_error=preview action did not classify");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "gws_classified_network={}",
+        gws_classified_network.log_line()
+    );
     println!("gws_evaluate={}", plan.api_network_gws.evaluate.summary());
     println!("gws_record={}", plan.api_network_gws.record.summary());
     println!(
