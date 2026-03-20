@@ -12,8 +12,9 @@ The current filesystem PoC is intentionally narrow:
   - `.env` / `.env.*`
   - mounted secrets under `/run/secrets`, `/var/run/secrets`, and Kubernetes service-account paths
 - classified filesystem access can be normalized into temporary `agenta-core::EventEnvelope` values
-- `agenta-policy` can evaluate the normalized event against the checked-in Rego example and return `allow` / `require_approval`
+- `agenta-policy` can evaluate the normalized event against the checked-in Rego example and return `allow` / `require_approval` / `deny`
 - the PoC can derive a pending approval request record from `require_approval`
+- the bootstrap preview can route sensitive reads into an approval-hold outcome and sensitive writes into a deny outcome through the new enforcement foundation seam
 - the binary bootstrap path can persist a minimal audit record and approval request record to local JSONL files
 - the end-to-end preview path is covered by unit tests plus a fixture-backed smoke test
 
@@ -41,15 +42,24 @@ Expected output includes these categories of lines:
 - `event_log_filesystem=...`
 - `normalized_filesystem=...`
 - `filesystem_policy_decision=...`
+- `filesystem_enforcement=...`
 - `persisted_audit_record=...`
 - `persisted_approval_request=...`
 
-After P2-7, the smoke-oriented bootstrap preview also prints a non-sensitive allow case:
+After P5-2, the smoke-oriented bootstrap preview also prints:
 
-- `event_log_filesystem_allow=...`
-- `normalized_filesystem_allow=...`
-- `filesystem_policy_decision_allow=...`
-- `filesystem_approval_request_allow=...`
+- a non-sensitive allow case:
+  - `event_log_filesystem_allow=...`
+  - `normalized_filesystem_allow=...`
+  - `filesystem_policy_decision_allow=...`
+  - `filesystem_enforcement_allow=...`
+  - `filesystem_approval_request_allow=...`
+- a sensitive deny case:
+  - `event_log_filesystem_deny=...`
+  - `normalized_filesystem_deny=...`
+  - `filesystem_policy_decision_deny=...`
+  - `filesystem_enforcement_deny=...`
+  - `filesystem_approval_request_deny=...`
 
 Example shape:
 

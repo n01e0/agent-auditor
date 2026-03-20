@@ -22,6 +22,19 @@ matches_sensitive_path(path) if {
 }
 
 decision := {
+  "decision": "deny",
+  "rule_id": "fs.sensitive.write",
+  "severity": "critical",
+  "reason": "sensitive path write is denied",
+  "approval": null,
+  "tags": ["filesystem", "deny"]
+} if {
+  input.action.class == "filesystem"
+  input.action.verb == "write"
+  matches_sensitive_path(input.action.attributes.path)
+}
+
+decision := {
   "decision": "require_approval",
   "rule_id": "fs.sensitive.read",
   "severity": "high",

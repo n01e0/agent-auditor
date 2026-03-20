@@ -1,4 +1,9 @@
-use super::contract::{AuditBoundary, DecisionBoundary, EnforcementDirective, EnforcementScope};
+use agenta_core::{EventEnvelope, PolicyDecision};
+
+use super::contract::{
+    AuditBoundary, DecisionBoundary, EnforcementDirective, EnforcementError, EnforcementOutcome,
+    EnforcementScope,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DenyPlan {
@@ -42,6 +47,24 @@ impl DenyPlan {
         self.handoff.clone()
     }
 
+    pub fn apply(
+        &self,
+        scope: EnforcementScope,
+        event: &EventEnvelope,
+        decision: &PolicyDecision,
+    ) -> Result<EnforcementOutcome, EnforcementError> {
+        if !self.directives.contains(&EnforcementDirective::Deny) {
+            return Err(EnforcementError::UnsupportedDirective {
+                stage: "deny",
+                directive: EnforcementDirective::Deny,
+                scope,
+                event_id: event.event_id.clone(),
+            });
+        }
+
+        Ok(EnforcementOutcome::denied(scope, event, decision))
+    }
+
     pub fn summary(&self) -> String {
         let scopes = self
             .scopes
@@ -68,9 +91,15 @@ impl DenyPlan {
 
 #[cfg(test)]
 mod tests {
+    use agenta_core::{
+        Action, ActionClass, Actor, ActorKind, CollectorKind, EventEnvelope, EventType,
+        PolicyDecision, PolicyDecisionKind, ResultInfo, ResultStatus, SessionRef, Severity,
+        SourceInfo,
+    };
+
     use super::DenyPlan;
     use crate::poc::enforcement::{
-        contract::{EnforcementDirective, EnforcementScope},
+        contract::{EnforcementDirective, EnforcementScope, EnforcementStatus},
         decision::DecisionPlan,
     };
 
@@ -103,5 +132,69 @@ mod tests {
             ]
         );
         assert_eq!(handoff.sinks, vec!["structured_log", "audit_store"]);
+    }
+
+    #[test]
+    fn deny_plan_turns_sensitive_writes_into_denied_outcomes() {
+        let plan = DenyPlan::from_decision_boundary(DecisionPlan::default().handoff());
+        let event = fixture_event();
+        let decision = PolicyDecision {
+            decision: PolicyDecisionKind::Deny,
+            rule_id: Some("fs.sensitive.write".to_owned()),
+            severity: Some(Severity::Critical),
+            reason: Some("sensitive path write is denied".to_owned()),
+            approval: None,
+            tags: vec!["filesystem".to_owned(), "deny".to_owned()],
+        };
+
+        let outcome = plan
+            .apply(EnforcementScope::Filesystem, &event, &decision)
+            .expect("deny plan should apply to deny decisions");
+
+        assert_eq!(outcome.directive, EnforcementDirective::Deny);
+        assert_eq!(outcome.status, EnforcementStatus::Denied);
+        assert_eq!(outcome.status_reason, "sensitive path write is denied");
+        assert!(outcome.enforced);
+        assert!(outcome.approval_id.is_none());
+    }
+
+    fn fixture_event() -> EventEnvelope {
+        EventEnvelope::new(
+            "evt_fs_deny",
+            EventType::FilesystemAccess,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: None,
+                environment: None,
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: ActionClass::Filesystem,
+                verb: Some("write".to_owned()),
+                target: Some("/home/agent/.ssh/config".to_owned()),
+                attributes: Default::default(),
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd filesystem PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: CollectorKind::Fanotify,
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: Some(4444),
+                ppid: None,
+            },
+        )
     }
 }

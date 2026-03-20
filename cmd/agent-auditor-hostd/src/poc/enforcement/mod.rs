@@ -4,7 +4,12 @@ pub mod decision;
 pub mod deny;
 pub mod hold;
 
+use agenta_core::{ApprovalRequest, EventEnvelope, PolicyDecision};
+
 use self::{audit::AuditPlan, decision::DecisionPlan, deny::DenyPlan, hold::HoldPlan};
+use crate::poc::enforcement::contract::{
+    EnforcementDirective, EnforcementError, EnforcementOutcome, EnforcementScope,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnforcementPocPlan {
@@ -28,14 +33,47 @@ impl EnforcementPocPlan {
             audit,
         }
     }
+
+    pub fn preview_filesystem_outcome(
+        &self,
+        event: &EventEnvelope,
+        decision: &PolicyDecision,
+        approval_request: Option<&ApprovalRequest>,
+    ) -> Result<EnforcementOutcome, EnforcementError> {
+        match self.decision.directive_for(decision.decision) {
+            EnforcementDirective::Allow => {
+                Ok(self
+                    .decision
+                    .allow_outcome(EnforcementScope::Filesystem, event, decision))
+            }
+            EnforcementDirective::Hold => self.hold.apply(
+                EnforcementScope::Filesystem,
+                event,
+                decision,
+                approval_request,
+            ),
+            EnforcementDirective::Deny => {
+                self.deny
+                    .apply(EnforcementScope::Filesystem, event, decision)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use agenta_core::{ActionClass, PolicyDecisionKind, ResultStatus};
+    use agenta_core::{
+        ActionClass, EventEnvelope, PolicyDecisionKind, ResultStatus, SessionRecord,
+    };
+    use agenta_policy::{
+        PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, approval_request_from_decision,
+    };
 
     use super::EnforcementPocPlan;
-    use crate::poc::enforcement::contract::{EnforcementDirective, EnforcementScope};
+    use crate::poc::{
+        enforcement::contract::{EnforcementDirective, EnforcementScope, EnforcementStatus},
+        filesystem::FilesystemPocPlan,
+    };
 
     #[test]
     fn bootstrap_plan_keeps_decision_hold_deny_and_audit_responsibilities_separate() {
@@ -141,5 +179,60 @@ mod tests {
             EnforcementDirective::Deny.result_status(),
             ResultStatus::Denied
         );
+    }
+
+    #[test]
+    fn filesystem_preview_path_holds_sensitive_reads_until_approval() {
+        let plan = EnforcementPocPlan::bootstrap();
+        let event = normalized_filesystem_event("/home/agent/.ssh/id_ed25519", "read");
+        let input = PolicyInput::from_event(&event);
+        let decision = RegoPolicyEvaluator::sensitive_filesystem_example()
+            .evaluate(&input)
+            .expect("filesystem rego should evaluate");
+        let request = approval_request_from_decision(&event, &decision)
+            .expect("sensitive read should create approval request");
+
+        let outcome = plan
+            .preview_filesystem_outcome(&event, &decision, Some(&request))
+            .expect("filesystem preview should create hold outcome");
+
+        assert_eq!(outcome.directive, EnforcementDirective::Hold);
+        assert_eq!(outcome.status, EnforcementStatus::Held);
+        assert_eq!(outcome.policy_decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            outcome.approval_id.as_deref(),
+            Some("apr_poc_filesystem_access_4242_17_read")
+        );
+    }
+
+    #[test]
+    fn filesystem_preview_path_denies_sensitive_writes() {
+        let plan = EnforcementPocPlan::bootstrap();
+        let event = normalized_filesystem_event("/home/agent/.ssh/config", "write");
+        let input = PolicyInput::from_event(&event);
+        let decision = RegoPolicyEvaluator::sensitive_filesystem_example()
+            .evaluate(&input)
+            .expect("filesystem rego should evaluate");
+
+        let outcome = plan
+            .preview_filesystem_outcome(&event, &decision, None)
+            .expect("filesystem preview should create deny outcome");
+
+        assert_eq!(outcome.directive, EnforcementDirective::Deny);
+        assert_eq!(outcome.status, EnforcementStatus::Denied);
+        assert_eq!(outcome.policy_decision, PolicyDecisionKind::Deny);
+        assert_eq!(outcome.status_reason, "sensitive path write is denied");
+    }
+
+    fn normalized_filesystem_event(path: &str, verb: &str) -> EventEnvelope {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
+        let plan = FilesystemPocPlan::bootstrap();
+        let access = plan.classify.classify_access(4242, 17, verb, path);
+        let observed = plan.emit.normalize_classified_access(&access, &session);
+        let decision = RegoPolicyEvaluator::sensitive_filesystem_example()
+            .evaluate(&PolicyInput::from_event(&observed))
+            .expect("filesystem rego should evaluate");
+
+        agenta_policy::apply_decision_to_event(&observed, &decision)
     }
 }

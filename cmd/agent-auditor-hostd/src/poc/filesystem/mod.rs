@@ -38,20 +38,6 @@ mod tests {
 
     use super::{FilesystemPocPlan, contract::FilesystemCollector};
 
-    const FILESYSTEM_POLICY_ENTRYPOINT: &str = "data.agentauditor.authz.decision";
-    const DENY_POLICY_MODULE: &str = r#"
-        package agentauditor.authz
-
-        decision := {
-          "decision": "deny",
-          "rule_id": "fs.deny.demo",
-          "severity": "critical",
-          "reason": "blocked for test",
-          "approval": null,
-          "tags": ["filesystem", "deny"]
-        }
-    "#;
-
     #[test]
     fn bootstrap_plan_keeps_watch_classify_and_emit_responsibilities_separate() {
         let plan = FilesystemPocPlan::bootstrap();
@@ -184,24 +170,23 @@ mod tests {
     }
 
     #[test]
-    fn fanotify_pipeline_surfaces_deny_outcomes_from_policy_modules() {
-        let event = normalized_filesystem_event("/tmp/blocked", "read");
+    fn fanotify_pipeline_denies_sensitive_writes_from_checked_in_policy() {
+        let event = normalized_filesystem_event("/home/agent/.ssh/config", "write");
         let input = PolicyInput::from_event(&event);
-        let evaluator = RegoPolicyEvaluator::new(
-            FILESYSTEM_POLICY_ENTRYPOINT,
-            vec![("deny.rego".to_owned(), DENY_POLICY_MODULE.to_owned())],
-        );
 
-        let decision = evaluator
+        let decision = RegoPolicyEvaluator::sensitive_filesystem_example()
             .evaluate(&input)
-            .expect("deny rego should evaluate");
+            .expect("filesystem rego should evaluate");
         let enriched = apply_decision_to_event(&event, &decision);
 
         assert_eq!(decision.decision, PolicyDecisionKind::Deny);
-        assert_eq!(decision.rule_id.as_deref(), Some("fs.deny.demo"));
+        assert_eq!(decision.rule_id.as_deref(), Some("fs.sensitive.write"));
         assert_eq!(decision.severity, Some(Severity::Critical));
         assert_eq!(enriched.result.status, ResultStatus::Denied);
-        assert_eq!(enriched.result.reason.as_deref(), Some("blocked for test"));
+        assert_eq!(
+            enriched.result.reason.as_deref(),
+            Some("sensitive path write is denied")
+        );
         assert!(approval_request_from_decision(&enriched, &decision).is_none());
     }
 

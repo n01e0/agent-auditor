@@ -21,8 +21,8 @@ This note records the current constraints of the `agent-auditor-hostd` filesyste
 
 4. **Policy behavior is intentionally narrow**
    - the checked-in preview policy is `examples/policies/sensitive_fs.rego`
-   - the default path proves `allow` and `require_approval`
-   - `deny` coverage currently exists through unit tests with an inline test module, not through the checked-in example policy path
+   - the default path proves `allow`, `require_approval`, and a narrow `deny` case for sensitive writes
+   - this is still a minimal policy surface rather than a complete filesystem authorization model
 
 5. **Persistence is bootstrap-local and resettable**
    - audit records and approval requests are appended to JSONL files under `target/agent-auditor-hostd-poc-store/`
@@ -33,9 +33,9 @@ This note records the current constraints of the `agent-auditor-hostd` filesyste
    - `require_approval` currently enriches event metadata and creates a pending `ApprovalRequest`
    - there is no approval inbox, reviewer workflow, resolution path, or event replay after approval yet
 
-7. **No real enforcement or gating yet**
-   - the PoC proves observation, normalization, Rego evaluation, and record creation
-   - it does not yet block reads/writes, hold file descriptors, or coordinate with agent execution before access proceeds
+7. **No live kernel enforcement yet**
+   - the PoC now proves observation, normalization, Rego evaluation, preview hold / deny routing, and record creation
+   - it still does not block reads/writes on a live host, hold file descriptors, or coordinate with agent execution before access proceeds
 
 8. **Fixture-driven smoke coverage is intentional**
    - the smoke test validates stable preview output from the hostd bootstrap path

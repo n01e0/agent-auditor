@@ -774,5 +774,113 @@
       "human_request": null
     },
     "decision": null
-  }
+  },
+  "event_log_filesystem_deny": "event=filesystem.access collector=fanotify pid=4444 mount_id=19 verb=write target=/home/agent/.ssh/config sensitive=true tags=ssh reasons=path is inside a .ssh directory",
+  "filesystem_enforcement": {
+    "event_id": "poc_filesystem_access_4242_17_read",
+    "scope": "filesystem",
+    "target": "/home/agent/.ssh/id_ed25519",
+    "action_verb": "read",
+    "policy_decision": "require_approval",
+    "directive": "hold",
+    "status": "held",
+    "status_reason": "sensitive path access requires approval",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": "apr_poc_filesystem_access_4242_17_read"
+  },
+  "filesystem_enforcement_allow": {
+    "event_id": "poc_filesystem_access_4343_18_read",
+    "scope": "filesystem",
+    "target": "/workspace/src/main.rs",
+    "action_verb": "read",
+    "policy_decision": "allow",
+    "directive": "allow",
+    "status": "allowed",
+    "status_reason": "no matching rule",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": null
+  },
+  "normalized_filesystem_deny": {
+    "event_id": "poc_filesystem_access_4444_19_write",
+    "event_type": "filesystem_access",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "filesystem",
+      "verb": "write",
+      "target": "/home/agent/.ssh/config",
+      "attributes": {
+        "access_verb": "write",
+        "classifier_reason": [
+          "path is inside a .ssh directory"
+        ],
+        "mount_id": 19,
+        "path": "/home/agent/.ssh/config",
+        "pid": 4444,
+        "sensitive": true,
+        "sensitivity_tags": [
+          "ssh"
+        ]
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "sensitive path write is denied",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "fs.sensitive.write",
+      "severity": "critical",
+      "explanation": "sensitive path write is denied"
+    },
+    "source": {
+      "collector": "fanotify",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4444,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "filesystem_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "fs.sensitive.write",
+    "severity": "critical",
+    "reason": "sensitive path write is denied",
+    "approval": null,
+    "tags": [
+      "filesystem",
+      "deny"
+    ]
+  },
+  "filesystem_enforcement_deny": {
+    "event_id": "poc_filesystem_access_4444_19_write",
+    "scope": "filesystem",
+    "target": "/home/agent/.ssh/config",
+    "action_verb": "write",
+    "policy_decision": "deny",
+    "directive": "deny",
+    "status": "denied",
+    "status_reason": "sensitive path write is denied",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": null
+  },
+  "filesystem_approval_request_deny": null
 }

@@ -348,28 +348,39 @@ fn main() {
     );
 
     let preview_filesystem_policy = |access: &_| {
-        let normalized = plan
+        let observed = plan
             .filesystem
             .emit
             .normalize_classified_access(access, &session);
-        let input = PolicyInput::from_event(&normalized);
+        let input = PolicyInput::from_event(&observed);
         RegoPolicyEvaluator::sensitive_filesystem_example()
             .evaluate(&input)
-            .map(|decision| {
-                let normalized = apply_decision_to_event(&normalized, &decision);
+            .and_then(|decision| {
+                let normalized = apply_decision_to_event(&observed, &decision);
                 let approval_request = approval_request_from_decision(&normalized, &decision);
-                (normalized, decision, approval_request)
+                plan.enforcement
+                    .preview_filesystem_outcome(&normalized, &decision, approval_request.as_ref())
+                    .map(|enforcement| (normalized, decision, approval_request, enforcement))
+                    .map_err(|error| {
+                        agenta_policy::PolicyError::Evaluate(format!(
+                            "filesystem enforcement preview failed: {error}"
+                        ))
+                    })
             })
     };
 
-    let (normalized_filesystem, filesystem_policy_decision, approval_request) =
-        match preview_filesystem_policy(&filesystem_access) {
-            Ok(preview) => preview,
-            Err(error) => {
-                eprintln!("filesystem_policy_error={error}");
-                std::process::exit(1);
-            }
-        };
+    let (
+        normalized_filesystem,
+        filesystem_policy_decision,
+        approval_request,
+        filesystem_enforcement,
+    ) = match preview_filesystem_policy(&filesystem_access) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("filesystem_policy_error={error}");
+            std::process::exit(1);
+        }
+    };
 
     match serde_json::to_string(&normalized_filesystem) {
         Ok(json) => println!("normalized_filesystem={json}"),
@@ -387,6 +398,14 @@ fn main() {
         }
     }
 
+    match serde_json::to_string(&filesystem_enforcement) {
+        Ok(json) => println!("filesystem_enforcement={json}"),
+        Err(error) => {
+            eprintln!("filesystem_enforcement_error={error}");
+            std::process::exit(1);
+        }
+    }
+
     let filesystem_access_allow =
         plan.filesystem
             .classify
@@ -396,14 +415,18 @@ fn main() {
         filesystem_access_allow.log_line(plan.filesystem.emit.collector)
     );
 
-    let (normalized_filesystem_allow, filesystem_policy_decision_allow, approval_request_allow) =
-        match preview_filesystem_policy(&filesystem_access_allow) {
-            Ok(preview) => preview,
-            Err(error) => {
-                eprintln!("filesystem_policy_allow_error={error}");
-                std::process::exit(1);
-            }
-        };
+    let (
+        normalized_filesystem_allow,
+        filesystem_policy_decision_allow,
+        approval_request_allow,
+        filesystem_enforcement_allow,
+    ) = match preview_filesystem_policy(&filesystem_access_allow) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("filesystem_policy_allow_error={error}");
+            std::process::exit(1);
+        }
+    };
 
     match serde_json::to_string(&normalized_filesystem_allow) {
         Ok(json) => println!("normalized_filesystem_allow={json}"),
@@ -421,10 +444,72 @@ fn main() {
         }
     }
 
+    match serde_json::to_string(&filesystem_enforcement_allow) {
+        Ok(json) => println!("filesystem_enforcement_allow={json}"),
+        Err(error) => {
+            eprintln!("filesystem_enforcement_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
     match serde_json::to_string(&approval_request_allow) {
         Ok(json) => println!("filesystem_approval_request_allow={json}"),
         Err(error) => {
             eprintln!("filesystem_approval_request_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let filesystem_access_deny =
+        plan.filesystem
+            .classify
+            .classify_access(4444, 19, "write", "/home/agent/.ssh/config");
+    println!(
+        "event_log_filesystem_deny={}",
+        filesystem_access_deny.log_line(plan.filesystem.emit.collector)
+    );
+
+    let (
+        normalized_filesystem_deny,
+        filesystem_policy_decision_deny,
+        approval_request_deny,
+        filesystem_enforcement_deny,
+    ) = match preview_filesystem_policy(&filesystem_access_deny) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("filesystem_policy_deny_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    match serde_json::to_string(&normalized_filesystem_deny) {
+        Ok(json) => println!("normalized_filesystem_deny={json}"),
+        Err(error) => {
+            eprintln!("normalized_filesystem_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&filesystem_policy_decision_deny) {
+        Ok(json) => println!("filesystem_policy_decision_deny={json}"),
+        Err(error) => {
+            eprintln!("filesystem_policy_decision_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&filesystem_enforcement_deny) {
+        Ok(json) => println!("filesystem_enforcement_deny={json}"),
+        Err(error) => {
+            eprintln!("filesystem_enforcement_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&approval_request_deny) {
+        Ok(json) => println!("filesystem_approval_request_deny={json}"),
+        Err(error) => {
+            eprintln!("filesystem_approval_request_deny_error={error}");
             std::process::exit(1);
         }
     }
