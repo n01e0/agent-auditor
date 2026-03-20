@@ -153,7 +153,14 @@ The product will use multiple enforcement modes depending on the action class.
 
 - observe with fanotify where practical
 - protect sensitive paths first
+- route filesystem policy results through explicit decision / hold / deny / audit stages when enforcement is introduced
 - treat unsupported path coverage as explicit gaps, not silent success
+
+### Process
+
+- observe exec / exit on all supported hosts first
+- route future pre-exec deny / approval-gated work through the same decision / hold / deny / audit split as filesystem
+- make observe-only fallback explicit when the host cannot block safely
 
 ### Network
 

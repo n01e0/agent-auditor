@@ -83,6 +83,16 @@ For the network PoC, the initial internal split is:
 
 See [`hostd-network-poc.md`](hostd-network-poc.md) for the concrete P3-1 module boundary.
 
+For the first enforcement foundation slice, the internal split is:
+
+- `decision` owns policy-output routing into explicit enforcement directives
+- `hold` owns approval-required waiting state and release / expiry boundaries
+- `deny` owns the technical block attempt plus explicit fallback reporting
+- `audit` owns durable recording of the exact policy decision plus realized enforcement outcome
+- `contract` defines the decision → runtime and runtime → audit seams
+
+See [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md) for the concrete P5-1 boundary.
+
 ### `agent-auditor-controld`
 
 Responsibilities:

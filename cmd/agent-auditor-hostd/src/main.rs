@@ -43,6 +43,13 @@ fn main() {
     println!("secret_classify={}", plan.secret.classify.summary());
     println!("secret_evaluate={}", plan.secret.evaluate.summary());
     println!("secret_record={}", plan.secret.record.summary());
+    println!(
+        "enforcement_decision={}",
+        plan.enforcement.decision.summary()
+    );
+    println!("enforcement_hold={}", plan.enforcement.hold.summary());
+    println!("enforcement_deny={}", plan.enforcement.deny.summary());
+    println!("enforcement_audit={}", plan.enforcement.audit.summary());
 
     let network_delivery = match plan.network.observe.preview_connect_delivery() {
         Ok(delivered) => delivered,
