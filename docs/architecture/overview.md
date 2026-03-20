@@ -187,17 +187,18 @@ This is the initial easiest deployment target.
 - central audit store
 - policy bundles distributed to node-local components
 
-## Phase 2 extension point: browser / SaaS
+## Phase 2 extension point: API / network semantic governance
 
-Browser governance should attach to the same `session_id` model. The browser layer should emit semantic actions such as:
+API / network governance should attach to the same `session_id` model. The first semantic layer should emit GWS actions such as:
 
-- open admin page
-- change sharing permission
-- download file
-- send message
-- create event
+- update Drive sharing permission
+- download Drive file content
+- send Gmail message
+- list Admin activity reports
 
 Google Workspace is the first planned semantic surface, but the contract should stay general.
+
+The first internal API / network GWS phase split is documented in [`hostd-api-network-gws-poc.md`](hostd-api-network-gws-poc.md).
 
 ## Near-term decisions fixed by this document
 
@@ -205,4 +206,4 @@ Google Workspace is the first planned semantic surface, but the contract should 
 - eBPF + fanotify as the initial low-level approach
 - OPA / Rego as the policy foundation
 - session-centric normalized events as the canonical model
-- browser / GWS work after runtime controls are in place
+- API / network GWS work after runtime controls are in place

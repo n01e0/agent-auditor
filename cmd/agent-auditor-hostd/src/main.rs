@@ -46,6 +46,13 @@ fn main() {
     println!("secret_evaluate={}", plan.secret.evaluate.summary());
     println!("secret_record={}", plan.secret.record.summary());
     println!(
+        "gws_session_linkage={}",
+        plan.api_network_gws.session_linkage.summary()
+    );
+    println!("gws_classify={}", plan.api_network_gws.classify.summary());
+    println!("gws_evaluate={}", plan.api_network_gws.evaluate.summary());
+    println!("gws_record={}", plan.api_network_gws.record.summary());
+    println!(
         "enforcement_decision={}",
         plan.enforcement.decision.summary()
     );

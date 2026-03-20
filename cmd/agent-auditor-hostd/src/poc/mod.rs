@@ -2,13 +2,15 @@ pub mod contract;
 pub mod enforcement;
 pub mod event_path;
 pub mod filesystem;
+pub mod gws;
 pub mod loader;
 pub mod network;
 pub mod secret;
 
 use self::{
     enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
-    loader::LoaderPlan, network::NetworkPocPlan, secret::SecretAccessPocPlan,
+    gws::ApiNetworkGwsPocPlan, loader::LoaderPlan, network::NetworkPocPlan,
+    secret::SecretAccessPocPlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +20,7 @@ pub struct HostdPocPlan {
     pub filesystem: FilesystemPocPlan,
     pub network: NetworkPocPlan,
     pub secret: SecretAccessPocPlan,
+    pub api_network_gws: ApiNetworkGwsPocPlan,
     pub enforcement: EnforcementPocPlan,
 }
 
@@ -28,6 +31,7 @@ impl HostdPocPlan {
         let filesystem = FilesystemPocPlan::bootstrap();
         let network = NetworkPocPlan::bootstrap();
         let secret = SecretAccessPocPlan::bootstrap();
+        let api_network_gws = ApiNetworkGwsPocPlan::bootstrap();
         let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
@@ -36,6 +40,7 @@ impl HostdPocPlan {
             filesystem,
             network,
             secret,
+            api_network_gws,
             enforcement,
         }
     }
@@ -46,6 +51,7 @@ mod tests {
     use super::{HostdPocPlan, contract::EventTransport};
     use crate::poc::{
         enforcement::contract::{EnforcementDirective, EnforcementScope},
+        gws::contract::GwsSignalSource,
         secret::contract::SecretSignalSource,
     };
 
@@ -101,6 +107,39 @@ mod tests {
         );
         assert_eq!(
             plan.secret.record.record_fields,
+            vec![
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "redaction_status",
+            ]
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_api_network_gws_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(
+            plan.api_network_gws.session_linkage.sources,
+            vec![
+                GwsSignalSource::ApiObservation,
+                GwsSignalSource::NetworkObservation,
+            ]
+        );
+        assert_eq!(
+            plan.api_network_gws.classify.classification_fields,
+            vec![
+                "semantic_surface",
+                "semantic_action_label",
+                "target_hint",
+                "classifier_labels",
+                "classifier_reasons",
+                "content_retained",
+            ]
+        );
+        assert_eq!(
+            plan.api_network_gws.record.record_fields,
             vec![
                 "normalized_event",
                 "policy_decision",
