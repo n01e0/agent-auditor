@@ -1,4 +1,5 @@
 pub mod contract;
+pub mod enforcement;
 pub mod event_path;
 pub mod filesystem;
 pub mod loader;
@@ -6,8 +7,8 @@ pub mod network;
 pub mod secret;
 
 use self::{
-    event_path::EventPathPlan, filesystem::FilesystemPocPlan, loader::LoaderPlan,
-    network::NetworkPocPlan, secret::SecretAccessPocPlan,
+    enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
+    loader::LoaderPlan, network::NetworkPocPlan, secret::SecretAccessPocPlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,6 +18,7 @@ pub struct HostdPocPlan {
     pub filesystem: FilesystemPocPlan,
     pub network: NetworkPocPlan,
     pub secret: SecretAccessPocPlan,
+    pub enforcement: EnforcementPocPlan,
 }
 
 impl HostdPocPlan {
@@ -26,6 +28,7 @@ impl HostdPocPlan {
         let filesystem = FilesystemPocPlan::bootstrap();
         let network = NetworkPocPlan::bootstrap();
         let secret = SecretAccessPocPlan::bootstrap();
+        let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
             loader,
@@ -33,6 +36,7 @@ impl HostdPocPlan {
             filesystem,
             network,
             secret,
+            enforcement,
         }
     }
 }
@@ -40,7 +44,10 @@ impl HostdPocPlan {
 #[cfg(test)]
 mod tests {
     use super::{HostdPocPlan, contract::EventTransport};
-    use crate::poc::secret::contract::SecretSignalSource;
+    use crate::poc::{
+        enforcement::contract::{EnforcementDirective, EnforcementScope},
+        secret::contract::SecretSignalSource,
+    };
 
     #[test]
     fn bootstrap_plan_keeps_loader_and_event_path_responsibilities_separate() {
@@ -99,6 +106,36 @@ mod tests {
                 "policy_decision",
                 "approval_request",
                 "redaction_status",
+            ]
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_enforcement_foundation_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(
+            plan.enforcement.decision.scopes,
+            vec![EnforcementScope::Filesystem, EnforcementScope::Process]
+        );
+        assert_eq!(
+            plan.enforcement.hold.directives,
+            vec![EnforcementDirective::Hold]
+        );
+        assert_eq!(
+            plan.enforcement.deny.directives,
+            vec![EnforcementDirective::Deny]
+        );
+        assert_eq!(
+            plan.enforcement.audit.record_fields,
+            vec![
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "directive",
+                "enforcement_status",
+                "status_reason",
+                "coverage_gap",
             ]
         );
     }
