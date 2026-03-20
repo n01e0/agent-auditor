@@ -13,6 +13,7 @@ use thiserror::Error;
 pub enum EnforcementScope {
     Filesystem,
     Process,
+    Gws,
 }
 
 impl EnforcementScope {
@@ -20,6 +21,7 @@ impl EnforcementScope {
         match self {
             Self::Filesystem => ActionClass::Filesystem,
             Self::Process => ActionClass::Process,
+            Self::Gws => ActionClass::Gws,
         }
     }
 }
@@ -29,6 +31,7 @@ impl fmt::Display for EnforcementScope {
         let label = match self {
             Self::Filesystem => "filesystem",
             Self::Process => "process",
+            Self::Gws => "gws",
         };
 
         f.write_str(label)

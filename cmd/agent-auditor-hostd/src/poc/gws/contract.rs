@@ -62,6 +62,16 @@ impl GwsActionKind {
         }
     }
 
+    pub fn from_label(label: &str) -> Option<Self> {
+        match label {
+            "drive.permissions.update" => Some(Self::DrivePermissionsUpdate),
+            "drive.files.get_media" => Some(Self::DriveFilesGetMedia),
+            "gmail.users.messages.send" => Some(Self::GmailUsersMessagesSend),
+            "admin.reports.activities.list" => Some(Self::AdminReportsActivitiesList),
+            _ => None,
+        }
+    }
+
     pub fn surface(self) -> GwsSemanticSurface {
         match self {
             Self::DrivePermissionsUpdate | Self::DriveFilesGetMedia => {
