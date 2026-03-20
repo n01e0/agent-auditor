@@ -72,6 +72,9 @@ fn hostd_gws_poc_smoke_matches_gws_fixtures() {
     assert!(gws_approval_request_api["requested_at"].is_string());
     assert!(gws_approval_request_api["expires_at"].is_string());
 
+    let gws_enforcement_api = json_line(&lines, "gws_enforcement_api");
+    assert_json_subset(&fixtures["gws_enforcement_api"], &gws_enforcement_api);
+
     let gws_normalized_admin = json_line(&lines, "gws_normalized_admin");
     assert_json_subset(&fixtures["gws_normalized_admin"], &gws_normalized_admin);
     assert!(gws_normalized_admin["timestamp"].is_string());
@@ -91,6 +94,29 @@ fn hostd_gws_poc_smoke_matches_gws_fixtures() {
         &fixtures["gws_approval_request_admin"],
         &gws_approval_request_admin,
     );
+
+    let gws_normalized_deny = json_line(&lines, "gws_normalized_deny");
+    assert_json_subset(&fixtures["gws_normalized_deny"], &gws_normalized_deny);
+    assert!(gws_normalized_deny["timestamp"].is_string());
+
+    let gws_enriched_deny = json_line(&lines, "gws_enriched_deny");
+    assert_json_subset(&fixtures["gws_enriched_deny"], &gws_enriched_deny);
+    assert!(gws_enriched_deny["timestamp"].is_string());
+
+    let gws_policy_decision_deny = json_line(&lines, "gws_policy_decision_deny");
+    assert_json_subset(
+        &fixtures["gws_policy_decision_deny"],
+        &gws_policy_decision_deny,
+    );
+
+    let gws_approval_request_deny = json_line(&lines, "gws_approval_request_deny");
+    assert_json_subset(
+        &fixtures["gws_approval_request_deny"],
+        &gws_approval_request_deny,
+    );
+
+    let gws_enforcement_deny = json_line(&lines, "gws_enforcement_deny");
+    assert_json_subset(&fixtures["gws_enforcement_deny"], &gws_enforcement_deny);
 
     let persisted_gws_audit_record_require_approval =
         json_line(&lines, "persisted_gws_audit_record_require_approval");
@@ -114,6 +140,13 @@ fn hostd_gws_poc_smoke_matches_gws_fixtures() {
         &persisted_gws_audit_record_allow,
     );
     assert!(persisted_gws_audit_record_allow["timestamp"].is_string());
+
+    let persisted_gws_audit_record_deny = json_line(&lines, "persisted_gws_audit_record_deny");
+    assert_json_subset(
+        &fixtures["persisted_gws_audit_record_deny"],
+        &persisted_gws_audit_record_deny,
+    );
+    assert!(persisted_gws_audit_record_deny["timestamp"].is_string());
 }
 
 fn json_line(lines: &BTreeMap<String, String>, key: &str) -> Value {

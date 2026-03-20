@@ -67,6 +67,19 @@
   "gws_normalized_network": {
     "event_id": "poc_gws_action_network_observation_drive.permissions.update_req_sess_bootstrap_hostd_142_250_191_138_443",
     "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
     "action": {
       "class": "gws",
       "verb": "drive.permissions.update",
@@ -95,31 +108,91 @@
     },
     "result": {
       "status": "observed",
-      "reason": "observed by hostd API/network GWS PoC"
+      "reason": "observed by hostd API/network GWS PoC",
+      "exit_code": null,
+      "error": null
     },
+    "policy": null,
+    "enforcement": null,
     "source": {
       "collector": "ebpf",
-      "host_id": "hostd-poc"
-    }
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
   },
   "gws_enriched_api": {
     "event_id": "poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview",
     "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
     "action": {
       "class": "gws",
       "verb": "drive.permissions.update",
-      "target": "drive.files/abc123/permissions/perm456"
+      "target": "drive.files/abc123/permissions/perm456",
+      "attributes": {
+        "authority_hint": "www.googleapis.com",
+        "classifier_labels": [
+          "gws.drive",
+          "drive.permissions.update"
+        ],
+        "classifier_reasons": [
+          "PATCH drive permissions path maps to Drive sharing updates"
+        ],
+        "content_retained": false,
+        "method_hint": "PATCH",
+        "path_hint": "/drive/v3/files/abc123/permissions/perm456",
+        "request_id": "req_drive_permissions_update_preview",
+        "semantic_action_label": "drive.permissions.update",
+        "semantic_surface": "gws.drive",
+        "source_kind": "api_observation",
+        "target_hint": "drive.files/abc123/permissions/perm456",
+        "transport": "https"
+      }
     },
     "result": {
       "status": "approval_required",
-      "reason": "Drive permission updates require approval"
+      "reason": "Drive permission updates require approval",
+      "exit_code": null,
+      "error": null
     },
     "policy": {
       "decision": "require_approval",
       "rule_id": "gws.drive.permissions_update.requires_approval",
       "severity": "high",
       "explanation": "Drive permission updates require approval"
-    }
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Drive permission updates require approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
   },
   "gws_policy_decision_api": {
     "decision": "require_approval",
@@ -147,7 +220,26 @@
       "action_class": "gws",
       "action_verb": "drive.permissions.update",
       "target": "drive.files/abc123/permissions/perm456",
-      "summary": "Drive permission updates require approval"
+      "summary": "Drive permission updates require approval",
+      "attributes": {
+        "authority_hint": "www.googleapis.com",
+        "classifier_labels": [
+          "gws.drive",
+          "drive.permissions.update"
+        ],
+        "classifier_reasons": [
+          "PATCH drive permissions path maps to Drive sharing updates"
+        ],
+        "content_retained": false,
+        "method_hint": "PATCH",
+        "path_hint": "/drive/v3/files/abc123/permissions/perm456",
+        "request_id": "req_drive_permissions_update_preview",
+        "semantic_action_label": "drive.permissions.update",
+        "semantic_surface": "gws.drive",
+        "source_kind": "api_observation",
+        "target_hint": "drive.files/abc123/permissions/perm456",
+        "transport": "https"
+      }
     },
     "policy": {
       "rule_id": "gws.drive.permissions_update.requires_approval",
@@ -162,11 +254,31 @@
       "human_request": null
     },
     "decision": null,
-    "enforcement": null
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Drive permission updates require approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview"
+    }
   },
   "gws_normalized_admin": {
     "event_id": "poc_gws_action_api_observation_admin.reports.activities.list_req_admin_reports_activities_list_preview",
     "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
     "action": {
       "class": "gws",
       "verb": "admin.reports.activities.list",
@@ -193,27 +305,84 @@
     },
     "result": {
       "status": "observed",
-      "reason": "observed by hostd API/network GWS PoC"
-    }
+      "reason": "observed by hostd API/network GWS PoC",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": null,
+    "enforcement": null,
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
   },
   "gws_enriched_admin": {
     "event_id": "poc_gws_action_api_observation_admin.reports.activities.list_req_admin_reports_activities_list_preview",
     "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
     "action": {
       "class": "gws",
       "verb": "admin.reports.activities.list",
-      "target": "admin.reports/users/all/applications/drive"
+      "target": "admin.reports/users/all/applications/drive",
+      "attributes": {
+        "authority_hint": "admin.googleapis.com",
+        "classifier_labels": [
+          "gws.admin",
+          "admin.reports.activities.list"
+        ],
+        "classifier_reasons": [
+          "GET Admin Reports activity path maps to activity-list retrieval"
+        ],
+        "content_retained": false,
+        "method_hint": "GET",
+        "path_hint": "/admin/reports/v1/activity/users/all/applications/drive",
+        "request_id": "req_admin_reports_activities_list_preview",
+        "semantic_action_label": "admin.reports.activities.list",
+        "semantic_surface": "gws.admin",
+        "source_kind": "api_observation",
+        "target_hint": "admin.reports/users/all/applications/drive",
+        "transport": "https"
+      }
     },
     "result": {
       "status": "allowed",
-      "reason": "Admin activity listing is read-only audit retrieval"
+      "reason": "Admin activity listing is read-only audit retrieval",
+      "exit_code": null,
+      "error": null
     },
     "policy": {
       "decision": "allow",
       "rule_id": "gws.admin.reports.activities_list.allow",
       "severity": "low",
       "explanation": "Admin activity listing is read-only audit retrieval"
-    }
+    },
+    "enforcement": null,
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
   },
   "gws_policy_decision_admin": {
     "decision": "allow",
@@ -231,16 +400,72 @@
   "persisted_gws_audit_record_require_approval": {
     "event_id": "poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview",
     "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "gws",
+      "verb": "drive.permissions.update",
+      "target": "drive.files/abc123/permissions/perm456",
+      "attributes": {
+        "authority_hint": "www.googleapis.com",
+        "classifier_labels": [
+          "gws.drive",
+          "drive.permissions.update"
+        ],
+        "classifier_reasons": [
+          "PATCH drive permissions path maps to Drive sharing updates"
+        ],
+        "content_retained": false,
+        "method_hint": "PATCH",
+        "path_hint": "/drive/v3/files/abc123/permissions/perm456",
+        "request_id": "req_drive_permissions_update_preview",
+        "semantic_action_label": "drive.permissions.update",
+        "semantic_surface": "gws.drive",
+        "source_kind": "api_observation",
+        "target_hint": "drive.files/abc123/permissions/perm456",
+        "transport": "https"
+      }
+    },
     "result": {
       "status": "approval_required",
-      "reason": "Drive permission updates require approval"
+      "reason": "Drive permission updates require approval",
+      "exit_code": null,
+      "error": null
     },
     "policy": {
       "decision": "require_approval",
       "rule_id": "gws.drive.permissions_update.requires_approval",
       "severity": "high",
       "explanation": "Drive permission updates require approval"
-    }
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Drive permission updates require approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
   },
   "persisted_gws_approval_request": {
     "approval_id": "apr_poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview",
@@ -252,7 +477,26 @@
       "action_class": "gws",
       "action_verb": "drive.permissions.update",
       "target": "drive.files/abc123/permissions/perm456",
-      "summary": "Drive permission updates require approval"
+      "summary": "Drive permission updates require approval",
+      "attributes": {
+        "authority_hint": "www.googleapis.com",
+        "classifier_labels": [
+          "gws.drive",
+          "drive.permissions.update"
+        ],
+        "classifier_reasons": [
+          "PATCH drive permissions path maps to Drive sharing updates"
+        ],
+        "content_retained": false,
+        "method_hint": "PATCH",
+        "path_hint": "/drive/v3/files/abc123/permissions/perm456",
+        "request_id": "req_drive_permissions_update_preview",
+        "semantic_action_label": "drive.permissions.update",
+        "semantic_surface": "gws.drive",
+        "source_kind": "api_observation",
+        "target_hint": "drive.files/abc123/permissions/perm456",
+        "transport": "https"
+      }
     },
     "policy": {
       "rule_id": "gws.drive.permissions_update.requires_approval",
@@ -267,21 +511,314 @@
       "human_request": null
     },
     "decision": null,
-    "enforcement": null
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Drive permission updates require approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview"
+    }
   },
   "persisted_gws_audit_record_allow": {
     "event_id": "poc_gws_action_api_observation_admin.reports.activities.list_req_admin_reports_activities_list_preview",
     "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "gws",
+      "verb": "admin.reports.activities.list",
+      "target": "admin.reports/users/all/applications/drive",
+      "attributes": {
+        "authority_hint": "admin.googleapis.com",
+        "classifier_labels": [
+          "gws.admin",
+          "admin.reports.activities.list"
+        ],
+        "classifier_reasons": [
+          "GET Admin Reports activity path maps to activity-list retrieval"
+        ],
+        "content_retained": false,
+        "method_hint": "GET",
+        "path_hint": "/admin/reports/v1/activity/users/all/applications/drive",
+        "request_id": "req_admin_reports_activities_list_preview",
+        "semantic_action_label": "admin.reports.activities.list",
+        "semantic_surface": "gws.admin",
+        "source_kind": "api_observation",
+        "target_hint": "admin.reports/users/all/applications/drive",
+        "transport": "https"
+      }
+    },
     "result": {
       "status": "allowed",
-      "reason": "Admin activity listing is read-only audit retrieval"
+      "reason": "Admin activity listing is read-only audit retrieval",
+      "exit_code": null,
+      "error": null
     },
     "policy": {
       "decision": "allow",
       "rule_id": "gws.admin.reports.activities_list.allow",
       "severity": "low",
       "explanation": "Admin activity listing is read-only audit retrieval"
-    }
+    },
+    "enforcement": null,
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
   },
-  "gws_record": "sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin record_fields=normalized_event,policy_decision,approval_request,redaction_status stages=persist->publish sinks=structured_log,audit_store,approval_store"
+  "gws_record": "sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin record_fields=normalized_event,policy_decision,approval_request,redaction_status stages=persist->publish sinks=structured_log,audit_store,approval_store",
+  "gws_enforcement_api": {
+    "event_id": "poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview",
+    "scope": "gws",
+    "target": "drive.files/abc123/permissions/perm456",
+    "action_verb": "drive.permissions.update",
+    "policy_decision": "require_approval",
+    "directive": "hold",
+    "status": "held",
+    "status_reason": "Drive permission updates require approval",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": "apr_poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview"
+  },
+  "gws_normalized_deny": {
+    "event_id": "poc_gws_action_api_observation_gmail.users.messages.send_req_gmail_users_messages_send_preview",
+    "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "gws",
+      "verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "attributes": {
+        "authority_hint": "gmail.googleapis.com",
+        "classifier_labels": [
+          "gws.gmail",
+          "gmail.users.messages.send"
+        ],
+        "classifier_reasons": [
+          "POST Gmail send path maps to outbound message send"
+        ],
+        "content_retained": false,
+        "method_hint": "POST",
+        "path_hint": "/gmail/v1/users/me/messages/send",
+        "request_id": "req_gmail_users_messages_send_preview",
+        "semantic_action_label": "gmail.users.messages.send",
+        "semantic_surface": "gws.gmail",
+        "source_kind": "api_observation",
+        "target_hint": "gmail.users/me",
+        "transport": "https"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd API/network GWS PoC",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": null,
+    "enforcement": null,
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "gws_enriched_deny": {
+    "event_id": "poc_gws_action_api_observation_gmail.users.messages.send_req_gmail_users_messages_send_preview",
+    "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "gws",
+      "verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "attributes": {
+        "authority_hint": "gmail.googleapis.com",
+        "classifier_labels": [
+          "gws.gmail",
+          "gmail.users.messages.send"
+        ],
+        "classifier_reasons": [
+          "POST Gmail send path maps to outbound message send"
+        ],
+        "content_retained": false,
+        "method_hint": "POST",
+        "path_hint": "/gmail/v1/users/me/messages/send",
+        "request_id": "req_gmail_users_messages_send_preview",
+        "semantic_action_label": "gmail.users.messages.send",
+        "semantic_surface": "gws.gmail",
+        "source_kind": "api_observation",
+        "target_hint": "gmail.users/me",
+        "transport": "https"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "Outbound Gmail send is denied by preview policy",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "gws.gmail.users_messages_send.denied",
+      "severity": "high",
+      "explanation": "Outbound Gmail send is denied by preview policy"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "Outbound Gmail send is denied by preview policy",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": null
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
+  },
+  "gws_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "gws.gmail.users_messages_send.denied",
+    "severity": "high",
+    "reason": "Outbound Gmail send is denied by preview policy",
+    "approval": null,
+    "tags": [
+      "gws",
+      "gmail",
+      "deny"
+    ]
+  },
+  "gws_approval_request_deny": null,
+  "gws_enforcement_deny": {
+    "event_id": "poc_gws_action_api_observation_gmail.users.messages.send_req_gmail_users_messages_send_preview",
+    "scope": "gws",
+    "target": "gmail.users/me",
+    "action_verb": "gmail.users.messages.send",
+    "policy_decision": "deny",
+    "directive": "deny",
+    "status": "denied",
+    "status_reason": "Outbound Gmail send is denied by preview policy",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": null
+  },
+  "persisted_gws_audit_record_deny": {
+    "event_id": "poc_gws_action_api_observation_gmail.users.messages.send_req_gmail_users_messages_send_preview",
+    "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "gws",
+      "verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "attributes": {
+        "authority_hint": "gmail.googleapis.com",
+        "classifier_labels": [
+          "gws.gmail",
+          "gmail.users.messages.send"
+        ],
+        "classifier_reasons": [
+          "POST Gmail send path maps to outbound message send"
+        ],
+        "content_retained": false,
+        "method_hint": "POST",
+        "path_hint": "/gmail/v1/users/me/messages/send",
+        "request_id": "req_gmail_users_messages_send_preview",
+        "semantic_action_label": "gmail.users.messages.send",
+        "semantic_surface": "gws.gmail",
+        "source_kind": "api_observation",
+        "target_hint": "gmail.users/me",
+        "transport": "https"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "Outbound Gmail send is denied by preview policy",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "gws.gmail.users_messages_send.denied",
+      "severity": "high",
+      "explanation": "Outbound Gmail send is denied by preview policy"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "Outbound Gmail send is denied by preview policy",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": null
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": null,
+      "ppid": null
+    },
+    "integrity": null
+  }
 }
