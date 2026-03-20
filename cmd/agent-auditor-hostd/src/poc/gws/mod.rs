@@ -2,6 +2,7 @@ pub mod classify;
 pub mod contract;
 pub mod evaluate;
 pub mod persist;
+pub mod posture;
 pub mod record;
 pub mod session_linkage;
 

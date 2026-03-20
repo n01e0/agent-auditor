@@ -29,6 +29,7 @@ It sits above the filesystem/process-specific PoCs and records what is true abou
 6. **The seam currently covers only filesystem and process previews**
    - those are the two action classes threaded through the foundation today
    - network and secret-access have policy/audit-shaped records, but they are not yet live consumers of this same local deny/hold runtime seam
+   - the new GWS posture catalog only prioritizes actions and fixes preview posture labels; it is not evidence of inline GWS hold or deny capability
 
 7. **Smoke coverage is record-level, not host-level**
    - focused smoke tests prove stable bootstrap output for filesystem and process preview cases
@@ -45,6 +46,10 @@ It sits above the filesystem/process-specific PoCs and records what is true abou
 10. **The current boundary is designed for evolution, not final operator semantics**
    - names like `decision`, `hold`, `deny`, and `audit` are intentionally stable ownership boundaries
    - the actual runtime mechanics beneath them are expected to change as live enforcement lands
+
+11. **GWS priority is defined earlier than GWS runtime enforcement**
+   - `drive.permissions.update` and `gmail.users.messages.send` are now fixed at `p0`, `drive.files.get_media` at `p1`, and `admin.reports.activities.list` at `p2`
+   - those labels keep the preview policy and docs aligned, but they still stop at policy, approval-request projection, and audit persistence rather than live API-side interruption
 
 ## Practical interpretation
 

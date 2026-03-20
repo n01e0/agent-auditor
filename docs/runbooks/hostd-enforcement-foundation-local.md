@@ -9,6 +9,8 @@ It is the cross-cutting runbook for the shared enforcement seam that now sits be
 - policy output (`allow` / `require_approval` / `deny`)
 - reflected event / approval / audit records
 
+P7-2 also adds a small Google Workspace posture catalog for the first four GWS semantic actions. That catalog is a prioritization and contract artifact only; it does not turn the GWS API/network PoC into a live enforcement path yet.
+
 ## What this preview currently proves
 
 The current enforcement path is intentionally narrow:
@@ -27,8 +29,23 @@ The current enforcement path is intentionally narrow:
   - pending `ApprovalRequest`
   - local PoC audit records
 - dedicated unit tests and focused smoke tests keep the filesystem/process enforcement preview stable in CI
+- the GWS posture catalog can now say which semantic actions should stay at `approval_hold_preview` versus `observe_only_allow_preview`, while remaining consistent with the checked-in preview Rego policy
 
 This is still a **preview-only** enforcement path. It does **not** prove that the host can actually pause or block those actions on a live system.
+
+## GWS posture priorities
+
+The current GWS posture contract lives at `cmd/agent-auditor-hostd/src/poc/gws/posture.rs` and intentionally stays narrower than the filesystem/process runtime seam.
+
+- `drive.permissions.update` -> `p0` -> `approval_hold_preview`
+- `gmail.users.messages.send` -> `p0` -> `approval_hold_preview`
+- `drive.files.get_media` -> `p1` -> `approval_hold_preview`
+- `admin.reports.activities.list` -> `p2` -> `observe_only_allow_preview`
+
+Read those labels as planning-grade enforcement posture:
+
+- `approval_hold_preview` means the checked-in preview policy already requires approval and later GWS runtime work should preserve a hold-style operator gate if inline interception becomes credible.
+- `observe_only_allow_preview` means the checked-in preview policy allows the action today and later runtime work should preserve visibility/audit without inventing a higher-friction control.
 
 ## Prerequisites
 
@@ -106,6 +123,12 @@ cargo test -p agent-auditor-hostd --test process_enforcement_smoke
 cargo test -p agent-auditor-hostd poc::enforcement:: --lib
 ```
 
+### Run only the GWS posture contract tests
+
+```bash
+cargo test -p agent-auditor-hostd poc::gws::posture:: --lib
+```
+
 ### Run only the shared bootstrap smoke test
 
 ```bash
@@ -147,6 +170,7 @@ They are **not** proof of:
 
 - live fanotify hold semantics
 - live pre-exec process blocking
+- live GWS API / browser interception
 - durable approval workflow execution
 - fail-closed runtime behavior on a real host
 
