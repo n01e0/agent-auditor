@@ -77,3 +77,6 @@ Coverage states used throughout the product:
 3. Partial coverage must be operator-visible.
 4. Unsupported cases must not silently pretend to be protected.
 5. The first prototype should optimize for strong coverage in a narrow set of high-risk actions rather than broad weak coverage.
+6. Fail-closed claims are only valid for action families that have a validated pre-completion enforcement path; everything else must fail open with explicit fallback reporting.
+
+See [`failure-behavior.md`](failure-behavior.md) for the initial action-class policy.

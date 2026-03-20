@@ -143,6 +143,8 @@ The audit store must be protected against silent mutation by workloads or ordina
 
 The product will use multiple enforcement modes depending on the action class.
 
+The initial fail-open / fail-closed posture is documented in [`failure-behavior.md`](failure-behavior.md): only validated enforced subsets may claim fail-closed behavior; everything else must fail open with explicit fallback reporting.
+
 ### Process
 
 - observe on all supported hosts
