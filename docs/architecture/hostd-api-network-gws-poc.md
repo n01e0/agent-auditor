@@ -153,5 +153,7 @@ This keeps the next tasks cleaner:
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
 - roadmap: [`../roadmaps/api-network-gws-semantic-action-layer-tasklist.md`](../roadmaps/api-network-gws-semantic-action-layer-tasklist.md)
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
+- local runbook: [`../runbooks/hostd-api-network-gws-poc-local.md`](../runbooks/hostd-api-network-gws-poc-local.md)
+- known constraints: [`hostd-api-network-gws-known-constraints.md`](hostd-api-network-gws-known-constraints.md)
 - enforcement foundation: [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md)
 - secret-access boundary reference: [`hostd-secret-access-poc.md`](hostd-secret-access-poc.md)
