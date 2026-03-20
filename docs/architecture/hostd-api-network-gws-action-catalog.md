@@ -69,6 +69,11 @@ The Reports API method doc and the Reports auth guide line up cleanly here: the 
 - Method doc: <https://developers.google.com/workspace/admin/reports/reference/rest/v1/activities/list>
 - Reports auth guide: <https://developers.google.com/workspace/admin/reports/auth>
 
+## Related docs
+
+- phase boundary: [`hostd-api-network-gws-poc.md`](hostd-api-network-gws-poc.md)
+- roadmap: [`../roadmaps/api-network-gws-semantic-action-layer-tasklist.md`](../roadmaps/api-network-gws-semantic-action-layer-tasklist.md)
+
 ## Out of scope for this note
 
 - proving at runtime which OAuth scope a token actually carried
