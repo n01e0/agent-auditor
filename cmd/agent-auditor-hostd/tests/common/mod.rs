@@ -18,6 +18,7 @@ pub fn run_hostd_bootstrap() -> BTreeMap<String, String> {
     keyed_lines(&stdout)
 }
 
+#[allow(dead_code)]
 pub fn json_line(lines: &BTreeMap<String, String>, key: &str) -> Value {
     serde_json::from_str(
         lines
