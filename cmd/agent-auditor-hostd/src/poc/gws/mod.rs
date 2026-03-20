@@ -64,6 +64,12 @@ mod tests {
             plan.classify
                 .responsibilities
                 .iter()
+                .any(|item| item.contains("drive.permissions.update"))
+        );
+        assert!(
+            plan.classify
+                .responsibilities
+                .iter()
                 .all(|item| !item.contains("same session identity used by runtime hostd events"))
         );
         assert!(
@@ -136,6 +142,15 @@ mod tests {
                 "classifier_labels",
                 "classifier_reasons",
                 "content_retained",
+            ]
+        );
+        assert_eq!(
+            plan.classify.semantic_actions,
+            vec![
+                crate::poc::gws::contract::GwsActionKind::DrivePermissionsUpdate,
+                crate::poc::gws::contract::GwsActionKind::DriveFilesGetMedia,
+                crate::poc::gws::contract::GwsActionKind::GmailUsersMessagesSend,
+                crate::poc::gws::contract::GwsActionKind::AdminReportsActivitiesList,
             ]
         );
         assert_eq!(

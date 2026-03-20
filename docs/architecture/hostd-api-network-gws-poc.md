@@ -30,7 +30,7 @@ The redaction rule for this phase is also explicit from the start: raw HTTP requ
   - minimal `ApiRequestObservation` / `NetworkRequestObservation` → `SessionLinkedGwsAction` contract work
 - `classify.rs`
   - semantic GWS action classification plan after linkage
-  - future home for GWS API / network semantic taxonomy
+  - minimal GWS API / network semantic taxonomy for Drive permissions updates, Drive media downloads, Gmail sends, and Admin activity listing
 - `evaluate.rs`
   - normalization + policy bridge plan after classification
   - future home for `agenta-core` GWS event shaping and `agenta-policy` evaluation
@@ -118,14 +118,19 @@ The boundary is intentionally small but explicit about the labels it will carry 
   - `gws.gmail`
   - `gws.admin`
 
-These are boundary labels, not the final action taxonomy. Concrete actions such as `drive.permissions.update`, `drive.files.get_media`, `gmail.users.messages.send`, and `admin.reports.activities.list` are deferred to later tasks.
+These are boundary labels, not the full long-term action taxonomy. P6A-3 now proves the first concrete actions through the classify seam:
+
+- `drive.permissions.update`
+- `drive.files.get_media`
+- `gmail.users.messages.send`
+- `admin.reports.activities.list`
 
 ## Why this split now
 
 This keeps the next tasks cleaner:
 
 - **P6A-2** can implement minimal API / network action session linkage against a stable upstream seam
-- **P6A-3** can add GWS semantic taxonomy without deciding how normalization or audit persistence work
+- **P6A-3** adds the first GWS semantic taxonomy without deciding how normalization or audit persistence work
 - **P6A-5** can wire GWS policy evaluation against a stable evaluate seam
 - **P6A-7** can reflect decisions and test audit behavior without reaching back into linkage or classification internals
 
