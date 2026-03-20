@@ -55,9 +55,10 @@ This note records the current constraints of the `agent-auditor-hostd` API / net
    - the PoC store resets that directory on bootstrap, so this is not durable product storage yet
    - there is no lookup API, retention policy, compaction, replay support, or multi-process coordination
 
-11. **Fixture-backed smoke coverage is intentional**
-    - the dedicated GWS smoke test validates stable bootstrap preview output from hostd
-    - it is not evidence that the same behavior has been validated against live Google Workspace traffic, real OAuth grants, or production admin tenants
+11. **Fixture-backed and consistency smoke coverage is intentional**
+    - the dedicated GWS smoke tests validate stable bootstrap preview output plus agreement between hold / deny / observe-only projections and persisted records
+    - the targeted approval-path unit tests validate posture gating, missing semantic-action handling, and decision-shape rejection
+    - none of this is evidence that the same behavior has been validated against live Google Workspace traffic, real OAuth grants, or production admin tenants
 
 12. **Linux-local and single-host assumptions still apply**
     - this path assumes Linux and a Rust development workflow
@@ -73,6 +74,7 @@ Today’s GWS PoC is good for:
 - proving a narrow Rego decision path with `allow` / `require_approval`
 - proving reflected hold/deny metadata shape for local event, approval, and audit records
 - proving approval-request creation and local audit-record inspection
+- proving that the approval-path and GWS smoke tests stay aligned with the checked-in preview contract
 - keeping CI coverage around the current API/network GWS design
 
 It is **not yet** good evidence of:
