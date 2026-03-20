@@ -387,6 +387,87 @@ mod tests {
     }
 
     #[test]
+    fn gws_all_supported_actions_round_trip_through_policy_and_records() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_round_trip");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+
+        let drive_permissions_update = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_drive_permissions_update(),
+                &session,
+            ))
+            .expect("drive permissions update should classify");
+        let drive_files_get_media = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_network_observation(
+                &NetworkRequestObservation::preview_drive_files_get_media(),
+                &session,
+            ))
+            .expect("drive get_media should classify");
+        let gmail_users_messages_send = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_gmail_users_messages_send(),
+                &session,
+            ))
+            .expect("gmail send should classify");
+        let admin_reports_activities_list = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_admin_reports_activities_list(),
+                &session,
+            ))
+            .expect("admin reports list should classify");
+
+        let drive_permissions_update_decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(
+                &plan
+                    .evaluate
+                    .normalize_classified_action(&drive_permissions_update, &session),
+            ))
+            .expect("drive permissions update policy should evaluate");
+        let drive_files_get_media_decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(
+                &plan
+                    .evaluate
+                    .normalize_classified_action(&drive_files_get_media, &session),
+            ))
+            .expect("drive get_media policy should evaluate");
+        let gmail_users_messages_send_decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(
+                &plan
+                    .evaluate
+                    .normalize_classified_action(&gmail_users_messages_send, &session),
+            ))
+            .expect("gmail send policy should evaluate");
+        let admin_reports_activities_list_decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(
+                &plan
+                    .evaluate
+                    .normalize_classified_action(&admin_reports_activities_list, &session),
+            ))
+            .expect("admin reports list policy should evaluate");
+
+        assert_eq!(
+            drive_permissions_update_decision.decision,
+            PolicyDecisionKind::RequireApproval
+        );
+        assert_eq!(
+            drive_files_get_media_decision.decision,
+            PolicyDecisionKind::RequireApproval
+        );
+        assert_eq!(
+            gmail_users_messages_send_decision.decision,
+            PolicyDecisionKind::RequireApproval
+        );
+        assert_eq!(
+            admin_reports_activities_list_decision.decision,
+            PolicyDecisionKind::Allow
+        );
+    }
+
+    #[test]
     fn gws_deny_decision_reflects_into_event_metadata_and_audit_record() {
         let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_deny");
         let plan = ApiNetworkGwsPocPlan::bootstrap();
