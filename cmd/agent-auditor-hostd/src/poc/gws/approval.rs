@@ -250,6 +250,65 @@ mod tests {
         );
     }
 
+    #[test]
+    fn approval_path_plan_rejects_non_require_approval_decisions_for_hold_preview_actions() {
+        let plan = ApprovalPathPlan::default();
+        let (event, _, request) = require_approval_preview(GwsActionKind::DriveFilesGetMedia);
+        let allow_decision = PolicyDecision {
+            decision: PolicyDecisionKind::Allow,
+            rule_id: Some("gws.drive.files_get_media.allowed".to_owned()),
+            severity: None,
+            reason: Some("drive file media download unexpectedly allowed".to_owned()),
+            approval: None,
+            tags: vec!["gws".to_owned(), "drive".to_owned(), "allow".to_owned()],
+        };
+
+        let error = plan
+            .apply(&event, &allow_decision, Some(&request))
+            .expect_err("hold preview should reject non-require_approval decisions");
+
+        assert_eq!(
+            error,
+            ApprovalPathError::UnexpectedPolicyDecision {
+                event_id: event.event_id.clone(),
+                action: GwsActionKind::DriveFilesGetMedia,
+                decision: PolicyDecisionKind::Allow,
+            }
+        );
+    }
+
+    #[test]
+    fn approval_path_plan_requires_semantic_action_label_when_gws_identity_is_missing() {
+        let plan = ApprovalPathPlan::default();
+        let (mut event, decision, request) =
+            require_approval_preview(GwsActionKind::GmailUsersMessagesSend);
+        event.action.verb = None;
+        event.action.attributes.remove("semantic_action_label");
+
+        let error = plan
+            .apply(&event, &decision, Some(&request))
+            .expect_err("approval path should reject events without a semantic action label");
+
+        assert_eq!(
+            error,
+            ApprovalPathError::MissingSemanticAction {
+                event_id: event.event_id.clone(),
+            }
+        );
+    }
+
+    #[test]
+    fn approval_path_summary_mentions_all_enforcement_path_stages() {
+        let summary = ApprovalPathPlan::default().summary();
+
+        assert!(summary.contains(
+            "semantic_actions=drive.permissions.update,gmail.users.messages.send,drive.files.get_media"
+        ));
+        assert!(summary.contains("input_fields=normalized_event,policy_decision,approval_request,semantic_action_label,posture"));
+        assert!(summary.contains("stages=accept->verify_posture->hold_projection"));
+        assert!(summary.contains("directive=hold"));
+    }
+
     fn require_approval_preview(
         action: GwsActionKind,
     ) -> (EventEnvelope, PolicyDecision, ApprovalRequest) {
