@@ -18,7 +18,7 @@ The current GWS path is intentionally narrow:
 - `require_approval` can derive a pending `ApprovalRequest`
 - reflected GWS hold and deny outcomes can be attached to `agenta-core` event metadata plus local approval / audit records
 - reflected GWS audit records and approval requests can be written to local JSONL files for inspection
-- the preview path is covered by focused unit tests, policy tests, the broad hostd smoke test, and a dedicated GWS smoke test
+- the preview path is covered by focused unit tests, policy tests, the broad hostd smoke test, a dedicated GWS fixture smoke test, and a dedicated GWS enforcement-consistency smoke test
 
 ## Prerequisites
 
@@ -101,10 +101,16 @@ cargo test --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-### Run only the dedicated GWS smoke test
+### Run the dedicated GWS fixture smoke test
 
 ```bash
 cargo test -p agent-auditor-hostd --test gws_poc_smoke
+```
+
+### Run the dedicated GWS enforcement smoke test
+
+```bash
+cargo test -p agent-auditor-hostd --test gws_enforcement_smoke
 ```
 
 ### Run the broader hostd smoke test
@@ -117,6 +123,12 @@ cargo test -p agent-auditor-hostd --test poc_smoke
 
 ```bash
 cargo test -p agent-auditor-hostd poc::gws:: --lib
+```
+
+### Run only the approval-path unit tests
+
+```bash
+cargo test -p agent-auditor-hostd poc::gws::approval:: --lib
 ```
 
 ### Run only the policy crate tests
@@ -143,8 +155,10 @@ cargo test -p agenta-policy
   - `cmd/agent-auditor-hostd/src/main.rs`
 - dedicated GWS smoke expectations:
   - `cmd/agent-auditor-hostd/tests/fixtures/hostd-gws-smoke-fixtures.json`
-- dedicated GWS smoke test:
+- dedicated GWS fixture smoke test:
   - `cmd/agent-auditor-hostd/tests/gws_poc_smoke.rs`
+- dedicated GWS enforcement smoke test:
+  - `cmd/agent-auditor-hostd/tests/gws_enforcement_smoke.rs`
 - shared smoke helpers:
   - `cmd/agent-auditor-hostd/tests/common/mod.rs`
 
@@ -185,6 +199,16 @@ Use this rule when reading the current bootstrap output:
 In other words: the current GWS PoC can now reflect intended hold/deny outcomes into `agenta-core` events and local approval/audit records, but the live Google Workspace request path is still documented as fail-open until a validated intercept seam exists.
 
 For the per-action matrix, see [`../architecture/hostd-api-network-gws-action-catalog.md`](../architecture/hostd-api-network-gws-action-catalog.md).
+
+## What to validate before trusting the preview outputs
+
+If you are changing this path locally, the quickest honest confidence check is:
+
+1. run `cargo test -p agent-auditor-hostd poc::gws::approval:: --lib` to verify approval-path guards and posture gating
+2. run `cargo test -p agent-auditor-hostd --test gws_enforcement_smoke` to verify hold / deny / observe-only outputs still agree across event, approval, enforcement, and persisted-record views
+3. run `cargo test -p agent-auditor-hostd --test gws_poc_smoke` to verify the bootstrap preview output still matches the checked-in GWS fixture set
+
+Passing these tests means the preview contract is internally consistent. It still does **not** prove inline interception on live Google Workspace traffic.
 
 ## Known constraints
 
