@@ -41,15 +41,19 @@ This note records the current constraints of the `agent-auditor-hostd` network P
    - `require_approval` currently enriches the event metadata and creates a pending `ApprovalRequest`
    - there is no approval inbox, reviewer workflow, resolution path, or resumed action execution after approval yet
 
-9. **No real network enforcement or gating yet**
+9. **Initial failure behavior is fail-open until a real egress-control path exists**
+   - deny / approval policy output is useful planning data today, but it is not yet proof that outbound traffic can be stopped before connect completion
+   - fail-closed network claims are reserved for a future validated firewall / CNI / host-egress integration
+
+10. **No real network enforcement or gating yet**
    - the PoC proves observation, normalization, Rego evaluation, approval-request derivation, and audit persistence
    - it does not yet block connects, hold sockets, or coordinate with agent execution before outbound traffic proceeds
 
-10. **Fixture-backed smoke coverage is intentional**
+11. **Fixture-backed smoke coverage is intentional**
     - the dedicated network smoke test validates stable bootstrap preview output from hostd
     - it is not evidence that the same behavior has been validated against live kernel connect traffic
 
-11. **Linux-local assumptions still apply**
+12. **Linux-local assumptions still apply**
     - this path assumes Linux and a Rust development workflow
     - container runtime nuances, Kubernetes production behavior, NAT edge cases, and host hardening requirements are still outside this runbook-level PoC
 
@@ -78,5 +82,6 @@ It is **not yet** good evidence of:
 - module boundary: [`hostd-network-poc.md`](hostd-network-poc.md)
 - domain attribution strategy: [`hostd-network-domain-attribution.md`](hostd-network-domain-attribution.md)
 - local runbook: [`../runbooks/hostd-network-poc-local.md`](../runbooks/hostd-network-poc-local.md)
+- failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
 - product requirements: [`../PRD.md`](../PRD.md)

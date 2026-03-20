@@ -119,7 +119,7 @@ This keeps the next tasks cleaner:
 
 - concrete filesystem block or approval-hold implementation
 - process enforcement hooks or signal choices
-- final fail-open / fail-closed policy
+- implementation of the final fail-open / fail-closed runtime behavior
 - durable enforcement audit schema changes
 - operator UI / API for approving or rejecting held actions
 - browser / GWS enforcement
@@ -131,4 +131,5 @@ This keeps the next tasks cleaner:
 - filesystem PoC boundary: [`hostd-filesystem-poc.md`](hostd-filesystem-poc.md)
 - filesystem known constraints: [`hostd-filesystem-known-constraints.md`](hostd-filesystem-known-constraints.md)
 - product requirements: [`../PRD.md`](../PRD.md)
+- failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)

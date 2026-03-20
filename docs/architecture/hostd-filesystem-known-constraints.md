@@ -33,15 +33,19 @@ This note records the current constraints of the `agent-auditor-hostd` filesyste
    - `require_approval` currently enriches event metadata and creates a pending `ApprovalRequest`
    - there is no approval inbox, reviewer workflow, resolution path, or event replay after approval yet
 
-7. **No live kernel enforcement yet**
+7. **Initial failure behavior is still mostly fail-open in practice**
+   - the docs now reserve fail-closed claims for a future validated fanotify enforcement subset only
+   - today’s preview path should still be interpreted as observe / fallback behavior, not as proof of a live fail-closed read/write gate
+
+8. **No live kernel enforcement yet**
    - the PoC now proves observation, normalization, Rego evaluation, preview hold / deny routing, and record creation
    - it still does not block reads/writes on a live host, hold file descriptors, or coordinate with agent execution before access proceeds
 
-8. **Fixture-driven smoke coverage is intentional**
+9. **Fixture-driven smoke coverage is intentional**
    - the smoke test validates stable preview output from the hostd bootstrap path
    - it is not evidence that the same behavior has been validated against live kernel fanotify traffic
 
-9. **Linux-local assumptions still apply**
+10. **Linux-local assumptions still apply**
    - this path assumes Linux and a Rust development workflow
    - container runtime nuances, Kubernetes production behavior, and host hardening requirements are still outside this runbook-level PoC
 
@@ -67,5 +71,6 @@ It is **not yet** good evidence of:
 
 - module boundary: [`hostd-filesystem-poc.md`](hostd-filesystem-poc.md)
 - local runbook: [`../runbooks/hostd-filesystem-poc-local.md`](../runbooks/hostd-filesystem-poc-local.md)
+- failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
 - product requirements: [`../PRD.md`](../PRD.md)
