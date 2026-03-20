@@ -72,6 +72,8 @@ The Reports API method doc and the Reports auth guide line up cleanly here: the 
 ## Related docs
 
 - phase boundary: [`hostd-api-network-gws-poc.md`](hostd-api-network-gws-poc.md)
+- local runbook: [`../runbooks/hostd-api-network-gws-poc-local.md`](../runbooks/hostd-api-network-gws-poc-local.md)
+- known constraints: [`hostd-api-network-gws-known-constraints.md`](hostd-api-network-gws-known-constraints.md)
 - roadmap: [`../roadmaps/api-network-gws-semantic-action-layer-tasklist.md`](../roadmaps/api-network-gws-semantic-action-layer-tasklist.md)
 
 ## Out of scope for this note
