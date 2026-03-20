@@ -1,6 +1,7 @@
 pub mod classify;
 pub mod contract;
 pub mod evaluate;
+pub mod persist;
 pub mod record;
 pub mod session_linkage;
 
@@ -36,8 +37,8 @@ impl ApiNetworkGwsPocPlan {
 #[cfg(test)]
 mod tests {
     use agenta_core::{
-        ActionClass, ApprovalScope, ApprovalStatus, EventType, PolicyDecisionKind, ResultStatus,
-        SessionRecord, Severity,
+        ActionClass, ApprovalScope, ApprovalStatus, EventType, PolicyDecision, PolicyDecisionKind,
+        ResultStatus, SessionRecord, Severity,
     };
     use agenta_policy::{
         PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
@@ -45,8 +46,11 @@ mod tests {
     };
 
     use super::ApiNetworkGwsPocPlan;
-    use crate::poc::gws::contract::{
-        ApiRequestObservation, GwsSemanticSurface, GwsSignalSource, NetworkRequestObservation,
+    use crate::poc::gws::{
+        contract::{
+            ApiRequestObservation, GwsSemanticSurface, GwsSignalSource, NetworkRequestObservation,
+        },
+        persist::GwsPocStore,
     };
 
     #[test]
@@ -327,5 +331,175 @@ mod tests {
             Some("gws.gmail.users_messages_send.requires_approval")
         );
         assert_eq!(gmail_decision.severity, Some(Severity::High));
+    }
+
+    #[test]
+    fn gws_allow_and_require_approval_records_persist_with_reflected_metadata() {
+        let allow_preview = preview_gws_policy_for_admin_activity_listing();
+        let require_approval_preview = preview_gws_policy_for_drive_permissions_update();
+        let store = GwsPocStore::fresh(unique_test_root()).expect("store should init");
+
+        store
+            .append_audit_record(&allow_preview.1)
+            .expect("allow audit record should append");
+        assert_eq!(
+            store
+                .latest_audit_record()
+                .expect("allow audit record should read"),
+            Some(allow_preview.1.clone())
+        );
+        assert_eq!(allow_preview.2.decision, PolicyDecisionKind::Allow);
+        assert_eq!(allow_preview.1.result.status, ResultStatus::Allowed);
+        assert!(allow_preview.3.is_none());
+
+        store
+            .append_audit_record(&require_approval_preview.1)
+            .expect("approval audit record should append");
+        let request = require_approval_preview
+            .3
+            .as_ref()
+            .expect("require approval should create approval request");
+        store
+            .append_approval_request(request)
+            .expect("approval request should append");
+
+        assert_eq!(
+            store
+                .latest_audit_record()
+                .expect("approval audit record should read"),
+            Some(require_approval_preview.1.clone())
+        );
+        assert_eq!(
+            store
+                .latest_approval_request()
+                .expect("approval request should read"),
+            Some(request.clone())
+        );
+        assert_eq!(
+            require_approval_preview.2.decision,
+            PolicyDecisionKind::RequireApproval
+        );
+        assert_eq!(
+            require_approval_preview.1.result.status,
+            ResultStatus::ApprovalRequired
+        );
+        assert_eq!(request.status, ApprovalStatus::Pending);
+    }
+
+    #[test]
+    fn gws_deny_decision_reflects_into_event_metadata_and_audit_record() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_deny");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let classified = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_gmail_users_messages_send(),
+                &session,
+            ))
+            .expect("gmail send should classify");
+        let observed = plan
+            .evaluate
+            .normalize_classified_action(&classified, &session);
+        let deny_decision = PolicyDecision {
+            decision: PolicyDecisionKind::Deny,
+            rule_id: Some("gws.gmail.users_messages_send.denied".to_owned()),
+            severity: Some(Severity::High),
+            reason: Some("Outbound Gmail send is denied by preview policy".to_owned()),
+            approval: None,
+            tags: vec!["gws".to_owned(), "gmail".to_owned(), "deny".to_owned()],
+        };
+        let enriched = apply_decision_to_event(&observed, &deny_decision);
+        let store = GwsPocStore::fresh(unique_test_root()).expect("store should init");
+
+        store
+            .append_audit_record(&enriched)
+            .expect("deny audit record should append");
+
+        assert_eq!(observed.result.status, ResultStatus::Observed);
+        assert_eq!(enriched.result.status, ResultStatus::Denied);
+        assert_eq!(
+            enriched.result.reason.as_deref(),
+            Some("Outbound Gmail send is denied by preview policy")
+        );
+        assert_eq!(
+            enriched.policy.as_ref().and_then(|policy| policy.decision),
+            Some(PolicyDecisionKind::Deny)
+        );
+        assert_eq!(
+            enriched
+                .policy
+                .as_ref()
+                .and_then(|policy| policy.rule_id.as_deref()),
+            Some("gws.gmail.users_messages_send.denied")
+        );
+        assert!(approval_request_from_decision(&enriched, &deny_decision).is_none());
+        assert_eq!(
+            store
+                .latest_audit_record()
+                .expect("deny audit record should read"),
+            Some(enriched)
+        );
+    }
+
+    fn preview_gws_policy_for_admin_activity_listing() -> (
+        agenta_core::EventEnvelope,
+        agenta_core::EventEnvelope,
+        PolicyDecision,
+        Option<agenta_core::ApprovalRequest>,
+    ) {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_allow");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let classified = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_admin_reports_activities_list(),
+                &session,
+            ))
+            .expect("admin reports list should classify");
+        let observed = plan
+            .evaluate
+            .normalize_classified_action(&classified, &session);
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(&observed))
+            .expect("gws rego should evaluate");
+        let enriched = apply_decision_to_event(&observed, &decision);
+        let approval_request = approval_request_from_decision(&enriched, &decision);
+
+        (observed, enriched, decision, approval_request)
+    }
+
+    fn preview_gws_policy_for_drive_permissions_update() -> (
+        agenta_core::EventEnvelope,
+        agenta_core::EventEnvelope,
+        PolicyDecision,
+        Option<agenta_core::ApprovalRequest>,
+    ) {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_drive");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let classified = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_drive_permissions_update(),
+                &session,
+            ))
+            .expect("drive permissions update should classify");
+        let observed = plan
+            .evaluate
+            .normalize_classified_action(&classified, &session);
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(&observed))
+            .expect("gws rego should evaluate");
+        let enriched = apply_decision_to_event(&observed, &decision);
+        let approval_request = approval_request_from_decision(&enriched, &decision);
+
+        (observed, enriched, decision, approval_request)
+    }
+
+    fn unique_test_root() -> std::path::PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time should advance")
+            .as_nanos();
+        std::env::temp_dir().join(format!("agent-auditor-hostd-gws-mod-test-{nonce}"))
     }
 }
