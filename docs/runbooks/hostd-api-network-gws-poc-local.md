@@ -16,6 +16,7 @@ The current GWS path is intentionally narrow:
 - classified GWS actions can be normalized into `agenta-core::EventEnvelope` values with `event_type=gws_action`
 - `agenta-policy` can evaluate normalized GWS events against the checked-in preview policy and return `allow` / `require_approval`
 - `require_approval` can derive a pending `ApprovalRequest`
+- reflected GWS hold and deny outcomes can be attached to `agenta-core` event metadata plus local approval / audit records
 - reflected GWS audit records and approval requests can be written to local JSONL files for inspection
 - the preview path is covered by focused unit tests, policy tests, the broad hostd smoke test, and a dedicated GWS smoke test
 
@@ -49,13 +50,20 @@ Expected output includes these GWS-oriented categories of lines:
 - `gws_enriched_api=...`
 - `gws_policy_decision_api=...`
 - `gws_approval_request_api=...`
+- `gws_enforcement_api=...`
 - `gws_normalized_admin=...`
 - `gws_enriched_admin=...`
 - `gws_policy_decision_admin=...`
 - `gws_approval_request_admin=...`
+- `gws_normalized_deny=...`
+- `gws_enriched_deny=...`
+- `gws_policy_decision_deny=...`
+- `gws_approval_request_deny=...`
+- `gws_enforcement_deny=...`
 - `persisted_gws_audit_record_require_approval=...`
 - `persisted_gws_approval_request=...`
 - `persisted_gws_audit_record_allow=...`
+- `persisted_gws_audit_record_deny=...`
 - `gws_record=...`
 
 Example shape:
@@ -69,11 +77,16 @@ gws_evaluate=sources=api_observation,network_observation surfaces=gws,gws.drive,
 gws_normalized_api={...}
 gws_policy_decision_api={...}
 gws_approval_request_api={...}
+gws_enforcement_api={...}
 gws_normalized_admin={...}
 gws_policy_decision_admin={...}
+gws_normalized_deny={...}
+gws_policy_decision_deny={...}
+gws_enforcement_deny={...}
 persisted_gws_audit_record_require_approval={...}
 persisted_gws_approval_request={...}
 persisted_gws_audit_record_allow={...}
+persisted_gws_audit_record_deny={...}
 gws_record=sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin record_fields=normalized_event,policy_decision,approval_request,redaction_status stages=persist->publish sinks=structured_log,audit_store,approval_store
 ```
 
@@ -160,6 +173,18 @@ The checked-in preview policy is intentionally narrow:
 - `admin.reports.activities.list` -> `allow`
 
 This is enough to prove the end-to-end event / policy / approval / audit path. It is **not** a complete Google Workspace governance policy.
+
+## How to interpret fail-open / fail-closed today
+
+Use this rule when reading the current bootstrap output:
+
+- if you see `gws_enforcement_api={... directive:"hold" ...}` for `drive.permissions.update`, `drive.files.get_media`, or `gmail.users.messages.send`, read it as **"the preview path would like to hold this"**, not **"the live request was actually paused"**
+- if you see `gws_enforcement_deny={... directive:"deny" ...}` for the synthetic Gmail-send example, read it as **reflected intended deny metadata**, not evidence that Gmail delivery was actually blocked
+- `admin.reports.activities.list` stays observe-only in the checked-in posture, so there is currently no deny/hold claim to make for that action
+
+In other words: the current GWS PoC can now reflect intended hold/deny outcomes into `agenta-core` events and local approval/audit records, but the live Google Workspace request path is still documented as fail-open until a validated intercept seam exists.
+
+For the per-action matrix, see [`../architecture/hostd-api-network-gws-action-catalog.md`](../architecture/hostd-api-network-gws-action-catalog.md).
 
 ## Known constraints
 
