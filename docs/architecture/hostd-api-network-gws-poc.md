@@ -150,5 +150,6 @@ This keeps the next tasks cleaner:
 - architecture overview: [`overview.md`](overview.md)
 - product requirements: [`../PRD.md`](../PRD.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
+- GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - enforcement foundation: [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md)
 - secret-access boundary reference: [`hostd-secret-access-poc.md`](hostd-secret-access-poc.md)
