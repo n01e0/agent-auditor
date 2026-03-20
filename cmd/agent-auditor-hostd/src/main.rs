@@ -2,7 +2,7 @@ use agent_auditor_hostd::poc::{
     HostdPocPlan,
     event_path::ExecEvent,
     filesystem::persist::FilesystemPocStore,
-    gws::contract::ApiRequestObservation,
+    gws::{contract::ApiRequestObservation, persist::GwsPocStore},
     network::{
         contract::{ClassifiedNetworkConnect, DestinationScope},
         persist::NetworkPocStore,
@@ -195,6 +195,86 @@ fn main() {
                 .expect("gws admin approval request should serialize")
         ),
         None => println!("gws_approval_request_admin=null"),
+    }
+    let gws_store = match GwsPocStore::bootstrap() {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("gws_store_error={error}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(error) = gws_store.append_audit_record(&gws_enriched_api) {
+        eprintln!("persisted_gws_audit_record_require_approval_error={error}");
+        std::process::exit(1);
+    }
+    match gws_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_gws_audit_record_require_approval={json}"),
+            Err(error) => {
+                eprintln!("persisted_gws_audit_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_gws_audit_record_require_approval_error=missing persisted gws audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_gws_audit_record_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Some(request) = &gws_approval_request_api
+        && let Err(error) = gws_store.append_approval_request(request)
+    {
+        eprintln!("persisted_gws_approval_request_error={error}");
+        std::process::exit(1);
+    }
+    match (
+        &gws_approval_request_api,
+        gws_store.latest_approval_request(),
+    ) {
+        (Some(_), Ok(Some(record))) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_gws_approval_request={json}"),
+            Err(error) => {
+                eprintln!("persisted_gws_approval_request_error={error}");
+                std::process::exit(1);
+            }
+        },
+        (Some(_), Ok(None)) => {
+            eprintln!(
+                "persisted_gws_approval_request_error=missing persisted gws approval request"
+            );
+            std::process::exit(1);
+        }
+        (Some(_), Err(error)) => {
+            eprintln!("persisted_gws_approval_request_error={error}");
+            std::process::exit(1);
+        }
+        (None, _) => {}
+    }
+    if let Err(error) = gws_store.append_audit_record(&gws_enriched_admin) {
+        eprintln!("persisted_gws_audit_record_allow_error={error}");
+        std::process::exit(1);
+    }
+    match gws_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_gws_audit_record_allow={json}"),
+            Err(error) => {
+                eprintln!("persisted_gws_audit_record_allow_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!("persisted_gws_audit_record_allow_error=missing persisted gws audit record");
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_gws_audit_record_allow_error={error}");
+            std::process::exit(1);
+        }
     }
     println!("gws_record={}", plan.api_network_gws.record.summary());
     println!(
