@@ -63,6 +63,7 @@ Current PoC milestone notes:
 - P1-5 normalizes the deterministic exec / exit PoC payloads into temporary `agenta-core::EventEnvelope` records before any richer attribution work lands
 - P1-6 adds a checked-in smoke fixture plus hostd unit/integration coverage so the PoC output stays stable in unprivileged CI
 - P1-7 records the local run steps and current PoC limitations in [`../runbooks/hostd-exec-exit-poc-local.md`](../runbooks/hostd-exec-exit-poc-local.md)
+- P5-5 adds a preview-only process deny / hold seam on top of normalized `process.exec` events without changing the observe-only ownership of this module
 
 Does **not** own:
 

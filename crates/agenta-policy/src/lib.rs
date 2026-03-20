@@ -14,6 +14,8 @@ pub type JsonMap = BTreeMap<String, Value>;
 
 const POLICY_ENTRYPOINT: &str = "data.agentauditor.authz.decision";
 const FILESYSTEM_POLICY_MODULE: &str = include_str!("../../../examples/policies/sensitive_fs.rego");
+const PROCESS_EXEC_POLICY_MODULE: &str =
+    include_str!("../../../examples/policies/process_exec.rego");
 const NETWORK_DESTINATION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/network_destination.rego");
 const SECRET_ACCESS_POLICY_MODULE: &str =
@@ -162,6 +164,16 @@ impl RegoPolicyEvaluator {
             vec![(
                 "examples/policies/sensitive_fs.rego".to_owned(),
                 FILESYSTEM_POLICY_MODULE.to_owned(),
+            )],
+        )
+    }
+
+    pub fn process_exec_example() -> Self {
+        Self::new(
+            POLICY_ENTRYPOINT,
+            vec![(
+                "examples/policies/process_exec.rego".to_owned(),
+                PROCESS_EXEC_POLICY_MODULE.to_owned(),
             )],
         )
     }
@@ -543,6 +555,73 @@ mod tests {
         assert_eq!(decision.reason.as_deref(), Some("blocked for test"));
         assert!(decision.approval.is_none());
         assert_eq!(decision.tags, vec!["filesystem", "deny"]);
+    }
+
+    #[test]
+    fn process_exec_rego_requires_approval_for_remote_shells() {
+        let event = process_event("evt_proc_hold", 4545, "ssh", "/usr/bin/ssh");
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&input)
+            .expect("process exec rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("proc.exec.ssh.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("remote shell execution requires approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(900),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(decision.tags, vec!["process", "approval"]);
+    }
+
+    #[test]
+    fn process_exec_rego_denies_destructive_rm() {
+        let event = process_event("evt_proc_deny", 4646, "rm", "/usr/bin/rm");
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&input)
+            .expect("process exec rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(decision.rule_id.as_deref(), Some("proc.exec.rm.denied"));
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("destructive rm execution is denied")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(decision.tags, vec!["process", "deny"]);
+    }
+
+    #[test]
+    fn process_exec_rego_allows_non_destructive_execs() {
+        let event = process_event("evt_proc_allow", 4242, "cargo", "/usr/bin/cargo");
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&input)
+            .expect("process exec rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(decision.rule_id.as_deref(), Some("default.allow"));
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(decision.reason.as_deref(), Some("no matching rule"));
+        assert!(decision.approval.is_none());
+        assert!(decision.tags.is_empty());
     }
 
     #[test]
@@ -1003,6 +1082,54 @@ mod tests {
                 pod_uid: None,
                 pid: Some(4242),
                 ppid: None,
+            },
+        )
+    }
+
+    fn process_event(event_id: &str, pid: u32, command: &str, filename: &str) -> EventEnvelope {
+        let mut attributes = JsonMap::new();
+        attributes.insert("pid".to_owned(), json!(pid));
+        attributes.insert("ppid".to_owned(), json!(1337));
+        attributes.insert("uid".to_owned(), json!(1000));
+        attributes.insert("gid".to_owned(), json!(1000));
+        attributes.insert("command".to_owned(), json!(command));
+        attributes.insert("filename".to_owned(), json!(filename));
+
+        EventEnvelope::new(
+            event_id,
+            EventType::ProcessExec,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: Some("bundle-bootstrap".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: ActionClass::Process,
+                verb: Some("exec".to_owned()),
+                target: Some(filename.to_owned()),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd exec/exit PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: CollectorKind::Ebpf,
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: Some(pid as i32),
+                ppid: Some(1337),
             },
         )
     }

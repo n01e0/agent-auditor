@@ -10,6 +10,7 @@ The current PoC is intentionally narrow:
 - userspace can decode deterministic exec/exit fixture payloads
 - exec/exit can be correlated with `ProcessLifecycleKey { pid, ppid }`
 - the decoded records can be normalized into temporary `agenta-core::EventEnvelope` values
+- those normalized exec records can feed a preview-only process `allow` / `deny` / `require_approval` policy path plus hold/deny outcome reflection
 - all of the above can be exercised in unprivileged CI with stable smoke coverage
 
 ## Prerequisites
@@ -37,6 +38,18 @@ Expected output includes these categories of lines:
 - `lifecycle_log=...`
 - `normalized_exec=...`
 - `normalized_exit=...`
+- `normalized_process_allow=...`
+- `process_policy_decision_allow=...`
+- `process_enforcement_allow=...`
+- `process_approval_request_allow=...`
+- `normalized_process_hold=...`
+- `process_policy_decision_hold=...`
+- `process_enforcement_hold=...`
+- `process_approval_request_hold=...`
+- `normalized_process_deny=...`
+- `process_policy_decision_deny=...`
+- `process_enforcement_deny=...`
+- `process_approval_request_deny=...`
 
 Example shape:
 
@@ -51,6 +64,18 @@ event_log_exit=event=process.exit transport=ring_buffer pid=4242 ...
 lifecycle_log=event=process.lifecycle transport=ring_buffer correlation=pid_ppid ...
 normalized_exec={...}
 normalized_exit={...}
+normalized_process_allow={...}
+process_policy_decision_allow={...}
+process_enforcement_allow={...}
+process_approval_request_allow={...}
+normalized_process_hold={...}
+process_policy_decision_hold={...}
+process_enforcement_hold={...}
+process_approval_request_hold={...}
+normalized_process_deny={...}
+process_policy_decision_deny={...}
+process_enforcement_deny={...}
+process_approval_request_deny={...}
 ```
 
 ## Validation commands
@@ -109,11 +134,15 @@ This is still a PoC. Important constraints:
    - P1-5 emits provisional `agenta-core::EventEnvelope` values
    - field choices like event ids, actor labeling, host id, and attribute layout are still PoC-level and may change
 
-5. **No enforcement or policy action yet**
-   - the flow is observe-only
-   - no deny/hold/approval behavior is wired into this PoC path
+5. **Process deny / hold remains preview-only**
+   - the bootstrap now models `allow`, `deny`, and `require_approval` outcomes for normalized `process.exec` events
+   - this is still a record-level preview and not a real pre-exec block or pause on a live host
 
-6. **Linux-local only**
+6. **No live process enforcement yet**
+   - there is no pre-exec interception, task suspension, approval resume, or safe interactive gate in this PoC
+   - the preview path exists to define the boundary and record shape before hook selection lands
+
+7. **Linux-local only**
    - this runbook describes the local Rust workflow for the current hostd PoC
    - container runtime integration, Kubernetes behavior, and production deployment are out of scope here
 
