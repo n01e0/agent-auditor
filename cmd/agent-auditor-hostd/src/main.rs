@@ -2,6 +2,7 @@ use agent_auditor_hostd::poc::{
     HostdPocPlan,
     event_path::ExecEvent,
     filesystem::persist::FilesystemPocStore,
+    gws::contract::ApiRequestObservation,
     network::{
         contract::{ClassifiedNetworkConnect, DestinationScope},
         persist::NetworkPocStore,
@@ -112,6 +113,89 @@ fn main() {
         serde_json::to_string(&gws_normalized_network)
             .expect("gws normalized network preview should serialize")
     );
+    let preview_gws_policy = |normalized: &agenta_core::EventEnvelope| {
+        let input = PolicyInput::from_event(normalized);
+        RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&input)
+            .map(|decision| {
+                let enriched = apply_decision_to_event(normalized, &decision);
+                let approval_request = approval_request_from_decision(&enriched, &decision);
+                (enriched, decision, approval_request)
+            })
+    };
+    let (gws_enriched_api, gws_policy_decision_api, gws_approval_request_api) =
+        match preview_gws_policy(&gws_normalized_api) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("gws_policy_api_error={error}");
+                std::process::exit(1);
+            }
+        };
+    println!(
+        "gws_enriched_api={}",
+        serde_json::to_string(&gws_enriched_api)
+            .expect("gws enriched api preview should serialize")
+    );
+    println!(
+        "gws_policy_decision_api={}",
+        serde_json::to_string(&gws_policy_decision_api)
+            .expect("gws api policy decision should serialize")
+    );
+    match &gws_approval_request_api {
+        Some(approval_request) => println!(
+            "gws_approval_request_api={}",
+            serde_json::to_string(approval_request)
+                .expect("gws api approval request should serialize")
+        ),
+        None => println!("gws_approval_request_api=null"),
+    }
+    let gws_admin_classified = match plan.api_network_gws.classify.classify_action(
+        &plan.api_network_gws.session_linkage.link_api_observation(
+            &ApiRequestObservation::preview_admin_reports_activities_list(),
+            &session,
+        ),
+    ) {
+        Some(classified) => classified,
+        None => {
+            eprintln!("gws_classify_admin_error=preview admin action did not classify");
+            std::process::exit(1);
+        }
+    };
+    let gws_normalized_admin = plan
+        .api_network_gws
+        .evaluate
+        .normalize_classified_action(&gws_admin_classified, &session);
+    let (gws_enriched_admin, gws_policy_decision_admin, gws_approval_request_admin) =
+        match preview_gws_policy(&gws_normalized_admin) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("gws_policy_admin_error={error}");
+                std::process::exit(1);
+            }
+        };
+    println!(
+        "gws_normalized_admin={}",
+        serde_json::to_string(&gws_normalized_admin)
+            .expect("gws normalized admin preview should serialize")
+    );
+    println!(
+        "gws_enriched_admin={}",
+        serde_json::to_string(&gws_enriched_admin)
+            .expect("gws enriched admin preview should serialize")
+    );
+    println!(
+        "gws_policy_decision_admin={}",
+        serde_json::to_string(&gws_policy_decision_admin)
+            .expect("gws admin policy decision should serialize")
+    );
+    match &gws_approval_request_admin {
+        Some(approval_request) => println!(
+            "gws_approval_request_admin={}",
+            serde_json::to_string(approval_request)
+                .expect("gws admin approval request should serialize")
+        ),
+        None => println!("gws_approval_request_admin=null"),
+    }
     println!("gws_record={}", plan.api_network_gws.record.summary());
     println!(
         "enforcement_decision={}",

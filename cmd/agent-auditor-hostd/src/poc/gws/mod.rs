@@ -35,10 +35,19 @@ impl ApiNetworkGwsPocPlan {
 
 #[cfg(test)]
 mod tests {
-    use agenta_core::{ActionClass, EventType, SessionRecord};
+    use agenta_core::{
+        ActionClass, ApprovalScope, ApprovalStatus, EventType, PolicyDecisionKind, ResultStatus,
+        SessionRecord, Severity,
+    };
+    use agenta_policy::{
+        PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
+        approval_request_from_decision,
+    };
 
     use super::ApiNetworkGwsPocPlan;
-    use crate::poc::gws::contract::{GwsSemanticSurface, GwsSignalSource};
+    use crate::poc::gws::contract::{
+        ApiRequestObservation, GwsSemanticSurface, GwsSignalSource, NetworkRequestObservation,
+    };
 
     #[test]
     fn bootstrap_plan_keeps_gws_phase_responsibilities_separate() {
@@ -197,5 +206,126 @@ mod tests {
             normalized.action.target.as_deref(),
             Some("drive.files/abc123/permissions/perm456")
         );
+    }
+
+    #[test]
+    fn gws_pipeline_can_evaluate_policy_for_admin_activity_listing() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_allow");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let classified = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_admin_reports_activities_list(),
+                &session,
+            ))
+            .expect("admin reports list should classify");
+        let event = plan
+            .evaluate
+            .normalize_classified_action(&classified, &session);
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&input)
+            .expect("gws rego should evaluate");
+        let enriched = apply_decision_to_event(&event, &decision);
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("gws.admin.reports.activities_list.allow")
+        );
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(event.result.status, ResultStatus::Observed);
+        assert_eq!(enriched.result.status, ResultStatus::Allowed);
+        assert!(approval_request_from_decision(&enriched, &decision).is_none());
+    }
+
+    #[test]
+    fn gws_pipeline_can_require_approval_for_drive_permission_updates() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_drive");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let classified = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_drive_permissions_update(),
+                &session,
+            ))
+            .expect("drive permissions update should classify");
+        let event = plan
+            .evaluate
+            .normalize_classified_action(&classified, &session);
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(&event))
+            .expect("gws rego should evaluate");
+        let enriched = apply_decision_to_event(&event, &decision);
+        let approval_request = approval_request_from_decision(&enriched, &decision)
+            .expect("require_approval should yield approval request");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("gws.drive.permissions_update.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(enriched.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(approval_request.status, ApprovalStatus::Pending);
+        assert_eq!(
+            approval_request.policy.scope,
+            Some(ApprovalScope::SingleAction)
+        );
+        assert_eq!(approval_request.policy.ttl_seconds, Some(1800));
+        assert_eq!(
+            approval_request.policy.reviewer_hint.as_deref(),
+            Some("security-oncall")
+        );
+    }
+
+    #[test]
+    fn gws_pipeline_can_require_approval_for_network_drive_downloads_and_gmail_send() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_network");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+
+        let drive_download = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_network_observation(
+                &NetworkRequestObservation::preview_drive_files_get_media(),
+                &session,
+            ))
+            .expect("drive download should classify");
+        let gmail_send = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_gmail_users_messages_send(),
+                &session,
+            ))
+            .expect("gmail send should classify");
+
+        let drive_decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(
+                &plan
+                    .evaluate
+                    .normalize_classified_action(&drive_download, &session),
+            ))
+            .expect("gws drive download rego should evaluate");
+        let gmail_decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&PolicyInput::from_event(
+                &plan
+                    .evaluate
+                    .normalize_classified_action(&gmail_send, &session),
+            ))
+            .expect("gws gmail send rego should evaluate");
+
+        assert_eq!(drive_decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            drive_decision.rule_id.as_deref(),
+            Some("gws.drive.files_get_media.requires_approval")
+        );
+        assert_eq!(drive_decision.severity, Some(Severity::Medium));
+        assert_eq!(gmail_decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            gmail_decision.rule_id.as_deref(),
+            Some("gws.gmail.users_messages_send.requires_approval")
+        );
+        assert_eq!(gmail_decision.severity, Some(Severity::High));
     }
 }
