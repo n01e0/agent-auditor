@@ -1,5 +1,6 @@
 use agent_auditor_hostd::poc::{
     HostdPocPlan,
+    enforcement::contract::{EnforcementOutcome, EnforcementScope},
     event_path::ExecEvent,
     filesystem::persist::FilesystemPocStore,
     gws::{contract::ApiRequestObservation, persist::GwsPocStore},
@@ -12,7 +13,7 @@ use agent_auditor_hostd::poc::{
         persist::SecretPocStore,
     },
 };
-use agenta_core::SessionRecord;
+use agenta_core::{PolicyDecision, PolicyDecisionKind, SessionRecord, Severity};
 use agenta_policy::{
     PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
     apply_enforcement_to_approval_request, apply_enforcement_to_event,
@@ -118,12 +119,12 @@ fn main() {
         RegoPolicyEvaluator::gws_action_example()
             .evaluate(&input)
             .map(|decision| {
-                let enriched = apply_decision_to_event(normalized, &decision);
-                let approval_request = approval_request_from_decision(&enriched, &decision);
-                (enriched, decision, approval_request)
+                let decision_applied = apply_decision_to_event(normalized, &decision);
+                let approval_request = approval_request_from_decision(&decision_applied, &decision);
+                (decision_applied, decision, approval_request)
             })
     };
-    let (gws_enriched_api, gws_policy_decision_api, gws_approval_request_api) =
+    let (gws_decision_applied_api, gws_policy_decision_api, gws_approval_request_api) =
         match preview_gws_policy(&gws_normalized_api) {
             Ok(parts) => parts,
             Err(error) => {
@@ -131,6 +132,23 @@ fn main() {
                 std::process::exit(1);
             }
         };
+    let gws_enforcement_api = match plan.api_network_gws.approval.apply(
+        &gws_decision_applied_api,
+        &gws_policy_decision_api,
+        gws_approval_request_api.as_ref(),
+    ) {
+        Ok(enforcement) => enforcement,
+        Err(error) => {
+            eprintln!("gws_enforcement_api_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let gws_enforcement_projection_api = gws_enforcement_api.record_projection();
+    let gws_enriched_api =
+        apply_enforcement_to_event(&gws_decision_applied_api, &gws_enforcement_projection_api);
+    let gws_approval_request_api = gws_approval_request_api.as_ref().map(|request| {
+        apply_enforcement_to_approval_request(request, &gws_enforcement_projection_api)
+    });
     println!(
         "gws_enriched_api={}",
         serde_json::to_string(&gws_enriched_api)
@@ -149,6 +167,11 @@ fn main() {
         ),
         None => println!("gws_approval_request_api=null"),
     }
+    println!(
+        "gws_enforcement_api={}",
+        serde_json::to_string(&gws_enforcement_api)
+            .expect("gws api enforcement preview should serialize")
+    );
     let gws_admin_classified = match plan.api_network_gws.classify.classify_action(
         &plan.api_network_gws.session_linkage.link_api_observation(
             &ApiRequestObservation::preview_admin_reports_activities_list(),
@@ -196,6 +219,71 @@ fn main() {
         ),
         None => println!("gws_approval_request_admin=null"),
     }
+    let gws_deny_classified = match plan.api_network_gws.classify.classify_action(
+        &plan.api_network_gws.session_linkage.link_api_observation(
+            &ApiRequestObservation::preview_gmail_users_messages_send(),
+            &session,
+        ),
+    ) {
+        Some(classified) => classified,
+        None => {
+            eprintln!("gws_classify_deny_error=preview gmail deny action did not classify");
+            std::process::exit(1);
+        }
+    };
+    let gws_normalized_deny = plan
+        .api_network_gws
+        .evaluate
+        .normalize_classified_action(&gws_deny_classified, &session);
+    let gws_policy_decision_deny = PolicyDecision {
+        decision: PolicyDecisionKind::Deny,
+        rule_id: Some("gws.gmail.users_messages_send.denied".to_owned()),
+        severity: Some(Severity::High),
+        reason: Some("Outbound Gmail send is denied by preview policy".to_owned()),
+        approval: None,
+        tags: vec!["gws".to_owned(), "gmail".to_owned(), "deny".to_owned()],
+    };
+    let gws_decision_applied_deny =
+        apply_decision_to_event(&gws_normalized_deny, &gws_policy_decision_deny);
+    let gws_approval_request_deny =
+        approval_request_from_decision(&gws_decision_applied_deny, &gws_policy_decision_deny);
+    let gws_enforcement_deny = EnforcementOutcome::denied(
+        EnforcementScope::Gws,
+        &gws_decision_applied_deny,
+        &gws_policy_decision_deny,
+    );
+    let gws_enriched_deny = apply_enforcement_to_event(
+        &gws_decision_applied_deny,
+        &gws_enforcement_deny.record_projection(),
+    );
+    println!(
+        "gws_normalized_deny={}",
+        serde_json::to_string(&gws_normalized_deny)
+            .expect("gws normalized deny preview should serialize")
+    );
+    println!(
+        "gws_enriched_deny={}",
+        serde_json::to_string(&gws_enriched_deny)
+            .expect("gws enriched deny preview should serialize")
+    );
+    println!(
+        "gws_policy_decision_deny={}",
+        serde_json::to_string(&gws_policy_decision_deny)
+            .expect("gws deny policy decision should serialize")
+    );
+    match &gws_approval_request_deny {
+        Some(approval_request) => println!(
+            "gws_approval_request_deny={}",
+            serde_json::to_string(approval_request)
+                .expect("gws deny approval request should serialize")
+        ),
+        None => println!("gws_approval_request_deny=null"),
+    }
+    println!(
+        "gws_enforcement_deny={}",
+        serde_json::to_string(&gws_enforcement_deny)
+            .expect("gws deny enforcement preview should serialize")
+    );
     let gws_store = match GwsPocStore::bootstrap() {
         Ok(store) => store,
         Err(error) => {
@@ -273,6 +361,27 @@ fn main() {
         }
         Err(error) => {
             eprintln!("persisted_gws_audit_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = gws_store.append_audit_record(&gws_enriched_deny) {
+        eprintln!("persisted_gws_audit_record_deny_error={error}");
+        std::process::exit(1);
+    }
+    match gws_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_gws_audit_record_deny={json}"),
+            Err(error) => {
+                eprintln!("persisted_gws_audit_record_deny_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!("persisted_gws_audit_record_deny_error=missing persisted gws audit record");
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_gws_audit_record_deny_error={error}");
             std::process::exit(1);
         }
     }

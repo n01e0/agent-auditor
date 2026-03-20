@@ -8,7 +8,7 @@ pub mod record;
 pub mod session_linkage;
 
 use self::{
-    classify::ClassifyPlan, evaluate::EvaluatePlan, record::RecordPlan,
+    approval::ApprovalPathPlan, classify::ClassifyPlan, evaluate::EvaluatePlan, record::RecordPlan,
     session_linkage::SessionLinkagePlan,
 };
 
@@ -17,6 +17,7 @@ pub struct ApiNetworkGwsPocPlan {
     pub session_linkage: SessionLinkagePlan,
     pub classify: ClassifyPlan,
     pub evaluate: EvaluatePlan,
+    pub approval: ApprovalPathPlan,
     pub record: RecordPlan,
 }
 
@@ -25,12 +26,14 @@ impl ApiNetworkGwsPocPlan {
         let session_linkage = SessionLinkagePlan::default();
         let classify = ClassifyPlan::from_session_linkage_boundary(session_linkage.handoff());
         let evaluate = EvaluatePlan::from_classification_boundary(classify.handoff());
+        let approval = ApprovalPathPlan::default();
         let record = RecordPlan::from_evaluation_boundary(evaluate.handoff());
 
         Self {
             session_linkage,
             classify,
             evaluate,
+            approval,
             record,
         }
     }
@@ -44,15 +47,20 @@ mod tests {
     };
     use agenta_policy::{
         PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
+        apply_enforcement_to_approval_request, apply_enforcement_to_event,
         approval_request_from_decision,
     };
 
     use super::ApiNetworkGwsPocPlan;
-    use crate::poc::gws::{
-        contract::{
-            ApiRequestObservation, GwsSemanticSurface, GwsSignalSource, NetworkRequestObservation,
+    use crate::poc::{
+        enforcement::contract::{EnforcementDirective, EnforcementOutcome, EnforcementScope},
+        gws::{
+            contract::{
+                ApiRequestObservation, GwsSemanticSurface, GwsSignalSource,
+                NetworkRequestObservation,
+            },
+            persist::GwsPocStore,
         },
-        persist::GwsPocStore,
     };
 
     #[test]
@@ -100,6 +108,18 @@ mod tests {
                 .responsibilities
                 .iter()
                 .all(|item| !item.contains("request adapters and egress observation"))
+        );
+        assert!(
+            plan.approval
+                .responsibilities
+                .iter()
+                .any(|item| item.contains("minimal require_approval path"))
+        );
+        assert!(
+            plan.approval
+                .responsibilities
+                .iter()
+                .all(|item| !item.contains("structured_log"))
         );
         assert!(
             plan.record
@@ -168,6 +188,14 @@ mod tests {
                 crate::poc::gws::contract::GwsActionKind::DriveFilesGetMedia,
                 crate::poc::gws::contract::GwsActionKind::GmailUsersMessagesSend,
                 crate::poc::gws::contract::GwsActionKind::AdminReportsActivitiesList,
+            ]
+        );
+        assert_eq!(
+            plan.approval.semantic_actions,
+            vec![
+                crate::poc::gws::contract::GwsActionKind::DrivePermissionsUpdate,
+                crate::poc::gws::contract::GwsActionKind::GmailUsersMessagesSend,
+                crate::poc::gws::contract::GwsActionKind::DriveFilesGetMedia,
             ]
         );
         assert_eq!(
@@ -336,9 +364,9 @@ mod tests {
     }
 
     #[test]
-    fn gws_allow_and_require_approval_records_persist_with_reflected_metadata() {
+    fn gws_hold_reflects_into_event_approval_and_audit_records() {
         let allow_preview = preview_gws_policy_for_admin_activity_listing();
-        let require_approval_preview = preview_gws_policy_for_drive_permissions_update();
+        let hold_preview = preview_gws_hold_for_drive_permissions_update();
         let store = GwsPocStore::fresh(unique_test_root()).expect("store should init");
 
         store
@@ -355,37 +383,49 @@ mod tests {
         assert!(allow_preview.3.is_none());
 
         store
-            .append_audit_record(&require_approval_preview.1)
-            .expect("approval audit record should append");
-        let request = require_approval_preview
-            .3
-            .as_ref()
-            .expect("require approval should create approval request");
+            .append_audit_record(&hold_preview.1)
+            .expect("hold audit record should append");
         store
-            .append_approval_request(request)
-            .expect("approval request should append");
+            .append_approval_request(&hold_preview.3)
+            .expect("hold approval request should append");
 
         assert_eq!(
             store
                 .latest_audit_record()
-                .expect("approval audit record should read"),
-            Some(require_approval_preview.1.clone())
+                .expect("hold audit record should read"),
+            Some(hold_preview.1.clone())
         );
         assert_eq!(
             store
                 .latest_approval_request()
-                .expect("approval request should read"),
-            Some(request.clone())
+                .expect("hold approval request should read"),
+            Some(hold_preview.3.clone())
+        );
+        assert_eq!(hold_preview.2.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(hold_preview.1.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(hold_preview.3.status, ApprovalStatus::Pending);
+        assert_eq!(hold_preview.4.scope, EnforcementScope::Gws);
+        assert_eq!(hold_preview.4.directive, EnforcementDirective::Hold);
+        assert_eq!(
+            hold_preview.4.status_reason,
+            "Drive permission updates require approval"
         );
         assert_eq!(
-            require_approval_preview.2.decision,
-            PolicyDecisionKind::RequireApproval
+            hold_preview
+                .1
+                .enforcement
+                .as_ref()
+                .and_then(|enforcement| enforcement.approval_id.as_deref()),
+            Some(hold_preview.3.approval_id.as_str())
         );
         assert_eq!(
-            require_approval_preview.1.result.status,
-            ResultStatus::ApprovalRequired
+            hold_preview
+                .3
+                .enforcement
+                .as_ref()
+                .map(|enforcement| enforcement.status),
+            Some(agenta_core::EnforcementStatus::Held)
         );
-        assert_eq!(request.status, ApprovalStatus::Pending);
     }
 
     #[test]
@@ -470,28 +510,8 @@ mod tests {
     }
 
     #[test]
-    fn gws_deny_decision_reflects_into_event_metadata_and_audit_record() {
-        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_deny");
-        let plan = ApiNetworkGwsPocPlan::bootstrap();
-        let classified = plan
-            .classify
-            .classify_action(&plan.session_linkage.link_api_observation(
-                &ApiRequestObservation::preview_gmail_users_messages_send(),
-                &session,
-            ))
-            .expect("gmail send should classify");
-        let observed = plan
-            .evaluate
-            .normalize_classified_action(&classified, &session);
-        let deny_decision = PolicyDecision {
-            decision: PolicyDecisionKind::Deny,
-            rule_id: Some("gws.gmail.users_messages_send.denied".to_owned()),
-            severity: Some(Severity::High),
-            reason: Some("Outbound Gmail send is denied by preview policy".to_owned()),
-            approval: None,
-            tags: vec!["gws".to_owned(), "gmail".to_owned(), "deny".to_owned()],
-        };
-        let enriched = apply_decision_to_event(&observed, &deny_decision);
+    fn gws_deny_reflects_enforcement_into_event_and_audit_record() {
+        let (observed, enriched, deny_decision, enforcement) = preview_gws_deny_for_gmail_send();
         let store = GwsPocStore::fresh(unique_test_root()).expect("store should init");
 
         store
@@ -500,6 +520,12 @@ mod tests {
 
         assert_eq!(observed.result.status, ResultStatus::Observed);
         assert_eq!(enriched.result.status, ResultStatus::Denied);
+        assert_eq!(enforcement.scope, EnforcementScope::Gws);
+        assert_eq!(enforcement.directive, EnforcementDirective::Deny);
+        assert_eq!(
+            enforcement.status_reason,
+            "Outbound Gmail send is denied by preview policy"
+        );
         assert_eq!(
             enriched.result.reason.as_deref(),
             Some("Outbound Gmail send is denied by preview policy")
@@ -514,6 +540,13 @@ mod tests {
                 .as_ref()
                 .and_then(|policy| policy.rule_id.as_deref()),
             Some("gws.gmail.users_messages_send.denied")
+        );
+        assert_eq!(
+            enriched
+                .enforcement
+                .as_ref()
+                .map(|enforcement| enforcement.status),
+            Some(agenta_core::EnforcementStatus::Denied)
         );
         assert!(approval_request_from_decision(&enriched, &deny_decision).is_none());
         assert_eq!(
@@ -551,11 +584,12 @@ mod tests {
         (observed, enriched, decision, approval_request)
     }
 
-    fn preview_gws_policy_for_drive_permissions_update() -> (
+    fn preview_gws_hold_for_drive_permissions_update() -> (
         agenta_core::EventEnvelope,
         agenta_core::EventEnvelope,
         PolicyDecision,
-        Option<agenta_core::ApprovalRequest>,
+        agenta_core::ApprovalRequest,
+        EnforcementOutcome,
     ) {
         let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_drive");
         let plan = ApiNetworkGwsPocPlan::bootstrap();
@@ -572,10 +606,54 @@ mod tests {
         let decision = RegoPolicyEvaluator::gws_action_example()
             .evaluate(&PolicyInput::from_event(&observed))
             .expect("gws rego should evaluate");
-        let enriched = apply_decision_to_event(&observed, &decision);
-        let approval_request = approval_request_from_decision(&enriched, &decision);
+        let decision_applied = apply_decision_to_event(&observed, &decision);
+        let approval_request = approval_request_from_decision(&decision_applied, &decision)
+            .expect("require approval should create approval request");
+        let enforcement = plan
+            .approval
+            .apply(&decision_applied, &decision, Some(&approval_request))
+            .expect("approval path should create held outcome");
+        let enforcement_projection = enforcement.record_projection();
+        let enriched = apply_enforcement_to_event(&decision_applied, &enforcement_projection);
+        let approval_request =
+            apply_enforcement_to_approval_request(&approval_request, &enforcement_projection);
 
-        (observed, enriched, decision, approval_request)
+        (observed, enriched, decision, approval_request, enforcement)
+    }
+
+    fn preview_gws_deny_for_gmail_send() -> (
+        agenta_core::EventEnvelope,
+        agenta_core::EventEnvelope,
+        PolicyDecision,
+        EnforcementOutcome,
+    ) {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_policy_deny");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let classified = plan
+            .classify
+            .classify_action(&plan.session_linkage.link_api_observation(
+                &ApiRequestObservation::preview_gmail_users_messages_send(),
+                &session,
+            ))
+            .expect("gmail send should classify");
+        let observed = plan
+            .evaluate
+            .normalize_classified_action(&classified, &session);
+        let deny_decision = PolicyDecision {
+            decision: PolicyDecisionKind::Deny,
+            rule_id: Some("gws.gmail.users_messages_send.denied".to_owned()),
+            severity: Some(Severity::High),
+            reason: Some("Outbound Gmail send is denied by preview policy".to_owned()),
+            approval: None,
+            tags: vec!["gws".to_owned(), "gmail".to_owned(), "deny".to_owned()],
+        };
+        let decision_applied = apply_decision_to_event(&observed, &deny_decision);
+        let enforcement =
+            EnforcementOutcome::denied(EnforcementScope::Gws, &decision_applied, &deny_decision);
+        let enriched =
+            apply_enforcement_to_event(&decision_applied, &enforcement.record_projection());
+
+        (observed, enriched, deny_decision, enforcement)
     }
 
     fn unique_test_root() -> std::path::PathBuf {
