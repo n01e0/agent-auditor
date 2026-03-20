@@ -37,8 +37,8 @@ impl ApiNetworkGwsPocPlan {
 #[cfg(test)]
 mod tests {
     use agenta_core::{
-        ActionClass, ApprovalConstraint, ApprovalScope, ApprovalStatus, EventType, PolicyDecision,
-        PolicyDecisionKind, ResultStatus, SessionRecord, Severity,
+        ActionClass, ApprovalScope, ApprovalStatus, EventType, PolicyDecision, PolicyDecisionKind,
+        ResultStatus, SessionRecord, Severity,
     };
     use agenta_policy::{
         PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
