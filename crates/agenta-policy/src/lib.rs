@@ -20,6 +20,7 @@ const NETWORK_DESTINATION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/network_destination.rego");
 const SECRET_ACCESS_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/secret_access.rego");
+const GWS_ACTION_POLICY_MODULE: &str = include_str!("../../../examples/policies/gws_action.rego");
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCoverageContext {
@@ -194,6 +195,16 @@ impl RegoPolicyEvaluator {
             vec![(
                 "examples/policies/secret_access.rego".to_owned(),
                 SECRET_ACCESS_POLICY_MODULE.to_owned(),
+            )],
+        )
+    }
+
+    pub fn gws_action_example() -> Self {
+        Self::new(
+            POLICY_ENTRYPOINT,
+            vec![(
+                "examples/policies/gws_action.rego".to_owned(),
+                GWS_ACTION_POLICY_MODULE.to_owned(),
             )],
         )
     }
@@ -1027,6 +1038,135 @@ mod tests {
         assert_eq!(decision.tags, vec!["secret", "deny"]);
     }
 
+    #[test]
+    fn gws_action_rego_requires_approval_for_drive_permissions_updates() {
+        let input = PolicyInput::from_event(&gws_event(
+            "evt_gws_drive_permissions_update",
+            "drive.permissions.update",
+            "drive.files/abc123/permissions/perm456",
+            "api_observation",
+            "gws.drive",
+        ));
+
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&input)
+            .expect("gws rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("gws.drive.permissions_update.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Drive permission updates require approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(
+            decision.tags,
+            vec!["gws".to_owned(), "drive".to_owned(), "approval".to_owned()]
+        );
+    }
+
+    #[test]
+    fn gws_action_rego_requires_approval_for_drive_content_downloads() {
+        let input = PolicyInput::from_event(&gws_event(
+            "evt_gws_drive_get_media",
+            "drive.files.get_media",
+            "drive.files/abc123",
+            "network_observation",
+            "gws.drive",
+        ));
+
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&input)
+            .expect("gws rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("gws.drive.files_get_media.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::Medium));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Drive file content downloads require approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(900),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+    }
+
+    #[test]
+    fn gws_action_rego_requires_approval_for_gmail_send() {
+        let input = PolicyInput::from_event(&gws_event(
+            "evt_gws_gmail_send",
+            "gmail.users.messages.send",
+            "gmail.users/me",
+            "api_observation",
+            "gws.gmail",
+        ));
+
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&input)
+            .expect("gws rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("gws.gmail.users_messages_send.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Outbound Gmail send requires approval")
+        );
+    }
+
+    #[test]
+    fn gws_action_rego_allows_admin_activity_listing() {
+        let input = PolicyInput::from_event(&gws_event(
+            "evt_gws_admin_reports",
+            "admin.reports.activities.list",
+            "admin.reports/users/all/applications/drive",
+            "api_observation",
+            "gws.admin",
+        ));
+
+        let decision = RegoPolicyEvaluator::gws_action_example()
+            .evaluate(&input)
+            .expect("gws rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("gws.admin.reports.activities_list.allow")
+        );
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Admin activity listing is read-only audit retrieval")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(
+            decision.tags,
+            vec!["gws".to_owned(), "admin".to_owned(), "allow".to_owned()]
+        );
+    }
+
     fn require_approval_decision() -> PolicyDecision {
         PolicyDecision {
             decision: PolicyDecisionKind::RequireApproval,
@@ -1189,6 +1329,75 @@ mod tests {
                 container_id: None,
                 pod_uid: None,
                 pid: Some(4242),
+                ppid: None,
+            },
+        )
+    }
+
+    fn gws_event(
+        event_id: &str,
+        semantic_action_label: &str,
+        target: &str,
+        source_kind: &str,
+        semantic_surface: &str,
+    ) -> EventEnvelope {
+        let mut attributes = JsonMap::new();
+        attributes.insert("source_kind".to_owned(), json!(source_kind));
+        attributes.insert("request_id".to_owned(), json!(format!("req_{event_id}")));
+        attributes.insert("transport".to_owned(), json!("https"));
+        attributes.insert("semantic_surface".to_owned(), json!(semantic_surface));
+        attributes.insert(
+            "semantic_action_label".to_owned(),
+            json!(semantic_action_label),
+        );
+        attributes.insert("target_hint".to_owned(), json!(target));
+        attributes.insert(
+            "classifier_labels".to_owned(),
+            json!([semantic_surface, semantic_action_label]),
+        );
+        attributes.insert(
+            "classifier_reasons".to_owned(),
+            json!(["classified for policy test"]),
+        );
+        attributes.insert("content_retained".to_owned(), json!(false));
+
+        EventEnvelope::new(
+            event_id,
+            EventType::GwsAction,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: Some("bundle-bootstrap".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: ActionClass::Gws,
+                verb: Some(semantic_action_label.to_owned()),
+                target: Some(target.to_owned()),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd API/network GWS PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: match source_kind {
+                    "api_observation" => CollectorKind::RuntimeHint,
+                    _ => CollectorKind::Ebpf,
+                },
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: None,
                 ppid: None,
             },
         )

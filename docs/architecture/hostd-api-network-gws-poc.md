@@ -82,6 +82,7 @@ Owns:
 - bridging normalized GWS semantic actions into `agenta-policy`
 - projecting `allow` / `deny` / `require_approval` plus approval-request candidates for recording
 - carrying the GWS redaction contract forward into the record stage
+- evaluating the checked-in preview policy at `examples/policies/gws_action.rego`
 
 Does **not** own:
 
