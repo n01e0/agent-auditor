@@ -145,7 +145,7 @@ These files are bootstrap artifacts for local inspection only. They are intentio
 
 ## Known constraints
 
-See [`../architecture/hostd-filesystem-known-constraints.md`](../architecture/hostd-filesystem-known-constraints.md) for the explicit limitations that still apply to this path.
+See [`../architecture/hostd-filesystem-known-constraints.md`](../architecture/hostd-filesystem-known-constraints.md) for the filesystem-specific limitations and [`hostd-enforcement-foundation-local.md`](hostd-enforcement-foundation-local.md) for the cross-cutting enforcement preview workflow shared with process events.
 
 ## When this runbook should change
 

@@ -128,6 +128,8 @@ This keeps the next tasks cleaner:
 
 - architecture overview: [`overview.md`](overview.md)
 - Rust implementation direction: [`rust-implementation.md`](rust-implementation.md)
+- local runbook: [`../runbooks/hostd-enforcement-foundation-local.md`](../runbooks/hostd-enforcement-foundation-local.md)
+- known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)
 - filesystem PoC boundary: [`hostd-filesystem-poc.md`](hostd-filesystem-poc.md)
 - filesystem known constraints: [`hostd-filesystem-known-constraints.md`](hostd-filesystem-known-constraints.md)
 - product requirements: [`../PRD.md`](../PRD.md)
