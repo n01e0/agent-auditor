@@ -35,6 +35,8 @@ impl ApiNetworkGwsPocPlan {
 
 #[cfg(test)]
 mod tests {
+    use agenta_core::{ActionClass, EventType, SessionRecord};
+
     use super::ApiNetworkGwsPocPlan;
     use crate::poc::gws::contract::{GwsSemanticSurface, GwsSignalSource};
 
@@ -165,6 +167,35 @@ mod tests {
         assert_eq!(
             plan.record.redaction_contract,
             "raw HTTP payloads, email bodies, and document contents must not cross the GWS linkage boundary"
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_normalizes_preview_gws_action_into_agenta_core() {
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_bootstrap");
+        let classified = plan
+            .classify
+            .classify_action(
+                &plan
+                    .session_linkage
+                    .preview_session_linked_api_action(&session),
+            )
+            .expect("preview api action should classify");
+
+        let normalized = plan
+            .evaluate
+            .normalize_classified_action(&classified, &session);
+
+        assert_eq!(normalized.event_type, EventType::GwsAction);
+        assert_eq!(normalized.action.class, ActionClass::Gws);
+        assert_eq!(
+            normalized.action.verb.as_deref(),
+            Some("drive.permissions.update")
+        );
+        assert_eq!(
+            normalized.action.target.as_deref(),
+            Some("drive.files/abc123/permissions/perm456")
         );
     }
 }

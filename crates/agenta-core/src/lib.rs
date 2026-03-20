@@ -15,6 +15,7 @@ pub enum EventType {
     FilesystemAccess,
     NetworkConnect,
     SecretAccess,
+    GwsAction,
     PolicyDecision,
     ApprovalRequested,
     ApprovalResolved,

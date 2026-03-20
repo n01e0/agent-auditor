@@ -339,6 +339,7 @@ fn event_type_label(event: &EventEnvelope) -> &'static str {
         agenta_core::EventType::FilesystemAccess => "filesystem_access",
         agenta_core::EventType::NetworkConnect => "network_connect",
         agenta_core::EventType::SecretAccess => "secret_access",
+        agenta_core::EventType::GwsAction => "gws_action",
         agenta_core::EventType::PolicyDecision => "policy_decision",
         agenta_core::EventType::ApprovalRequested => "approval_requested",
         agenta_core::EventType::ApprovalResolved => "approval_resolved",
