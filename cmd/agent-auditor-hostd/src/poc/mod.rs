@@ -1,3 +1,4 @@
+pub mod browser;
 pub mod contract;
 pub mod enforcement;
 pub mod event_path;
@@ -7,8 +8,9 @@ pub mod network;
 pub mod secret;
 
 use self::{
-    enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
-    loader::LoaderPlan, network::NetworkPocPlan, secret::SecretAccessPocPlan,
+    browser::BrowserGwsPocPlan, enforcement::EnforcementPocPlan, event_path::EventPathPlan,
+    filesystem::FilesystemPocPlan, loader::LoaderPlan, network::NetworkPocPlan,
+    secret::SecretAccessPocPlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +20,7 @@ pub struct HostdPocPlan {
     pub filesystem: FilesystemPocPlan,
     pub network: NetworkPocPlan,
     pub secret: SecretAccessPocPlan,
+    pub browser: BrowserGwsPocPlan,
     pub enforcement: EnforcementPocPlan,
 }
 
@@ -28,6 +31,7 @@ impl HostdPocPlan {
         let filesystem = FilesystemPocPlan::bootstrap();
         let network = NetworkPocPlan::bootstrap();
         let secret = SecretAccessPocPlan::bootstrap();
+        let browser = BrowserGwsPocPlan::bootstrap();
         let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
@@ -36,6 +40,7 @@ impl HostdPocPlan {
             filesystem,
             network,
             secret,
+            browser,
             enforcement,
         }
     }
@@ -45,6 +50,7 @@ impl HostdPocPlan {
 mod tests {
     use super::{HostdPocPlan, contract::EventTransport};
     use crate::poc::{
+        browser::contract::BrowserSignalSource,
         enforcement::contract::{EnforcementDirective, EnforcementScope},
         secret::contract::SecretSignalSource,
     };
@@ -101,6 +107,39 @@ mod tests {
         );
         assert_eq!(
             plan.secret.record.record_fields,
+            vec![
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "redaction_status",
+            ]
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_browser_gws_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(
+            plan.browser.session_linkage.sources,
+            vec![
+                BrowserSignalSource::ExtensionRelay,
+                BrowserSignalSource::AutomationBridge,
+            ]
+        );
+        assert_eq!(
+            plan.browser.classify.classification_fields,
+            vec![
+                "semantic_surface",
+                "semantic_action_label",
+                "target_hint",
+                "classifier_labels",
+                "classifier_reasons",
+                "content_retained",
+            ]
+        );
+        assert_eq!(
+            plan.browser.record.record_fields,
             vec![
                 "normalized_event",
                 "policy_decision",

@@ -199,6 +199,8 @@ Browser governance should attach to the same `session_id` model. The browser lay
 
 Google Workspace is the first planned semantic surface, but the contract should stay general.
 
+The first internal browser / GWS phase split is documented in [`hostd-browser-gws-poc.md`](hostd-browser-gws-poc.md).
+
 ## Near-term decisions fixed by this document
 
 - container-first before microVMs
