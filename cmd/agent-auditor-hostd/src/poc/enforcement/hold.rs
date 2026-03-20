@@ -1,4 +1,9 @@
-use super::contract::{AuditBoundary, DecisionBoundary, EnforcementDirective, EnforcementScope};
+use agenta_core::{ApprovalRequest, EventEnvelope, PolicyDecision};
+
+use super::contract::{
+    AuditBoundary, DecisionBoundary, EnforcementDirective, EnforcementError, EnforcementOutcome,
+    EnforcementScope,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HoldPlan {
@@ -43,6 +48,31 @@ impl HoldPlan {
         self.handoff.clone()
     }
 
+    pub fn apply(
+        &self,
+        scope: EnforcementScope,
+        event: &EventEnvelope,
+        decision: &PolicyDecision,
+        request: Option<&ApprovalRequest>,
+    ) -> Result<EnforcementOutcome, EnforcementError> {
+        if !self.directives.contains(&EnforcementDirective::Hold) {
+            return Err(EnforcementError::UnsupportedDirective {
+                stage: "hold",
+                directive: EnforcementDirective::Hold,
+                scope,
+                event_id: event.event_id.clone(),
+            });
+        }
+
+        let request = request.ok_or_else(|| EnforcementError::MissingApprovalRequest {
+            event_id: event.event_id.clone(),
+        })?;
+
+        Ok(EnforcementOutcome::held_for_approval(
+            scope, event, decision, request,
+        ))
+    }
+
     pub fn summary(&self) -> String {
         let scopes = self
             .scopes
@@ -69,9 +99,16 @@ impl HoldPlan {
 
 #[cfg(test)]
 mod tests {
+    use agenta_core::{
+        Action, ActionClass, Actor, ActorKind, ApprovalPolicy, ApprovalRequest,
+        ApprovalRequestAction, ApprovalStatus, CollectorKind, EventEnvelope, EventType,
+        PolicyDecision, PolicyDecisionKind, ResultInfo, ResultStatus, SessionRef, Severity,
+        SourceInfo,
+    };
+
     use super::HoldPlan;
     use crate::poc::enforcement::{
-        contract::{EnforcementDirective, EnforcementScope},
+        contract::{EnforcementDirective, EnforcementScope, EnforcementStatus},
         decision::DecisionPlan,
     };
 
@@ -111,5 +148,110 @@ mod tests {
             handoff.sinks,
             vec!["structured_log", "audit_store", "approval_store"]
         );
+    }
+
+    #[test]
+    fn hold_plan_turns_require_approval_into_a_held_outcome() {
+        let plan = HoldPlan::from_decision_boundary(DecisionPlan::default().handoff());
+        let event = fixture_event();
+        let decision = PolicyDecision {
+            decision: PolicyDecisionKind::RequireApproval,
+            rule_id: Some("fs.sensitive.read".to_owned()),
+            severity: Some(Severity::High),
+            reason: Some("sensitive path access requires approval".to_owned()),
+            approval: None,
+            tags: vec!["filesystem".to_owned(), "approval".to_owned()],
+        };
+        let request = fixture_request();
+
+        let outcome = plan
+            .apply(
+                EnforcementScope::Filesystem,
+                &event,
+                &decision,
+                Some(&request),
+            )
+            .expect("hold plan should apply with approval request");
+
+        assert_eq!(outcome.directive, EnforcementDirective::Hold);
+        assert_eq!(outcome.status, EnforcementStatus::Held);
+        assert_eq!(outcome.approval_id.as_deref(), Some("apr_evt_fs_hold"));
+        assert_eq!(outcome.expires_at, request.expires_at);
+        assert_eq!(
+            outcome.status_reason,
+            "sensitive path access requires approval"
+        );
+    }
+
+    fn fixture_event() -> EventEnvelope {
+        EventEnvelope::new(
+            "evt_fs_hold",
+            EventType::FilesystemAccess,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: None,
+                environment: None,
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: ActionClass::Filesystem,
+                verb: Some("read".to_owned()),
+                target: Some("/home/agent/.ssh/id_ed25519".to_owned()),
+                attributes: Default::default(),
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd filesystem PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: CollectorKind::Fanotify,
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: Some(4242),
+                ppid: None,
+            },
+        )
+    }
+
+    fn fixture_request() -> ApprovalRequest {
+        ApprovalRequest {
+            approval_id: "apr_evt_fs_hold".to_owned(),
+            status: ApprovalStatus::Pending,
+            requested_at: chrono::Utc::now(),
+            resolved_at: None,
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::minutes(30)),
+            session_id: "sess_bootstrap_hostd".to_owned(),
+            event_id: Some("evt_fs_hold".to_owned()),
+            request: ApprovalRequestAction {
+                action_class: ActionClass::Filesystem,
+                action_verb: "read".to_owned(),
+                target: Some("/home/agent/.ssh/id_ed25519".to_owned()),
+                summary: Some("sensitive path access requires approval".to_owned()),
+                attributes: Default::default(),
+            },
+            policy: ApprovalPolicy {
+                rule_id: "fs.sensitive.read".to_owned(),
+                severity: Some(Severity::High),
+                reason: Some("sensitive path access requires approval".to_owned()),
+                scope: None,
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            },
+            requester_context: Some(agenta_core::RequesterContext {
+                agent_reason: Some("sensitive path access requires approval".to_owned()),
+                human_request: None,
+            }),
+            decision: None,
+        }
     }
 }

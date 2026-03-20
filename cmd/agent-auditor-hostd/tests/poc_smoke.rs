@@ -35,6 +35,10 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         lines.get("event_log_filesystem_allow").map(String::as_str),
         fixtures["event_log_filesystem_allow"].as_str()
     );
+    assert_eq!(
+        lines.get("event_log_filesystem_deny").map(String::as_str),
+        fixtures["event_log_filesystem_deny"].as_str()
+    );
 
     let normalized_network_observed: Value = serde_json::from_str(
         lines
@@ -223,6 +227,15 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         &filesystem_policy_decision,
     );
 
+    let filesystem_enforcement: Value = serde_json::from_str(
+        lines
+            .get("filesystem_enforcement")
+            .expect("smoke output should include filesystem_enforcement"),
+    )
+    .expect("filesystem_enforcement should be valid json");
+    assert_json_subset(&fixtures["filesystem_enforcement"], &filesystem_enforcement);
+    assert!(filesystem_enforcement["expires_at"].is_string());
+
     let normalized_filesystem_allow: Value = serde_json::from_str(
         lines
             .get("normalized_filesystem_allow")
@@ -246,6 +259,17 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         &filesystem_policy_decision_allow,
     );
 
+    let filesystem_enforcement_allow: Value = serde_json::from_str(
+        lines
+            .get("filesystem_enforcement_allow")
+            .expect("smoke output should include filesystem_enforcement_allow"),
+    )
+    .expect("filesystem_enforcement_allow should be valid json");
+    assert_json_subset(
+        &fixtures["filesystem_enforcement_allow"],
+        &filesystem_enforcement_allow,
+    );
+
     let filesystem_approval_request_allow: Value = serde_json::from_str(
         lines
             .get("filesystem_approval_request_allow")
@@ -255,6 +279,51 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     assert_json_subset(
         &fixtures["filesystem_approval_request_allow"],
         &filesystem_approval_request_allow,
+    );
+
+    let normalized_filesystem_deny: Value = serde_json::from_str(
+        lines
+            .get("normalized_filesystem_deny")
+            .expect("smoke output should include normalized_filesystem_deny"),
+    )
+    .expect("normalized_filesystem_deny should be valid json");
+    assert_json_subset(
+        &fixtures["normalized_filesystem_deny"],
+        &normalized_filesystem_deny,
+    );
+    assert!(normalized_filesystem_deny["timestamp"].is_string());
+
+    let filesystem_policy_decision_deny: Value = serde_json::from_str(
+        lines
+            .get("filesystem_policy_decision_deny")
+            .expect("smoke output should include filesystem_policy_decision_deny"),
+    )
+    .expect("filesystem_policy_decision_deny should be valid json");
+    assert_json_subset(
+        &fixtures["filesystem_policy_decision_deny"],
+        &filesystem_policy_decision_deny,
+    );
+
+    let filesystem_enforcement_deny: Value = serde_json::from_str(
+        lines
+            .get("filesystem_enforcement_deny")
+            .expect("smoke output should include filesystem_enforcement_deny"),
+    )
+    .expect("filesystem_enforcement_deny should be valid json");
+    assert_json_subset(
+        &fixtures["filesystem_enforcement_deny"],
+        &filesystem_enforcement_deny,
+    );
+
+    let filesystem_approval_request_deny: Value = serde_json::from_str(
+        lines
+            .get("filesystem_approval_request_deny")
+            .expect("smoke output should include filesystem_approval_request_deny"),
+    )
+    .expect("filesystem_approval_request_deny should be valid json");
+    assert_json_subset(
+        &fixtures["filesystem_approval_request_deny"],
+        &filesystem_approval_request_deny,
     );
 
     let persisted_audit_record: Value = serde_json::from_str(

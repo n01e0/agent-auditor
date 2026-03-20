@@ -464,6 +464,26 @@ mod tests {
     }
 
     #[test]
+    fn sensitive_filesystem_rego_denies_sensitive_writes() {
+        let event = filesystem_event("/home/agent/.ssh/config", "write");
+        let input = PolicyInput::from_event(&event);
+
+        let decision = RegoPolicyEvaluator::sensitive_filesystem_example()
+            .evaluate(&input)
+            .expect("rego example should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(decision.rule_id.as_deref(), Some("fs.sensitive.write"));
+        assert_eq!(decision.severity, Some(Severity::Critical));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("sensitive path write is denied")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(decision.tags, vec!["filesystem", "deny"]);
+    }
+
+    #[test]
     fn evaluator_decodes_deny_decisions_from_rego_output() {
         let event = filesystem_event("/tmp/blocked", "read");
         let input = PolicyInput::from_event(&event);
