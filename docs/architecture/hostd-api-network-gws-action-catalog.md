@@ -43,6 +43,25 @@ That catalog is intentionally small and only fixes the first four semantic actio
 - `drive.files.get_media` stays at `p1` because it is a direct content-download path, but unlike the two `p0` actions it does not itself mutate sharing state or initiate an outbound send.
 - `admin.reports.activities.list` stays at `p2` because it is read-only audit retrieval and therefore should remain visible in policy and audit records without being treated like a high-risk mutation or exfiltration primitive.
 
+## P7-5 failure behavior and enforcement limitations
+
+The current GWS path now reflects `require_approval` and synthetic `deny` outcomes into `agenta-core` event metadata plus local approval / audit records. That is useful for contract validation, but it still does **not** mean any live Google Workspace request can be stopped inline.
+
+Until a real request adapter, browser relay, proxy, or egress-control seam can intercept the exact action before completion, every action below must still be documented as **fail-open for live execution**.
+
+| Semantic action | Preview posture | Current reflected result in records | Honest runtime claim today | Failure behavior today | What is still missing before stricter claims are valid |
+| --- | --- | --- | --- | --- | --- |
+| `drive.permissions.update` | `approval_hold_preview` | `require_approval` can become a reflected `hold` outcome plus a pending approval record | high-risk sharing mutation is visible and can be modeled as “would hold” | **fail-open** for the real PATCH; no validated pre-request gate exists yet | a live adapter/proxy/browser seam that can pause the permission update before Google accepts it, maintain approval state, and either resume or cancel safely |
+| `gmail.users.messages.send` | `approval_hold_preview` | `require_approval` can become a reflected `hold` outcome plus a pending approval record; synthetic `deny` can be reflected into audit metadata | outbound send risk is visible and the intended hold/deny decision can be recorded | **fail-open** for the real send; no validated send-blocking seam exists yet | a gate that can stop delivery before Gmail accepts the message, preserve hold state, and surface an operator decision without leaking the message |
+| `drive.files.get_media` | `approval_hold_preview` | `require_approval` can become a reflected `hold` outcome plus a pending approval record | content-download risk is visible and can be modeled as “would hold” | **fail-open** for the real download; the current PoC cannot stop byte delivery inline | a request/response control point that can stop or defer the content response before file bytes are returned |
+| `admin.reports.activities.list` | `observe_only_allow_preview` | current checked-in policy stays `allow`, so records stay observe/allow only | read-only audit retrieval remains visible for classification, policy, and audit | **fail-open / observe-only**; there is no deny/hold claim for this action in the checked-in posture | any future stricter claim would need a live intercept path first; until then even a future deny rule would still be documentation-only preview behavior |
+
+### Practical reading rule
+
+- `approval_hold_preview` means the docs and records may show the **intended** operator gate for that action.
+- It does **not** mean the repository has earned a fail-closed or real pause claim for the live Google Workspace request.
+- `observe_only_allow_preview` means the action is currently documented as visible-but-not-gated, even inside the preview contract.
+
 ## Why these fixed scopes
 
 ### `drive.permissions.update` → `drive.file`

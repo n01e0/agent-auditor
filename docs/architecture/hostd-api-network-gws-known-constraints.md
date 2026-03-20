@@ -37,24 +37,29 @@ This note records the current constraints of the `agent-auditor-hostd` API / net
      - Admin activity listing -> `allow`
    - it is not yet a complete Google Workspace governance model
 
-7. **No live deny or hold path for GWS actions yet**
+7. **No GWS action is inside a validated fail-closed subset yet**
+   - `drive.permissions.update`, `drive.files.get_media`, and `gmail.users.messages.send` now have documented `approval_hold_preview` posture and reflected hold metadata, but they still fail open for live execution
+   - `admin.reports.activities.list` stays `observe_only_allow_preview`, so it is visible in policy and audit records without any deny/hold runtime claim
+   - the per-action failure-behavior matrix lives in [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
+
+8. **No live deny or hold path for GWS actions yet**
    - the preview path can reflect `allow`, synthetic `deny`, and `require_approval` into event metadata and JSONL records
    - it does not yet stop a real API request before completion, hold an in-flight action, or resume work after approval resolution
 
-8. **Approval flow stops at record creation**
+9. **Approval flow stops at record creation**
    - `require_approval` currently enriches the event metadata and creates a pending `ApprovalRequest`
    - there is no approval inbox, reviewer workflow, callback into a GWS adapter, or resumed API execution after approval yet
 
-9. **Persistence is bootstrap-local and resettable**
+10. **Persistence is bootstrap-local and resettable**
    - GWS audit records and approval requests are appended to JSONL under `target/agent-auditor-hostd-gws-poc-store/`
    - the PoC store resets that directory on bootstrap, so this is not durable product storage yet
    - there is no lookup API, retention policy, compaction, replay support, or multi-process coordination
 
-10. **Fixture-backed smoke coverage is intentional**
+11. **Fixture-backed smoke coverage is intentional**
     - the dedicated GWS smoke test validates stable bootstrap preview output from hostd
     - it is not evidence that the same behavior has been validated against live Google Workspace traffic, real OAuth grants, or production admin tenants
 
-11. **Linux-local and single-host assumptions still apply**
+12. **Linux-local and single-host assumptions still apply**
     - this path assumes Linux and a Rust development workflow
     - host hardening, proxy deployment, browser integration, tenant setup, service-account management, and cross-host coordination are still outside this runbook-level PoC
 
@@ -66,6 +71,7 @@ Today’s GWS PoC is good for:
 - proving the shape of normalized `gws_action` events
 - proving a first semantic taxonomy for four Google Workspace actions
 - proving a narrow Rego decision path with `allow` / `require_approval`
+- proving reflected hold/deny metadata shape for local event, approval, and audit records
 - proving approval-request creation and local audit-record inspection
 - keeping CI coverage around the current API/network GWS design
 
@@ -75,7 +81,7 @@ It is **not yet** good evidence of:
 - robust real-world session correlation across adapters and network observers
 - comprehensive Google Workspace semantic coverage
 - runtime OAuth-scope verification
-- real-time enforcement safety on live API calls
+- fail-closed or inline-hold safety on live Google Workspace requests
 - durable product-grade audit storage or approval orchestration
 
 ## Related docs
