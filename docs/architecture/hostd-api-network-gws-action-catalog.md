@@ -23,6 +23,26 @@ For Drive methods, the official method docs often allow more than one scope. Thi
 | `gmail.users.messages.send` | `POST https://gmail.googleapis.com/gmail/v1/users/{userId}/messages/send` | `gmail.users/{userId}/messages:send` | Sends the specified message to the recipients in the `To`, `Cc`, and `Bcc` headers. | `https://www.googleapis.com/auth/gmail.send` | `https://mail.google.com/`, `https://www.googleapis.com/auth/gmail.modify`, `https://www.googleapis.com/auth/gmail.compose`, `https://www.googleapis.com/auth/gmail.send`, `https://www.googleapis.com/auth/gmail.addons.current.action.compose` |
 | `admin.reports.activities.list` | `GET https://admin.googleapis.com/admin/reports/v1/activity/users/{userKey or all}/applications/{applicationName}` | `admin.reports/activity/users/{userKey-or-all}/applications/{applicationName}` | Retrieves audit activity rows for a customer and application; this is read-only audit retrieval, not a mutating action. | `https://www.googleapis.com/auth/admin.reports.audit.readonly` | `https://www.googleapis.com/auth/admin.reports.audit.readonly` |
 
+## P7-2 enforcement priority and posture
+
+The checked-in preview policy at `examples/policies/gws_action.rego` now has a matching machine-readable posture catalog at `cmd/agent-auditor-hostd/src/poc/gws/posture.rs`.
+
+That catalog is intentionally small and only fixes the first four semantic actions so later GWS runtime work can depend on stable priority and posture labels without claiming that live interception already exists.
+
+| Semantic action | Priority | Primary risk | Preview policy decision | Defined posture |
+| --- | --- | --- | --- | --- |
+| `drive.permissions.update` | `p0` | sharing mutation | `require_approval` | `approval_hold_preview` |
+| `gmail.users.messages.send` | `p0` | outbound delivery | `require_approval` | `approval_hold_preview` |
+| `drive.files.get_media` | `p1` | content exfiltration | `require_approval` | `approval_hold_preview` |
+| `admin.reports.activities.list` | `p2` | audit read | `allow` | `observe_only_allow_preview` |
+
+### Why this priority order
+
+- `drive.permissions.update` stays at `p0` because changing Drive permissions can immediately broaden access and the official method also carries ownership-transfer semantics.
+- `gmail.users.messages.send` stays at `p0` because it can deliver content outside the tenant and present as the user.
+- `drive.files.get_media` stays at `p1` because it is a direct content-download path, but unlike the two `p0` actions it does not itself mutate sharing state or initiate an outbound send.
+- `admin.reports.activities.list` stays at `p2` because it is read-only audit retrieval and therefore should remain visible in policy and audit records without being treated like a high-risk mutation or exfiltration primitive.
+
 ## Why these fixed scopes
 
 ### `drive.permissions.update` → `drive.file`
@@ -74,11 +94,12 @@ The Reports API method doc and the Reports auth guide line up cleanly here: the 
 - phase boundary: [`hostd-api-network-gws-poc.md`](hostd-api-network-gws-poc.md)
 - local runbook: [`../runbooks/hostd-api-network-gws-poc-local.md`](../runbooks/hostd-api-network-gws-poc-local.md)
 - known constraints: [`hostd-api-network-gws-known-constraints.md`](hostd-api-network-gws-known-constraints.md)
+- posture contract: [`../../cmd/agent-auditor-hostd/src/poc/gws/posture.rs`](../../cmd/agent-auditor-hostd/src/poc/gws/posture.rs)
 - roadmap: [`../roadmaps/api-network-gws-semantic-action-layer-tasklist.md`](../roadmaps/api-network-gws-semantic-action-layer-tasklist.md)
 
 ## Out of scope for this note
 
 - proving at runtime which OAuth scope a token actually carried
 - handling every alternative Google scope combination in policy
-- deciding approval policy outcomes for these actions
+- implementing live GWS hold / deny interception from the new posture catalog
 - expanding beyond the first four GWS semantic actions
