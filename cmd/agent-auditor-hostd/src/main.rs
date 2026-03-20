@@ -94,6 +94,24 @@ fn main() {
         gws_classified_network.log_line()
     );
     println!("gws_evaluate={}", plan.api_network_gws.evaluate.summary());
+    let gws_normalized_api = plan
+        .api_network_gws
+        .evaluate
+        .normalize_classified_action(&gws_classified_api, &session);
+    println!(
+        "gws_normalized_api={}",
+        serde_json::to_string(&gws_normalized_api)
+            .expect("gws normalized api preview should serialize")
+    );
+    let gws_normalized_network = plan
+        .api_network_gws
+        .evaluate
+        .normalize_classified_action(&gws_classified_network, &session);
+    println!(
+        "gws_normalized_network={}",
+        serde_json::to_string(&gws_normalized_network)
+            .expect("gws normalized network preview should serialize")
+    );
     println!("gws_record={}", plan.api_network_gws.record.summary());
     println!(
         "enforcement_decision={}",
