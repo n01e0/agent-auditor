@@ -27,7 +27,7 @@ The redaction rule for this phase is also explicit from the start: raw HTTP requ
   - supported API/network signal-source labels and GWS surface labels
 - `session_linkage.rs`
   - API / network origin to session-identity boundary plan
-  - future home for minimal GWS session linkage contract work
+  - minimal `ApiRequestObservation` / `NetworkRequestObservation` → `SessionLinkedGwsAction` contract work
 - `classify.rs`
   - semantic GWS action classification plan after linkage
   - future home for GWS API / network semantic taxonomy

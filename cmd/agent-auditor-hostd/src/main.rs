@@ -49,6 +49,20 @@ fn main() {
         "gws_session_linkage={}",
         plan.api_network_gws.session_linkage.summary()
     );
+    println!(
+        "gws_session_linked_api={}",
+        plan.api_network_gws
+            .session_linkage
+            .preview_session_linked_api_action(&session)
+            .log_line()
+    );
+    println!(
+        "gws_session_linked_network={}",
+        plan.api_network_gws
+            .session_linkage
+            .preview_session_linked_network_action(&session)
+            .log_line()
+    );
     println!("gws_classify={}", plan.api_network_gws.classify.summary());
     println!("gws_evaluate={}", plan.api_network_gws.evaluate.summary());
     println!("gws_record={}", plan.api_network_gws.record.summary());
