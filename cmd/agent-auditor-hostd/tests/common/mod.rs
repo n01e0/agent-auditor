@@ -18,6 +18,15 @@ pub fn run_hostd_bootstrap() -> BTreeMap<String, String> {
     keyed_lines(&stdout)
 }
 
+pub fn json_line(lines: &BTreeMap<String, String>, key: &str) -> Value {
+    serde_json::from_str(
+        lines
+            .get(key)
+            .unwrap_or_else(|| panic!("smoke output should include {key}")),
+    )
+    .unwrap_or_else(|_| panic!("{key} should be valid json"))
+}
+
 pub fn keyed_lines(stdout: &str) -> BTreeMap<String, String> {
     stdout
         .lines()

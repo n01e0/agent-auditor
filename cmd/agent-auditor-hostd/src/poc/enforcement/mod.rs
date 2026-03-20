@@ -282,6 +282,46 @@ mod tests {
         assert_eq!(outcome.target.as_deref(), Some("/usr/bin/rm"));
     }
 
+    #[test]
+    fn filesystem_preview_hold_requires_approval_request() {
+        let plan = EnforcementPocPlan::bootstrap();
+        let event = normalized_filesystem_event("/home/agent/.ssh/id_ed25519", "read");
+        let decision = RegoPolicyEvaluator::sensitive_filesystem_example()
+            .evaluate(&PolicyInput::from_event(&event))
+            .expect("filesystem rego should evaluate");
+
+        let error = plan
+            .preview_filesystem_outcome(&event, &decision, None)
+            .expect_err("filesystem hold preview should fail without approval request");
+
+        assert!(matches!(
+            error,
+            crate::poc::enforcement::contract::EnforcementError::MissingApprovalRequest {
+                ref event_id
+            } if event_id == "poc_filesystem_access_4242_17_read"
+        ));
+    }
+
+    #[test]
+    fn process_preview_hold_requires_approval_request() {
+        let plan = EnforcementPocPlan::bootstrap();
+        let event = normalized_process_event(4545, "ssh", "/usr/bin/ssh");
+        let decision = RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&PolicyInput::from_event(&event))
+            .expect("process exec rego should evaluate");
+
+        let error = plan
+            .preview_process_outcome(&event, &decision, None)
+            .expect_err("process hold preview should fail without approval request");
+
+        assert!(matches!(
+            error,
+            crate::poc::enforcement::contract::EnforcementError::MissingApprovalRequest {
+                ref event_id
+            } if event_id == "poc_process_exec_4545_1337"
+        ));
+    }
+
     fn normalized_filesystem_event(path: &str, verb: &str) -> EventEnvelope {
         let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
         let plan = FilesystemPocPlan::bootstrap();
