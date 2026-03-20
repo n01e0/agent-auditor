@@ -215,6 +215,7 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     .expect("normalized_filesystem should be valid json");
     assert_json_subset(&fixtures["normalized_filesystem"], &normalized_filesystem);
     assert!(normalized_filesystem["timestamp"].is_string());
+    assert!(normalized_filesystem["enforcement"]["expires_at"].is_string());
 
     let filesystem_policy_decision: Value = serde_json::from_str(
         lines
@@ -247,6 +248,7 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         &normalized_filesystem_allow,
     );
     assert!(normalized_filesystem_allow["timestamp"].is_string());
+    assert!(normalized_filesystem_allow["enforcement"]["expires_at"].is_null());
 
     let filesystem_policy_decision_allow: Value = serde_json::from_str(
         lines
@@ -292,6 +294,7 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         &normalized_filesystem_deny,
     );
     assert!(normalized_filesystem_deny["timestamp"].is_string());
+    assert!(normalized_filesystem_deny["enforcement"]["expires_at"].is_null());
 
     let filesystem_policy_decision_deny: Value = serde_json::from_str(
         lines
@@ -334,6 +337,7 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     .expect("persisted_audit_record should be valid json");
     assert_json_subset(&fixtures["persisted_audit_record"], &persisted_audit_record);
     assert!(persisted_audit_record["timestamp"].is_string());
+    assert!(persisted_audit_record["enforcement"]["expires_at"].is_string());
 
     let persisted_approval_request: Value = serde_json::from_str(
         lines
@@ -347,4 +351,5 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     );
     assert!(persisted_approval_request["requested_at"].is_string());
     assert!(persisted_approval_request["expires_at"].is_string());
+    assert!(persisted_approval_request["enforcement"]["expires_at"].is_string());
 }

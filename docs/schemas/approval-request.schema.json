@@ -87,6 +87,28 @@
         }
       },
       "additionalProperties": false
+    },
+    "enforcement": {
+      "type": ["object", "null"],
+      "properties": {
+        "directive": {
+          "type": "string",
+          "enum": ["allow", "hold", "deny"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["allowed", "held", "denied", "observe_only_fallback"]
+        },
+        "status_reason": { "type": ["string", "null"] },
+        "enforced": { "type": "boolean" },
+        "coverage_gap": { "type": ["string", "null"] },
+        "approval_id": { "type": ["string", "null"] },
+        "expires_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

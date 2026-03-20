@@ -141,6 +141,7 @@ The exact policy output must be copied into:
 - the synchronous action response path
 - the audit log event for policy decisions
 - any approval request created from that decision
+- the follow-up enforcement result attached to events / approval records once runtime routing decides allow / hold / deny
 
 This prevents divergence between what was enforced and what was recorded.
 

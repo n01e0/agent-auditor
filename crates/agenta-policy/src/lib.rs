@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use agenta_core::{
     Action, Actor, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction, ApprovalStatus,
-    CollectorKind, EventEnvelope, PolicyDecision, PolicyDecisionKind, PolicyMetadata,
-    RequesterContext, ResultStatus, SessionRef,
+    CollectorKind, EnforcementInfo, EventEnvelope, PolicyDecision, PolicyDecisionKind,
+    PolicyMetadata, RequesterContext, ResultStatus, SessionRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -231,6 +231,20 @@ pub fn apply_decision_to_event(event: &EventEnvelope, decision: &PolicyDecision)
     enriched
 }
 
+pub fn apply_enforcement_to_event(
+    event: &EventEnvelope,
+    enforcement: &EnforcementInfo,
+) -> EventEnvelope {
+    let mut enriched = event.clone();
+    enriched.result.status = enforcement.status.result_status();
+    enriched.result.reason = enforcement
+        .status_reason
+        .clone()
+        .or_else(|| enriched.result.reason.clone());
+    enriched.enforcement = Some(enforcement.clone());
+    enriched
+}
+
 pub fn approval_request_from_decision(
     event: &EventEnvelope,
     decision: &PolicyDecision,
@@ -273,7 +287,18 @@ pub fn approval_request_from_decision(
             human_request: None,
         }),
         decision: None,
+        enforcement: None,
     })
+}
+
+pub fn apply_enforcement_to_approval_request(
+    request: &ApprovalRequest,
+    enforcement: &EnforcementInfo,
+) -> ApprovalRequest {
+    let mut enriched = request.clone();
+    enriched.expires_at = enforcement.expires_at.or(enriched.expires_at);
+    enriched.enforcement = Some(enforcement.clone());
+    enriched
 }
 
 fn result_status_for_decision(decision: PolicyDecisionKind) -> ResultStatus {
@@ -313,8 +338,9 @@ fn event_type_label(event: &EventEnvelope) -> &'static str {
 mod tests {
     use super::*;
     use agenta_core::{
-        ActionClass, ActorKind, ApprovalConstraint, ApprovalScope, EventEnvelope, EventType,
-        PolicyDecisionKind, ResultInfo, ResultStatus, Severity, SourceInfo,
+        ActionClass, ActorKind, ApprovalConstraint, ApprovalScope, EnforcementDirective,
+        EnforcementInfo, EnforcementStatus, EventEnvelope, EventType, PolicyDecisionKind,
+        ResultInfo, ResultStatus, Severity, SourceInfo,
     };
     use serde_json::json;
 
@@ -649,6 +675,63 @@ mod tests {
         };
 
         assert!(approval_request_from_decision(&event, &decision).is_none());
+    }
+
+    #[test]
+    fn apply_enforcement_to_event_attaches_runtime_outcome_metadata() {
+        let event = apply_decision_to_event(
+            &filesystem_event("/home/agent/.ssh/id_ed25519", "read"),
+            &require_approval_decision(),
+        );
+        let enforcement = EnforcementInfo {
+            directive: EnforcementDirective::Hold,
+            status: EnforcementStatus::Held,
+            status_reason: Some("sensitive path access requires approval".to_owned()),
+            enforced: true,
+            coverage_gap: None,
+            approval_id: Some("apr_evt_fs_1".to_owned()),
+            expires_at: Some(event.timestamp + chrono::Duration::minutes(30)),
+        };
+
+        let enriched = apply_enforcement_to_event(&event, &enforcement);
+
+        assert_eq!(enriched.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(
+            enriched
+                .enforcement
+                .as_ref()
+                .and_then(|value| value.approval_id.as_deref()),
+            Some("apr_evt_fs_1")
+        );
+        assert_eq!(
+            enriched.enforcement.as_ref().map(|value| value.directive),
+            Some(EnforcementDirective::Hold)
+        );
+    }
+
+    #[test]
+    fn apply_enforcement_to_approval_request_carries_hold_metadata_into_record() {
+        let event = apply_decision_to_event(
+            &filesystem_event("/home/agent/.ssh/id_ed25519", "read"),
+            &require_approval_decision(),
+        );
+        let request = approval_request_from_decision(&event, &require_approval_decision())
+            .expect("require approval should create request");
+        let enforcement = EnforcementInfo {
+            directive: EnforcementDirective::Hold,
+            status: EnforcementStatus::Held,
+            status_reason: Some("sensitive path access requires approval".to_owned()),
+            enforced: true,
+            coverage_gap: None,
+            approval_id: Some(request.approval_id.clone()),
+            expires_at: request.expires_at,
+        };
+
+        let enriched = apply_enforcement_to_approval_request(&request, &enforcement);
+
+        assert_eq!(enriched.approval_id, request.approval_id);
+        assert_eq!(enriched.expires_at, request.expires_at);
+        assert_eq!(enriched.enforcement, Some(enforcement));
     }
 
     #[test]

@@ -101,6 +101,44 @@ pub enum ApprovalStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum EnforcementDirective {
+    Allow,
+    Hold,
+    Deny,
+}
+
+impl EnforcementDirective {
+    pub fn result_status(self) -> ResultStatus {
+        match self {
+            Self::Allow => ResultStatus::Allowed,
+            Self::Hold => ResultStatus::ApprovalRequired,
+            Self::Deny => ResultStatus::Denied,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EnforcementStatus {
+    Allowed,
+    Held,
+    Denied,
+    ObserveOnlyFallback,
+}
+
+impl EnforcementStatus {
+    pub fn result_status(self) -> ResultStatus {
+        match self {
+            Self::Allowed => ResultStatus::Allowed,
+            Self::Held => ResultStatus::ApprovalRequired,
+            Self::Denied => ResultStatus::Denied,
+            Self::ObserveOnlyFallback => ResultStatus::Observed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SessionStatus {
     Starting,
     Running,
@@ -178,6 +216,17 @@ pub struct PolicyMetadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EnforcementInfo {
+    pub directive: EnforcementDirective,
+    pub status: EnforcementStatus,
+    pub status_reason: Option<String>,
+    pub enforced: bool,
+    pub coverage_gap: Option<String>,
+    pub approval_id: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceInfo {
     pub collector: CollectorKind,
     pub host_id: Option<String>,
@@ -204,6 +253,7 @@ pub struct EventEnvelope {
     pub action: Action,
     pub result: ResultInfo,
     pub policy: Option<PolicyMetadata>,
+    pub enforcement: Option<EnforcementInfo>,
     pub source: SourceInfo,
     pub integrity: Option<IntegrityInfo>,
 }
@@ -306,6 +356,7 @@ pub struct ApprovalRequest {
     pub policy: ApprovalPolicy,
     pub requester_context: Option<RequesterContext>,
     pub decision: Option<ApprovalDecisionRecord>,
+    pub enforcement: Option<EnforcementInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -345,6 +396,7 @@ impl EventEnvelope {
             action,
             result,
             policy: None,
+            enforcement: None,
             source,
             integrity: None,
         }
@@ -459,6 +511,39 @@ mod tests {
         assert_eq!(value["session"]["session_id"], json!("sess_evt"));
         assert_eq!(value["action"]["class"], json!("filesystem"));
         assert_eq!(value["result"]["status"], json!("approval_required"));
+        assert!(value["enforcement"].is_null());
         assert_eq!(value["source"]["collector"], json!("fanotify"));
+    }
+
+    #[test]
+    fn enforcement_status_maps_back_into_result_status() {
+        assert_eq!(
+            EnforcementDirective::Allow.result_status(),
+            ResultStatus::Allowed
+        );
+        assert_eq!(
+            EnforcementDirective::Hold.result_status(),
+            ResultStatus::ApprovalRequired
+        );
+        assert_eq!(
+            EnforcementDirective::Deny.result_status(),
+            ResultStatus::Denied
+        );
+        assert_eq!(
+            EnforcementStatus::Allowed.result_status(),
+            ResultStatus::Allowed
+        );
+        assert_eq!(
+            EnforcementStatus::Held.result_status(),
+            ResultStatus::ApprovalRequired
+        );
+        assert_eq!(
+            EnforcementStatus::Denied.result_status(),
+            ResultStatus::Denied
+        );
+        assert_eq!(
+            EnforcementStatus::ObserveOnlyFallback.result_status(),
+            ResultStatus::Observed
+        );
     }
 }

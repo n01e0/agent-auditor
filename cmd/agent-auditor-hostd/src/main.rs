@@ -13,6 +13,7 @@ use agent_auditor_hostd::poc::{
 use agenta_core::SessionRecord;
 use agenta_policy::{
     PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
+    apply_enforcement_to_approval_request, apply_enforcement_to_event,
     approval_request_from_decision,
 };
 
@@ -360,7 +361,15 @@ fn main() {
                 let approval_request = approval_request_from_decision(&normalized, &decision);
                 plan.enforcement
                     .preview_filesystem_outcome(&normalized, &decision, approval_request.as_ref())
-                    .map(|enforcement| (normalized, decision, approval_request, enforcement))
+                    .map(|enforcement| {
+                        let record_enforcement = enforcement.record_projection();
+                        let normalized =
+                            apply_enforcement_to_event(&normalized, &record_enforcement);
+                        let approval_request = approval_request.as_ref().map(|request| {
+                            apply_enforcement_to_approval_request(request, &record_enforcement)
+                        });
+                        (normalized, decision, approval_request, enforcement)
+                    })
                     .map_err(|error| {
                         agenta_policy::PolicyError::Evaluate(format!(
                             "filesystem enforcement preview failed: {error}"
