@@ -146,6 +146,13 @@ This is still a PoC. Important constraints:
    - this runbook describes the local Rust workflow for the current hostd PoC
    - container runtime integration, Kubernetes behavior, and production deployment are out of scope here
 
+## Cross-cutting enforcement docs
+
+For the shared filesystem/process enforcement preview seam layered on top of this exec path, also see:
+
+- [`hostd-enforcement-foundation-local.md`](hostd-enforcement-foundation-local.md)
+- [`../architecture/hostd-enforcement-known-constraints.md`](../architecture/hostd-enforcement-known-constraints.md)
+
 ## When this runbook should change
 
 Update this document when any of the following happens:

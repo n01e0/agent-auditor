@@ -91,5 +91,7 @@ This keeps later process tasks separate:
 
 - exec/exit PoC boundary: [`hostd-exec-exit-poc.md`](hostd-exec-exit-poc.md)
 - enforcement foundation: [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md)
+- enforcement local runbook: [`../runbooks/hostd-enforcement-foundation-local.md`](../runbooks/hostd-enforcement-foundation-local.md)
+- enforcement known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)
 - failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - local runbook: [`../runbooks/hostd-exec-exit-poc-local.md`](../runbooks/hostd-exec-exit-poc-local.md)
