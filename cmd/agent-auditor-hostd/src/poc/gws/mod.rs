@@ -1,3 +1,4 @@
+pub mod approval;
 pub mod classify;
 pub mod contract;
 pub mod evaluate;
