@@ -93,6 +93,15 @@ For the first enforcement foundation slice, the internal split is:
 
 See [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md) for the concrete P5-1 boundary.
 
+For the first process deny / hold preview slice, the seam is:
+
+- `event_path` owns normalized `process.exec` observations
+- Rego owns the exact process `allow` / `deny` / `require_approval` result
+- the shared enforcement foundation owns process preview routing into `hold` / `deny` outcomes
+- event / approval reflection owns copying that realized outcome back into shared record shapes
+
+See [`hostd-process-enforcement-poc.md`](hostd-process-enforcement-poc.md) for the concrete P5-5 boundary.
+
 ### `agent-auditor-controld`
 
 Responsibilities:

@@ -40,22 +40,34 @@ impl EnforcementPocPlan {
         decision: &PolicyDecision,
         approval_request: Option<&ApprovalRequest>,
     ) -> Result<EnforcementOutcome, EnforcementError> {
+        self.preview_outcome(
+            EnforcementScope::Filesystem,
+            event,
+            decision,
+            approval_request,
+        )
+    }
+
+    pub fn preview_process_outcome(
+        &self,
+        event: &EventEnvelope,
+        decision: &PolicyDecision,
+        approval_request: Option<&ApprovalRequest>,
+    ) -> Result<EnforcementOutcome, EnforcementError> {
+        self.preview_outcome(EnforcementScope::Process, event, decision, approval_request)
+    }
+
+    fn preview_outcome(
+        &self,
+        scope: EnforcementScope,
+        event: &EventEnvelope,
+        decision: &PolicyDecision,
+        approval_request: Option<&ApprovalRequest>,
+    ) -> Result<EnforcementOutcome, EnforcementError> {
         match self.decision.directive_for(decision.decision) {
-            EnforcementDirective::Allow => {
-                Ok(self
-                    .decision
-                    .allow_outcome(EnforcementScope::Filesystem, event, decision))
-            }
-            EnforcementDirective::Hold => self.hold.apply(
-                EnforcementScope::Filesystem,
-                event,
-                decision,
-                approval_request,
-            ),
-            EnforcementDirective::Deny => {
-                self.deny
-                    .apply(EnforcementScope::Filesystem, event, decision)
-            }
+            EnforcementDirective::Allow => Ok(self.decision.allow_outcome(scope, event, decision)),
+            EnforcementDirective::Hold => self.hold.apply(scope, event, decision, approval_request),
+            EnforcementDirective::Deny => self.deny.apply(scope, event, decision),
         }
     }
 }
@@ -72,6 +84,7 @@ mod tests {
     use super::EnforcementPocPlan;
     use crate::poc::{
         enforcement::contract::{EnforcementDirective, EnforcementScope, EnforcementStatus},
+        event_path::{EventPathPlan, ExecEvent},
         filesystem::FilesystemPocPlan,
     };
 
@@ -224,6 +237,51 @@ mod tests {
         assert_eq!(outcome.status_reason, "sensitive path write is denied");
     }
 
+    #[test]
+    fn process_preview_path_holds_remote_shell_exec_until_approval() {
+        let plan = EnforcementPocPlan::bootstrap();
+        let event = normalized_process_event(4545, "ssh", "/usr/bin/ssh");
+        let input = PolicyInput::from_event(&event);
+        let decision = RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&input)
+            .expect("process exec rego should evaluate");
+        let request = approval_request_from_decision(&event, &decision)
+            .expect("ssh exec should create approval request");
+
+        let outcome = plan
+            .preview_process_outcome(&event, &decision, Some(&request))
+            .expect("process preview should create hold outcome");
+
+        assert_eq!(outcome.directive, EnforcementDirective::Hold);
+        assert_eq!(outcome.status, EnforcementStatus::Held);
+        assert_eq!(outcome.policy_decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            outcome.approval_id.as_deref(),
+            Some("apr_poc_process_exec_4545_1337")
+        );
+        assert_eq!(outcome.target.as_deref(), Some("/usr/bin/ssh"));
+    }
+
+    #[test]
+    fn process_preview_path_denies_destructive_rm_exec() {
+        let plan = EnforcementPocPlan::bootstrap();
+        let event = normalized_process_event(4646, "rm", "/usr/bin/rm");
+        let input = PolicyInput::from_event(&event);
+        let decision = RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&input)
+            .expect("process exec rego should evaluate");
+
+        let outcome = plan
+            .preview_process_outcome(&event, &decision, None)
+            .expect("process preview should create deny outcome");
+
+        assert_eq!(outcome.directive, EnforcementDirective::Deny);
+        assert_eq!(outcome.status, EnforcementStatus::Denied);
+        assert_eq!(outcome.policy_decision, PolicyDecisionKind::Deny);
+        assert_eq!(outcome.status_reason, "destructive rm execution is denied");
+        assert_eq!(outcome.target.as_deref(), Some("/usr/bin/rm"));
+    }
+
     fn normalized_filesystem_event(path: &str, verb: &str) -> EventEnvelope {
         let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
         let plan = FilesystemPocPlan::bootstrap();
@@ -232,6 +290,29 @@ mod tests {
         let decision = RegoPolicyEvaluator::sensitive_filesystem_example()
             .evaluate(&PolicyInput::from_event(&observed))
             .expect("filesystem rego should evaluate");
+
+        agenta_policy::apply_decision_to_event(&observed, &decision)
+    }
+
+    fn normalized_process_event(pid: u32, command: &str, filename: &str) -> EventEnvelope {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
+        let plan = EventPathPlan::from_loader_boundary(
+            crate::poc::contract::LoaderBoundary::exec_exit_ring_buffer(),
+        );
+        let observed = plan.normalize_exec_event(
+            &ExecEvent {
+                pid,
+                ppid: 1337,
+                uid: 1000,
+                gid: 1000,
+                command: command.to_owned(),
+                filename: filename.to_owned(),
+            },
+            &session,
+        );
+        let decision = RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&PolicyInput::from_event(&observed))
+            .expect("process exec rego should evaluate");
 
         agenta_policy::apply_decision_to_event(&observed, &decision)
     }

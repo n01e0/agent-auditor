@@ -1,5 +1,6 @@
 use agent_auditor_hostd::poc::{
     HostdPocPlan,
+    event_path::ExecEvent,
     filesystem::persist::FilesystemPocStore,
     network::{
         contract::{ClassifiedNetworkConnect, DestinationScope},
@@ -338,6 +339,184 @@ fn main() {
         Ok(json) => println!("normalized_exit={json}"),
         Err(error) => {
             eprintln!("normalized_exit_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let preview_process_policy = |event: &ExecEvent| {
+        let observed = plan.event_path.normalize_exec_event(event, &session);
+        let input = PolicyInput::from_event(&observed);
+        RegoPolicyEvaluator::process_exec_example()
+            .evaluate(&input)
+            .and_then(|decision| {
+                let normalized = apply_decision_to_event(&observed, &decision);
+                let approval_request = approval_request_from_decision(&normalized, &decision);
+                plan.enforcement
+                    .preview_process_outcome(&normalized, &decision, approval_request.as_ref())
+                    .map(|enforcement| {
+                        let record_enforcement = enforcement.record_projection();
+                        let normalized =
+                            apply_enforcement_to_event(&normalized, &record_enforcement);
+                        let approval_request = approval_request.as_ref().map(|request| {
+                            apply_enforcement_to_approval_request(request, &record_enforcement)
+                        });
+                        (normalized, decision, approval_request, enforcement)
+                    })
+                    .map_err(|error| {
+                        agenta_policy::PolicyError::Evaluate(format!(
+                            "process enforcement preview failed: {error}"
+                        ))
+                    })
+            })
+    };
+
+    let (
+        normalized_process_allow,
+        process_policy_decision_allow,
+        process_approval_request_allow,
+        process_enforcement_allow,
+    ) = match preview_process_policy(&exec_delivery.event) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("process_policy_allow_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    match serde_json::to_string(&normalized_process_allow) {
+        Ok(json) => println!("normalized_process_allow={json}"),
+        Err(error) => {
+            eprintln!("normalized_process_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_policy_decision_allow) {
+        Ok(json) => println!("process_policy_decision_allow={json}"),
+        Err(error) => {
+            eprintln!("process_policy_decision_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_enforcement_allow) {
+        Ok(json) => println!("process_enforcement_allow={json}"),
+        Err(error) => {
+            eprintln!("process_enforcement_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_approval_request_allow) {
+        Ok(json) => println!("process_approval_request_allow={json}"),
+        Err(error) => {
+            eprintln!("process_approval_request_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let process_exec_hold = ExecEvent {
+        pid: 4545,
+        ppid: exec_delivery.event.ppid,
+        uid: exec_delivery.event.uid,
+        gid: exec_delivery.event.gid,
+        command: "ssh".to_owned(),
+        filename: "/usr/bin/ssh".to_owned(),
+    };
+    let (
+        normalized_process_hold,
+        process_policy_decision_hold,
+        process_approval_request_hold,
+        process_enforcement_hold,
+    ) = match preview_process_policy(&process_exec_hold) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("process_policy_hold_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    match serde_json::to_string(&normalized_process_hold) {
+        Ok(json) => println!("normalized_process_hold={json}"),
+        Err(error) => {
+            eprintln!("normalized_process_hold_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_policy_decision_hold) {
+        Ok(json) => println!("process_policy_decision_hold={json}"),
+        Err(error) => {
+            eprintln!("process_policy_decision_hold_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_enforcement_hold) {
+        Ok(json) => println!("process_enforcement_hold={json}"),
+        Err(error) => {
+            eprintln!("process_enforcement_hold_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_approval_request_hold) {
+        Ok(json) => println!("process_approval_request_hold={json}"),
+        Err(error) => {
+            eprintln!("process_approval_request_hold_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let process_exec_deny = ExecEvent {
+        pid: 4646,
+        ppid: exec_delivery.event.ppid,
+        uid: exec_delivery.event.uid,
+        gid: exec_delivery.event.gid,
+        command: "rm".to_owned(),
+        filename: "/usr/bin/rm".to_owned(),
+    };
+    let (
+        normalized_process_deny,
+        process_policy_decision_deny,
+        process_approval_request_deny,
+        process_enforcement_deny,
+    ) = match preview_process_policy(&process_exec_deny) {
+        Ok(preview) => preview,
+        Err(error) => {
+            eprintln!("process_policy_deny_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    match serde_json::to_string(&normalized_process_deny) {
+        Ok(json) => println!("normalized_process_deny={json}"),
+        Err(error) => {
+            eprintln!("normalized_process_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_policy_decision_deny) {
+        Ok(json) => println!("process_policy_decision_deny={json}"),
+        Err(error) => {
+            eprintln!("process_policy_decision_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_enforcement_deny) {
+        Ok(json) => println!("process_enforcement_deny={json}"),
+        Err(error) => {
+            eprintln!("process_enforcement_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match serde_json::to_string(&process_approval_request_deny) {
+        Ok(json) => println!("process_approval_request_deny={json}"),
+        Err(error) => {
+            eprintln!("process_approval_request_deny_error={error}");
             std::process::exit(1);
         }
     }

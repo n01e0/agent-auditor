@@ -198,6 +198,148 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     assert_json_subset(&fixtures["normalized_exec"], &normalized_exec);
     assert!(normalized_exec["timestamp"].is_string());
 
+    let normalized_process_allow: Value = serde_json::from_str(
+        lines
+            .get("normalized_process_allow")
+            .expect("smoke output should include normalized_process_allow"),
+    )
+    .expect("normalized_process_allow should be valid json");
+    assert_json_subset(
+        &fixtures["normalized_process_allow"],
+        &normalized_process_allow,
+    );
+    assert!(normalized_process_allow["timestamp"].is_string());
+    assert!(normalized_process_allow["enforcement"]["expires_at"].is_null());
+
+    let process_policy_decision_allow: Value = serde_json::from_str(
+        lines
+            .get("process_policy_decision_allow")
+            .expect("smoke output should include process_policy_decision_allow"),
+    )
+    .expect("process_policy_decision_allow should be valid json");
+    assert_json_subset(
+        &fixtures["process_policy_decision_allow"],
+        &process_policy_decision_allow,
+    );
+
+    let process_enforcement_allow: Value = serde_json::from_str(
+        lines
+            .get("process_enforcement_allow")
+            .expect("smoke output should include process_enforcement_allow"),
+    )
+    .expect("process_enforcement_allow should be valid json");
+    assert_json_subset(
+        &fixtures["process_enforcement_allow"],
+        &process_enforcement_allow,
+    );
+
+    let process_approval_request_allow: Value = serde_json::from_str(
+        lines
+            .get("process_approval_request_allow")
+            .expect("smoke output should include process_approval_request_allow"),
+    )
+    .expect("process_approval_request_allow should be valid json");
+    assert_json_subset(
+        &fixtures["process_approval_request_allow"],
+        &process_approval_request_allow,
+    );
+
+    let normalized_process_hold: Value = serde_json::from_str(
+        lines
+            .get("normalized_process_hold")
+            .expect("smoke output should include normalized_process_hold"),
+    )
+    .expect("normalized_process_hold should be valid json");
+    assert_json_subset(
+        &fixtures["normalized_process_hold"],
+        &normalized_process_hold,
+    );
+    assert!(normalized_process_hold["timestamp"].is_string());
+    assert!(normalized_process_hold["enforcement"]["expires_at"].is_string());
+
+    let process_policy_decision_hold: Value = serde_json::from_str(
+        lines
+            .get("process_policy_decision_hold")
+            .expect("smoke output should include process_policy_decision_hold"),
+    )
+    .expect("process_policy_decision_hold should be valid json");
+    assert_json_subset(
+        &fixtures["process_policy_decision_hold"],
+        &process_policy_decision_hold,
+    );
+
+    let process_enforcement_hold: Value = serde_json::from_str(
+        lines
+            .get("process_enforcement_hold")
+            .expect("smoke output should include process_enforcement_hold"),
+    )
+    .expect("process_enforcement_hold should be valid json");
+    assert_json_subset(
+        &fixtures["process_enforcement_hold"],
+        &process_enforcement_hold,
+    );
+    assert!(process_enforcement_hold["expires_at"].is_string());
+
+    let process_approval_request_hold: Value = serde_json::from_str(
+        lines
+            .get("process_approval_request_hold")
+            .expect("smoke output should include process_approval_request_hold"),
+    )
+    .expect("process_approval_request_hold should be valid json");
+    assert_json_subset(
+        &fixtures["process_approval_request_hold"],
+        &process_approval_request_hold,
+    );
+    assert!(process_approval_request_hold["requested_at"].is_string());
+    assert!(process_approval_request_hold["expires_at"].is_string());
+    assert!(process_approval_request_hold["enforcement"]["expires_at"].is_string());
+
+    let normalized_process_deny: Value = serde_json::from_str(
+        lines
+            .get("normalized_process_deny")
+            .expect("smoke output should include normalized_process_deny"),
+    )
+    .expect("normalized_process_deny should be valid json");
+    assert_json_subset(
+        &fixtures["normalized_process_deny"],
+        &normalized_process_deny,
+    );
+    assert!(normalized_process_deny["timestamp"].is_string());
+    assert!(normalized_process_deny["enforcement"]["expires_at"].is_null());
+
+    let process_policy_decision_deny: Value = serde_json::from_str(
+        lines
+            .get("process_policy_decision_deny")
+            .expect("smoke output should include process_policy_decision_deny"),
+    )
+    .expect("process_policy_decision_deny should be valid json");
+    assert_json_subset(
+        &fixtures["process_policy_decision_deny"],
+        &process_policy_decision_deny,
+    );
+
+    let process_enforcement_deny: Value = serde_json::from_str(
+        lines
+            .get("process_enforcement_deny")
+            .expect("smoke output should include process_enforcement_deny"),
+    )
+    .expect("process_enforcement_deny should be valid json");
+    assert_json_subset(
+        &fixtures["process_enforcement_deny"],
+        &process_enforcement_deny,
+    );
+
+    let process_approval_request_deny: Value = serde_json::from_str(
+        lines
+            .get("process_approval_request_deny")
+            .expect("smoke output should include process_approval_request_deny"),
+    )
+    .expect("process_approval_request_deny should be valid json");
+    assert_json_subset(
+        &fixtures["process_approval_request_deny"],
+        &process_approval_request_deny,
+    );
+
     let normalized_exit: Value = serde_json::from_str(
         lines
             .get("normalized_exit")

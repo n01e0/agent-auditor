@@ -921,5 +921,302 @@
     "coverage_gap": null,
     "approval_id": null
   },
-  "filesystem_approval_request_deny": null
+  "filesystem_approval_request_deny": null,
+  "normalized_process_allow": {
+    "event_id": "poc_process_exec_4242_1337",
+    "event_type": "process_exec",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "process",
+      "verb": "exec",
+      "target": "/usr/bin/cargo",
+      "attributes": {
+        "command": "cargo",
+        "filename": "/usr/bin/cargo",
+        "gid": 1000,
+        "lifecycle_key": "4242:1337",
+        "pid": 4242,
+        "ppid": 1337,
+        "uid": 1000
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "no matching rule",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "default.allow",
+      "severity": "low",
+      "explanation": "no matching rule"
+    },
+    "enforcement": {
+      "directive": "allow",
+      "status": "allowed",
+      "status_reason": "no matching rule",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": null
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4242,
+      "ppid": 1337
+    },
+    "integrity": null
+  },
+  "process_policy_decision_allow": {
+    "decision": "allow",
+    "rule_id": "default.allow",
+    "severity": "low",
+    "reason": "no matching rule",
+    "approval": null,
+    "tags": []
+  },
+  "process_enforcement_allow": {
+    "event_id": "poc_process_exec_4242_1337",
+    "scope": "process",
+    "target": "/usr/bin/cargo",
+    "action_verb": "exec",
+    "policy_decision": "allow",
+    "directive": "allow",
+    "status": "allowed",
+    "status_reason": "no matching rule",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": null
+  },
+  "process_approval_request_allow": null,
+  "normalized_process_hold": {
+    "event_id": "poc_process_exec_4545_1337",
+    "event_type": "process_exec",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "process",
+      "verb": "exec",
+      "target": "/usr/bin/ssh",
+      "attributes": {
+        "command": "ssh",
+        "filename": "/usr/bin/ssh",
+        "gid": 1000,
+        "lifecycle_key": "4545:1337",
+        "pid": 4545,
+        "ppid": 1337,
+        "uid": 1000
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "remote shell execution requires approval",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "proc.exec.ssh.requires_approval",
+      "severity": "high",
+      "explanation": "remote shell execution requires approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "remote shell execution requires approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_process_exec_4545_1337"
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4545,
+      "ppid": 1337
+    },
+    "integrity": null
+  },
+  "process_policy_decision_hold": {
+    "decision": "require_approval",
+    "rule_id": "proc.exec.ssh.requires_approval",
+    "severity": "high",
+    "reason": "remote shell execution requires approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 900,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": [
+      "process",
+      "approval"
+    ]
+  },
+  "process_enforcement_hold": {
+    "event_id": "poc_process_exec_4545_1337",
+    "scope": "process",
+    "target": "/usr/bin/ssh",
+    "action_verb": "exec",
+    "policy_decision": "require_approval",
+    "directive": "hold",
+    "status": "held",
+    "status_reason": "remote shell execution requires approval",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": "apr_poc_process_exec_4545_1337"
+  },
+  "process_approval_request_hold": {
+    "approval_id": "apr_poc_process_exec_4545_1337",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "poc_process_exec_4545_1337",
+    "request": {
+      "action_class": "process",
+      "action_verb": "exec",
+      "target": "/usr/bin/ssh",
+      "summary": "remote shell execution requires approval",
+      "attributes": {
+        "command": "ssh",
+        "filename": "/usr/bin/ssh",
+        "gid": 1000,
+        "lifecycle_key": "4545:1337",
+        "pid": 4545,
+        "ppid": 1337,
+        "uid": 1000
+      }
+    },
+    "policy": {
+      "rule_id": "proc.exec.ssh.requires_approval",
+      "severity": "high",
+      "reason": "remote shell execution requires approval",
+      "scope": "single_action",
+      "ttl_seconds": 900,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "remote shell execution requires approval",
+      "human_request": null
+    },
+    "decision": null,
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "remote shell execution requires approval",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": "apr_poc_process_exec_4545_1337"
+    }
+  },
+  "normalized_process_deny": {
+    "event_id": "poc_process_exec_4646_1337",
+    "event_type": "process_exec",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "initiator_id": null,
+      "workspace_id": null,
+      "policy_bundle_version": null,
+      "environment": null
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd",
+      "display_name": "agent-auditor-hostd PoC"
+    },
+    "action": {
+      "class": "process",
+      "verb": "exec",
+      "target": "/usr/bin/rm",
+      "attributes": {
+        "command": "rm",
+        "filename": "/usr/bin/rm",
+        "gid": 1000,
+        "lifecycle_key": "4646:1337",
+        "pid": 4646,
+        "ppid": 1337,
+        "uid": 1000
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "destructive rm execution is denied",
+      "exit_code": null,
+      "error": null
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "proc.exec.rm.denied",
+      "severity": "high",
+      "explanation": "destructive rm execution is denied"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "destructive rm execution is denied",
+      "enforced": true,
+      "coverage_gap": null,
+      "approval_id": null
+    },
+    "source": {
+      "collector": "ebpf",
+      "host_id": "hostd-poc",
+      "container_id": null,
+      "pod_uid": null,
+      "pid": 4646,
+      "ppid": 1337
+    },
+    "integrity": null
+  },
+  "process_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "proc.exec.rm.denied",
+    "severity": "high",
+    "reason": "destructive rm execution is denied",
+    "approval": null,
+    "tags": [
+      "process",
+      "deny"
+    ]
+  },
+  "process_enforcement_deny": {
+    "event_id": "poc_process_exec_4646_1337",
+    "scope": "process",
+    "target": "/usr/bin/rm",
+    "action_verb": "exec",
+    "policy_decision": "deny",
+    "directive": "deny",
+    "status": "denied",
+    "status_reason": "destructive rm execution is denied",
+    "enforced": true,
+    "coverage_gap": null,
+    "approval_id": null
+  },
+  "process_approval_request_deny": null
 }
