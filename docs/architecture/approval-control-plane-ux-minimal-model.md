@@ -182,6 +182,7 @@ Those bootstrap lines are only a local preview of the checked-in model shape. Th
 ## Related docs
 
 - phase boundary: [`approval-control-plane-ux-foundation.md`](approval-control-plane-ux-foundation.md)
+- ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - architecture overview: [`overview.md`](overview.md)
 - failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - hostd enforcement known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)
