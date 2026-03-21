@@ -65,6 +65,7 @@ Owns:
 - curating docs-backed GitHub method, canonical resource, side effect, auth-label, and privilege descriptors keyed by `provider_id + action_key`
 - keeping GitHub auth-label vocabulary aligned with the shared provider metadata contract from P8
 - acting as the descriptive catalog that policy, audit, docs, and later UI work can join against without re-running taxonomy
+- fixing the first six high-risk GitHub governance entries in [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
 
 Does **not** own:
 
@@ -140,7 +141,7 @@ Current checked-in taxonomy coverage stays redaction-safe:
 This keeps the next tasks cleaner:
 
 - **P9-2** can implement high-risk GitHub action taxonomy against a stable upstream seam
-- **P9-3** can refine GitHub metadata catalogs without owning request matching or audit persistence
+- **P9-3** fixes the first docs-backed GitHub metadata catalog without owning request matching or audit persistence
 - **P9-4 / P9-5** can normalize and evaluate GitHub governance actions against stable taxonomy and metadata seams
 - **P9-6** can reflect decisions into durable records without reaching back into taxonomy or metadata curation
 
@@ -159,6 +160,7 @@ This keeps the next tasks cleaner:
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
 - GitHub candidate catalog: [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
 - architecture overview: [`overview.md`](overview.md)
+- roadmap mirror: [`../roadmaps/github-semantic-governance-tasklist.md`](../roadmaps/github-semantic-governance-tasklist.md)
 - product requirements: [`../PRD.md`](../PRD.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
 - shared provider contract and metadata types: [`../../crates/agenta-core/src/provider.rs`](../../crates/agenta-core/src/provider.rs)

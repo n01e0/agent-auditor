@@ -1,54 +1,60 @@
 # provider abstraction GitHub candidate catalog
 
-This note fixes the first GitHub action candidates and the docs-backed metadata shape for the next provider slice after Google Workspace.
+This note fixes the docs-backed provider metadata for the first GitHub semantic-governance slice.
 
-It is intentionally a **catalog-only** document. It does not claim that a GitHub classifier, interceptor, or policy runtime already exists.
+It is intentionally a **catalog-only** document. It does not claim that a live GitHub interceptor, normalized event path, policy runtime, or approval recorder already exists.
 
 Snapshot date for the external source links below: **2026-03-21**.
 
 ## Why this note exists
 
-P8-2 through P8-5 already fixed the shared provider contract and metadata types:
+P8 fixed the shared provider contract and metadata shape, and P9-1 / P9-2 fixed the GitHub semantic-governance boundary plus the first checked-in GitHub action taxonomy.
 
-- contract identity: `provider_id + action_key + target_hint`
-- shared metadata fields: `method`, `canonical_resource`, `side_effect`, `oauth_scopes`, `privilege_class`
-- policy input surface: `input.provider_action.provider_id` + `input.provider_action.action_key`
+That still leaves one docs problem to solve before policy and record work lands:
 
-Before a GitHub provider implementation lands, the repository still needs one docs-backed answer to two questions:
+1. which GitHub semantic action keys are fixed for the first governance slice?
+2. what are the official method / canonical resource / required permission / side effect descriptors for each action?
 
-1. which GitHub action keys should the next slice treat as the initial candidate set?
-2. how should GitHub auth and metadata map onto the already-checked-in shared metadata shape?
+This note fixes those answers from official GitHub docs so later metadata, policy, audit, and UI work can join against one stable catalog instead of re-deciding endpoint facts mid-flight.
 
-This note fixes both so later implementation work can add code against a stable catalog instead of re-deciding names and field shapes mid-flight.
+## Fixed metadata shape for GitHub governance actions
 
-## Fixed metadata shape for GitHub candidates
+Every row below maps 1:1 onto `agenta_core::provider::ProviderActionMetadata`.
 
-Every GitHub catalog row below maps 1:1 onto `agenta_core::provider::ProviderActionMetadata`.
+The checked-in shared field names are still:
 
-The fixed rules are:
+- `method`
+- `canonical_resource`
+- `side_effect`
+- `oauth_scopes`
+- `privilege_class`
+
+For the GitHub governance slice, this note fixes the following interpretation rules:
 
 - `action.provider_id` is always `github`
-- `action.action_key` uses lowercase dotted keys with underscores only when the official action name needs them
-- `method` stays the official HTTP verb from the GitHub REST endpoint
-- `canonical_resource` is a redaction-safe resource template, never a raw issue body, PR body, file blob, diff, or review text
-- `side_effect` describes the observable effect of the endpoint, not the request payload
-- `privilege_class` stays on the shared enum values from `agenta-core`; we do **not** invent GitHub-only privilege labels for this layer
+- `action.action_key` must match the checked-in taxonomy keys from `cmd/agent-auditor-hostd/src/poc/github/taxonomy.rs`
+- `method` stays the official HTTP verb from the GitHub REST endpoint docs
+- `canonical_resource` stays a redaction-safe resource template, never a raw body, diff hunk, workflow YAML body, or secret value
+- `side_effect` describes the externally visible repository or workflow mutation that the endpoint performs
+- `oauth_scopes.primary` stores the docs-fixed **required permission** label in the shared auth-label format
+- `oauth_scopes.documented` can add the classic OAuth / PAT scope that the endpoint docs still mention
+- `privilege_class` stays on the shared `agenta-core` enum; we do not invent GitHub-only privilege classes here
 
-### Auth labels inside `oauth_scopes`
+### Auth label encoding inside `oauth_scopes`
 
-The checked-in shared field name is still `oauth_scopes`, but GitHub documentation mixes two auth vocabularies:
+GitHub documentation mixes two auth vocabularies:
 
-- fine-grained repository or organization permissions such as **Contents**, **Pull requests**, and **Administration**
-- classic OAuth / PAT scopes such as `repo`, `read:org`, and `admin:org`
+- fine-grained repository permissions such as **Administration**, **Actions**, **Contents**, and **Secrets**
+- classic OAuth / PAT scopes such as `repo`
 
-To keep the metadata JSON shape stable **without** pretending every GitHub auth label is literally an OAuth scope, this catalog fixes the following string forms inside `oauth_scopes`:
+To keep the checked-in metadata JSON shape stable without pretending every GitHub auth label is literally an OAuth scope, this catalog fixes the following string forms inside `oauth_scopes`:
 
-- `github.permission:<permission>:<access>` for fine-grained permission labels
-- `github.oauth:<scope>` for classic OAuth / PAT scope labels
+- `github.permission:<permission>:<access>` for fine-grained PAT / GitHub App-style permission labels
+- `github.oauth:<scope>` for classic OAuth / PAT scopes
 
-That gives later policy and audit code one stable auth-label field today, while still leaving room to split permissions vs scopes into separate types in a later phase if the repository ever needs that extra precision.
+That gives later policy and audit code one stable auth-label field while still preserving the official docs vocabulary.
 
-### JSON shape fixed for the next GitHub slice
+### JSON shape fixed for the first GitHub governance slice
 
 ```json
 {
@@ -56,85 +62,102 @@ That gives later policy and audit code one stable auth-label field today, while 
     {
       "action": {
         "provider_id": "github",
-        "action_key": "repos.contents.get"
+        "action_key": "pulls.merge"
       },
-      "method": "get",
-      "canonical_resource": "repos/{owner}/{repo}/contents/{path}",
-      "side_effect": "returns repository file or directory metadata and may return file content bytes via raw/object media types",
+      "method": "put",
+      "canonical_resource": "repos/{owner}/{repo}/pulls/{pull_number}",
+      "side_effect": "merges a pull request into the base branch",
       "oauth_scopes": {
-        "primary": "github.permission:contents:read",
+        "primary": "github.permission:contents:write",
         "documented": [
-          "github.permission:contents:read",
+          "github.permission:contents:write",
           "github.oauth:repo"
         ]
       },
-      "privilege_class": "content_read"
+      "privilege_class": "content_write"
     }
   ]
 }
 ```
 
-The table below fully instantiates that shape for the initial candidate action set.
+The table below fully instantiates that shape for the fixed P9 GitHub governance action set.
 
-## Fixed candidate action catalog
+## Fixed GitHub governance metadata catalog
 
-| Candidate action | Official method | Canonical resource | Observable side effect | Primary auth label | Documented auth labels | Privilege class |
+| Action key | Official method | Canonical resource | Required permission (official docs) | Observable side effect | Shared auth labels | Privilege class |
 | --- | --- | --- | --- | --- | --- | --- |
-| `repos.contents.get` | `GET /repos/{owner}/{repo}/contents/{path}` | `repos/{owner}/{repo}/contents/{path}` | Returns repository file or directory metadata and, for file reads with GitHub's raw/object media types, can return file content bytes or download URLs. | `github.permission:contents:read` | `github.permission:contents:read`, `github.oauth:repo` | `content_read` |
-| `repos.contents.create_or_update` | `PUT /repos/{owner}/{repo}/contents/{path}` | `repos/{owner}/{repo}/contents/{path}` | Creates a new file or updates an existing file by writing Base64-decoded content to the repository at the target path. | `github.permission:contents:write` | `github.permission:contents:write`, `github.oauth:repo` | `content_write` |
-| `pulls.create` | `POST /repos/{owner}/{repo}/pulls` | `repos/{owner}/{repo}/pulls` | Opens a pull request from a head branch to a base branch; creates a reviewable collaboration artifact and can notify subscribers or requested reviewers. | `github.permission:pull_requests:write` | `github.permission:pull_requests:write`, `github.oauth:repo` | `content_write` |
-| `repos.collaborators.add` | `PUT /repos/{owner}/{repo}/collaborators/{username}` | `repos/{owner}/{repo}/collaborators/{username}` | Adds a repository collaborator, invites an outside collaborator, or changes an existing collaborator's permission level; the endpoint explicitly triggers notifications. | `github.permission:administration:write` | `github.permission:administration:write`, `github.oauth:repo`, `github.oauth:read:org` | `sharing_write` |
+| `repos.update_visibility` | `PATCH /repos/{owner}/{repo}` | `repos/{owner}/{repo}` | Repository **Administration** permission: `write` | Mutates repository settings and can change repository visibility between public / private / internal modes. | Primary: `github.permission:administration:write`<br>Documented: `github.permission:administration:write`, `github.oauth:repo` | `admin_write` |
+| `branches.update_protection` | `PUT /repos/{owner}/{repo}/branches/{branch}/protection` | `repos/{owner}/{repo}/branches/{branch}/protection` | Repository **Administration** permission: `write` | Creates or replaces branch protection rules for the named branch, changing push / merge / review guardrails. | Primary: `github.permission:administration:write`<br>Documented: `github.permission:administration:write`, `github.oauth:repo` | `admin_write` |
+| `actions.workflow_dispatch` | `POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches` | `repos/{owner}/{repo}/actions/workflows/{workflow_id}` | Repository **Actions** permission: `write` | Creates a `workflow_dispatch` event and schedules a workflow run for the supplied ref / inputs. | Primary: `github.permission:actions:write`<br>Documented: `github.permission:actions:write`, `github.oauth:repo` | `admin_write` |
+| `actions.runs.rerun` | `POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun` | `repos/{owner}/{repo}/actions/runs/{run_id}` | Repository **Actions** permission: `write` | Re-runs the selected workflow run and can create another attempt with new job executions and logs. | Primary: `github.permission:actions:write`<br>Documented: `github.permission:actions:write`, `github.oauth:repo` | `admin_write` |
+| `pulls.merge` | `PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge` | `repos/{owner}/{repo}/pulls/{pull_number}` | Repository **Contents** permission: `write` | Merges the pull request into the base branch and updates repository history with a merge / squash / rebase result. | Primary: `github.permission:contents:write`<br>Documented: `github.permission:contents:write`, `github.oauth:repo` | `content_write` |
+| `actions.secrets.create_or_update` | `PUT /repos/{owner}/{repo}/actions/secrets/{secret_name}` | `repos/{owner}/{repo}/actions/secrets/{secret_name}` | Repository **Secrets** permission: `write` | Creates or updates an encrypted repository Actions secret that later workflows can consume without exposing the stored secret value. | Primary: `github.permission:secrets:write`<br>Documented: `github.permission:secrets:write`, `github.oauth:repo` | `admin_write` |
 
-## Why these four candidates
+## Official source map
 
-This initial GitHub slice is intentionally small, but it already exercises the shared cross-provider metadata model in a way that GWS alone could not prove:
+### `repos.update_visibility`
 
-- `repos.contents.get` fixes a **content-read** candidate that can expose repository bytes without introducing a Git blob or archive-specific contract yet
-- `repos.contents.create_or_update` fixes a **content-write** candidate against a common, high-signal repository mutation path
-- `pulls.create` fixes a **collaboration artifact creation** path that is not just file mutation, but still maps cleanly onto the shared metadata shape
-- `repos.collaborators.add` fixes a **sharing / access broadening** path so the GitHub slice is not limited to content-only actions
+- endpoint docs: <https://docs.github.com/en/rest/repos/repos#update-a-repository>
+- fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
 
-Together these four candidates prove that the shared contract and metadata fields can carry GitHub repository reads, writes, review-surface creation, and access mutations without inventing a second provider-specific metadata schema.
+### `branches.update_protection`
+
+- endpoint docs: <https://docs.github.com/en/rest/branches/branch-protection#update-branch-protection>
+- fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
+
+### `actions.workflow_dispatch`
+
+- endpoint docs: <https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event>
+- fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
+
+### `actions.runs.rerun`
+
+- endpoint docs: <https://docs.github.com/en/rest/actions/workflow-runs#re-run-a-workflow>
+- fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
+
+### `pulls.merge`
+
+- endpoint docs: <https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request>
+- fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
+
+### `actions.secrets.create_or_update`
+
+- endpoint docs: <https://docs.github.com/en/rest/actions/secrets#create-or-update-a-repository-secret>
+- fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
+
+## Why these six actions
+
+These six actions are the checked-in high-risk GitHub semantic-governance set from P9-2.
+
+Together they cover four governance-heavy mutation families that the earlier GitHub catalog did not pin down tightly enough:
+
+- repository-wide settings changes
+- branch policy / merge guardrail changes
+- workflow execution triggers and reruns
+- merge-path repository history mutation
+- repository secret writes
+
+That is enough for later metadata, policy, and record work to prove the GitHub slice against a stable docs-backed action catalog without pretending the rest of the GitHub API is already modeled.
 
 ## Deliberate non-goals for this catalog
 
-This note intentionally does **not** fix every plausible GitHub action up front.
+This note intentionally does **not** claim more than the docs support.
 
 Still out of scope here:
 
-- issue comments, review comments, and review submission sub-actions
-- webhook, Actions, Checks, and package-registry actions
-- org-level or enterprise-level audit-log slices
+- runtime proof that a live token actually carried the documented permission label
 - GraphQL-specific action naming
-- runtime proof that a live token actually carried the documented label in `oauth_scopes`
-- live interception, fail-closed claims, or enforcement posture claims for GitHub traffic
-
-The point of this note is smaller: the next GitHub provider phase should be able to start with a stable action key set and a stable metadata JSON shape.
-
-## Official source URLs
-
-### Repository contents
-
-- REST API endpoints for repository contents: <https://docs.github.com/en/rest/repos/contents>
-- Fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
-
-### Pull requests
-
-- REST API endpoints for pull requests: <https://docs.github.com/en/rest/pulls/pulls>
-- Fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
-
-### Collaborators
-
-- REST API endpoints for collaborators: <https://docs.github.com/en/rest/collaborators/collaborators>
-- Fine-grained PAT permissions reference: <https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens>
+- issue comments, review comments, review submissions, packages, checks, or org-wide audit-log slices
+- any live interception path, fail-closed guarantee, or enforcement claim for GitHub traffic
+- GitHub UI-only operations that do not map cleanly onto a fixed REST action identity yet
 
 ## Related docs
 
 - phase boundary: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
+- GitHub semantic-governance boundary: [`hostd-github-semantic-governance-poc.md`](hostd-github-semantic-governance-poc.md)
 - local runbook: [`../runbooks/provider-abstraction-foundation-local.md`](../runbooks/provider-abstraction-foundation-local.md)
 - known constraints: [`provider-abstraction-known-constraints.md`](provider-abstraction-known-constraints.md)
 - architecture overview: [`overview.md`](overview.md)
-- GitHub semantic-governance boundary: [`hostd-github-semantic-governance-poc.md`](hostd-github-semantic-governance-poc.md)
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - shared provider contract and metadata types: [`../../crates/agenta-core/src/provider.rs`](../../crates/agenta-core/src/provider.rs)
-- roadmap mirror: [`../roadmaps/provider-abstraction-foundation-tasklist.md`](../roadmaps/provider-abstraction-foundation-tasklist.md)
+- roadmap mirror: [`../roadmaps/github-semantic-governance-tasklist.md`](../roadmaps/github-semantic-governance-tasklist.md)

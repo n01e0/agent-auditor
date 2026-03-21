@@ -12,9 +12,9 @@ This note records the current constraints of the repository-wide provider-abstra
    - the current end-to-end preview that populates shared provider fields comes from `cmd/agent-auditor-hostd/src/poc/gws/`
    - the provider-abstraction smoke output is therefore proof that the shared contract works with the current GWS slice, not proof of a generalized multi-provider runtime
 
-3. **GitHub is taxonomy-implemented, not runtime-implemented**
-   - `provider-abstraction-github-candidate-catalog.md` fixes candidate action keys and metadata shape for the next provider slice
-   - `cmd/agent-auditor-hostd/src/poc/github/taxonomy.rs` now classifies six high-risk GitHub governance actions in a redaction-safe PoC taxonomy seam
+3. **GitHub is taxonomy- and metadata-fixed, not runtime-implemented**
+   - `provider-abstraction-github-candidate-catalog.md` now fixes the first six GitHub governance action keys plus docs-backed method / resource / required permission / side effect descriptors
+   - `cmd/agent-auditor-hostd/src/poc/github/taxonomy.rs` classifies those six high-risk GitHub governance actions in a redaction-safe PoC taxonomy seam
    - there is still no checked-in normalized GitHub event path, policy example, or hostd preview flow for those actions
 
 4. **Provider-specific taxonomy still lives in provider modules**
@@ -28,11 +28,13 @@ This note records the current constraints of the repository-wide provider-abstra
      - `drive.files.get_media`
      - `gmail.users.messages.send`
      - `admin.reports.activities.list`
-   - the GitHub catalog currently fixes four docs candidates only:
-     - `repos.contents.get`
-     - `repos.contents.create_or_update`
-     - `pulls.create`
-     - `repos.collaborators.add`
+   - the GitHub catalog now fixes six docs-backed governance actions:
+     - `repos.update_visibility`
+     - `branches.update_protection`
+     - `actions.workflow_dispatch`
+     - `actions.runs.rerun`
+     - `pulls.merge`
+     - `actions.secrets.create_or_update`
    - that is enough to stabilize the shape, not enough to claim broad provider coverage
 
 6. **`oauth_scopes` is currently a stable label container, not a perfect auth model**
@@ -73,7 +75,7 @@ Today’s provider-abstraction foundation is good for:
 - proving a provider-neutral metadata shape in `agenta-core`
 - proving that GWS can populate the shared provider contract end to end
 - proving that `agenta-policy` can evaluate on provider + action identity
-- fixing the first GitHub candidate action and metadata shape in docs
+- fixing the first GitHub governance action metadata catalog in docs
 - keeping CI coverage around the current shared contract / metadata / smoke-test agreement
 
 It is **not yet** good evidence of:
