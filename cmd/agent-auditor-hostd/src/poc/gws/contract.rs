@@ -1,6 +1,9 @@
 use std::fmt;
 
-use agenta_core::SessionRef;
+use agenta_core::{
+    SessionRef,
+    provider::{ActionKey, ProviderActionId, ProviderId, ProviderSemanticAction},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GwsSignalSource {
@@ -80,6 +83,33 @@ impl GwsActionKind {
             Self::GmailUsersMessagesSend => GwsSemanticSurface::GoogleWorkspaceGmail,
             Self::AdminReportsActivitiesList => GwsSemanticSurface::GoogleWorkspaceAdmin,
         }
+    }
+
+    pub fn provider_id(self) -> ProviderId {
+        ProviderId::gws()
+    }
+
+    pub fn action_key(self) -> ActionKey {
+        ActionKey::new(self.label()).expect("GWS action labels must be valid provider action keys")
+    }
+
+    pub fn provider_action_id(self) -> ProviderActionId {
+        ProviderActionId::new(self.provider_id(), self.action_key())
+    }
+
+    pub fn provider_semantic_action(
+        self,
+        target_hint: impl Into<String>,
+    ) -> ProviderSemanticAction {
+        ProviderSemanticAction::from_id(self.provider_action_id(), target_hint)
+    }
+
+    pub fn from_provider_action_id(action: &ProviderActionId) -> Option<Self> {
+        if action.provider_id != ProviderId::gws() {
+            return None;
+        }
+
+        Self::from_label(action.action_key.as_str())
     }
 
     pub fn classifier_labels(self) -> Vec<&'static str> {
@@ -287,6 +317,7 @@ pub struct ClassifiedGwsAction {
     pub destination_port: Option<u16>,
     pub semantic_surface: GwsSemanticSurface,
     pub semantic_action: GwsActionKind,
+    pub provider_action: ProviderSemanticAction,
     pub target_hint: String,
     pub classifier_labels: Vec<&'static str>,
     pub classifier_reasons: Vec<&'static str>,
@@ -294,13 +325,18 @@ pub struct ClassifiedGwsAction {
 }
 
 impl ClassifiedGwsAction {
+    pub fn provider_action_id(&self) -> ProviderActionId {
+        self.provider_action.id()
+    }
+
     pub fn log_line(&self) -> String {
         format!(
-            "event=gws.classified source={} request_id={} semantic_surface={} semantic_action={} target_hint={} content_retained={}",
+            "event=gws.classified source={} request_id={} semantic_surface={} semantic_action={} provider_action_id={} target_hint={} content_retained={}",
             self.source,
             self.request_id,
             self.semantic_surface,
             self.semantic_action,
+            self.provider_action_id(),
             self.target_hint,
             self.content_retained,
         )
@@ -330,4 +366,45 @@ pub struct RecordBoundary {
     pub semantic_surfaces: Vec<GwsSemanticSurface>,
     pub record_fields: Vec<&'static str>,
     pub redaction_contract: &'static str,
+}
+
+#[cfg(test)]
+mod tests {
+    use agenta_core::provider::ProviderId;
+
+    use super::GwsActionKind;
+
+    #[test]
+    fn gws_action_kind_maps_onto_shared_provider_contract() {
+        let action = GwsActionKind::DrivePermissionsUpdate;
+        let provider_action =
+            action.provider_semantic_action("drive.files/abc123/permissions/perm456");
+
+        assert_eq!(provider_action.provider_id, ProviderId::gws());
+        assert_eq!(
+            provider_action.action_key.as_str(),
+            "drive.permissions.update"
+        );
+        assert_eq!(
+            provider_action.target_hint(),
+            "drive.files/abc123/permissions/perm456"
+        );
+        assert_eq!(
+            action.provider_action_id().to_string(),
+            "gws:drive.permissions.update"
+        );
+        assert_eq!(
+            GwsActionKind::from_provider_action_id(&action.provider_action_id()),
+            Some(action)
+        );
+    }
+
+    #[test]
+    fn gws_action_kind_rejects_non_gws_provider_contract_identity() {
+        let github_action =
+            agenta_core::provider::ProviderActionId::from_parts("github", "repos.contents.get")
+                .unwrap();
+
+        assert_eq!(GwsActionKind::from_provider_action_id(&github_action), None);
+    }
 }

@@ -27,11 +27,14 @@ impl Default for ApprovalPathPlan {
                 "normalized_event",
                 "policy_decision",
                 "approval_request",
+                "provider_id",
+                "action_key",
                 "semantic_action_label",
                 "posture",
             ],
             responsibilities: vec![
                 "own the minimal require_approval path for normalized GWS semantic actions after policy evaluation",
+                "resolve GWS-specific posture from the shared provider contract first, with legacy semantic_action_label fallback during the transition",
                 "limit the preview path to actions whose posture is approval_hold_preview",
                 "require an approval request before projecting a held GWS enforcement outcome",
                 "handoff a GWS-scoped hold outcome for later event and record reflection without mutating persistence itself",
@@ -104,12 +107,15 @@ impl ApprovalPathPlan {
 }
 
 fn semantic_action_from_event(event: &EventEnvelope) -> Option<GwsActionKind> {
-    event
-        .action
-        .attributes
-        .get("semantic_action_label")
-        .and_then(Value::as_str)
-        .and_then(GwsActionKind::from_label)
+    action_from_provider_contract(event)
+        .or_else(|| {
+            event
+                .action
+                .attributes
+                .get("semantic_action_label")
+                .and_then(Value::as_str)
+                .and_then(GwsActionKind::from_label)
+        })
         .or_else(|| {
             event
                 .action
@@ -119,9 +125,30 @@ fn semantic_action_from_event(event: &EventEnvelope) -> Option<GwsActionKind> {
         })
 }
 
+fn action_from_provider_contract(event: &EventEnvelope) -> Option<GwsActionKind> {
+    let provider_id = event
+        .action
+        .attributes
+        .get("provider_id")
+        .and_then(Value::as_str)?;
+    let action_key = event
+        .action
+        .attributes
+        .get("action_key")
+        .and_then(Value::as_str)?;
+
+    if provider_id != "gws" {
+        return None;
+    }
+
+    GwsActionKind::from_label(action_key)
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ApprovalPathError {
-    #[error("gws approval path requires semantic_action_label for event `{event_id}`")]
+    #[error(
+        "gws approval path requires provider_id/action_key or semantic_action_label for event `{event_id}`"
+    )]
     MissingSemanticAction { event_id: String },
     #[error(
         "gws approval path only supports approval_hold_preview actions; event `{event_id}` action `{action}` had posture `{posture}`"
@@ -184,6 +211,8 @@ mod tests {
                 "normalized_event",
                 "policy_decision",
                 "approval_request",
+                "provider_id",
+                "action_key",
                 "semantic_action_label",
                 "posture",
             ]
@@ -278,16 +307,18 @@ mod tests {
     }
 
     #[test]
-    fn approval_path_plan_requires_semantic_action_label_when_gws_identity_is_missing() {
+    fn approval_path_plan_requires_provider_identity_when_gws_identity_is_missing() {
         let plan = ApprovalPathPlan::default();
         let (mut event, decision, request) =
             require_approval_preview(GwsActionKind::GmailUsersMessagesSend);
         event.action.verb = None;
+        event.action.attributes.remove("provider_id");
+        event.action.attributes.remove("action_key");
         event.action.attributes.remove("semantic_action_label");
 
-        let error = plan
-            .apply(&event, &decision, Some(&request))
-            .expect_err("approval path should reject events without a semantic action label");
+        let error = plan.apply(&event, &decision, Some(&request)).expect_err(
+            "approval path should reject events without provider or legacy semantic identity",
+        );
 
         assert_eq!(
             error,
@@ -304,7 +335,7 @@ mod tests {
         assert!(summary.contains(
             "semantic_actions=drive.permissions.update,gmail.users.messages.send,drive.files.get_media"
         ));
-        assert!(summary.contains("input_fields=normalized_event,policy_decision,approval_request,semantic_action_label,posture"));
+        assert!(summary.contains("input_fields=normalized_event,policy_decision,approval_request,provider_id,action_key,semantic_action_label,posture"));
         assert!(summary.contains("stages=accept->verify_posture->hold_projection"));
         assert!(summary.contains("directive=hold"));
     }

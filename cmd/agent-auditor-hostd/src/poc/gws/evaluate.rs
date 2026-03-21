@@ -28,7 +28,7 @@ impl EvaluatePlan {
             linkage_fields: boundary.linkage_fields,
             classification_fields: boundary.classification_fields,
             responsibilities: vec![
-                "normalize classified GWS semantic action candidates toward agenta-core event shapes",
+                "normalize classified GWS semantic action candidates toward agenta-core event shapes with the shared provider contract as the primary identity",
                 "bridge normalized GWS semantic actions into agenta-policy without re-linking sessions or re-running semantic classification",
                 "project allow, deny, and require_approval outcomes plus approval-request candidates for recording",
                 "carry the GWS redaction contract forward so downstream audit never needs raw HTTP payloads or document or message content",
@@ -66,10 +66,25 @@ impl EvaluatePlan {
             json!(action.semantic_surface.to_string()),
         );
         attributes.insert(
+            "provider_id".to_owned(),
+            json!(action.provider_action.provider_id.to_string()),
+        );
+        attributes.insert(
+            "action_key".to_owned(),
+            json!(action.provider_action.action_key.to_string()),
+        );
+        attributes.insert(
+            "provider_action_id".to_owned(),
+            json!(action.provider_action_id().to_string()),
+        );
+        attributes.insert(
             "semantic_action_label".to_owned(),
             json!(action.semantic_action.to_string()),
         );
-        attributes.insert("target_hint".to_owned(), json!(action.target_hint));
+        attributes.insert(
+            "target_hint".to_owned(),
+            json!(action.provider_action.target_hint()),
+        );
         attributes.insert(
             "classifier_labels".to_owned(),
             json!(action.classifier_labels),
@@ -115,8 +130,8 @@ impl EvaluatePlan {
             hostd_actor(),
             Action {
                 class: ActionClass::Gws,
-                verb: Some(action.semantic_action.to_string()),
-                target: Some(action.target_hint.clone()),
+                verb: Some(action.provider_action.action_key.to_string()),
+                target: Some(action.provider_action.target_hint().to_owned()),
                 attributes,
             },
             ResultInfo {
@@ -240,6 +255,8 @@ mod tests {
             ]
         );
         assert!(plan.linkage_fields.contains(&"session_id"));
+        assert!(plan.classification_fields.contains(&"provider_id"));
+        assert!(plan.classification_fields.contains(&"action_key"));
         assert!(
             plan.classification_fields
                 .contains(&"semantic_action_label")
@@ -314,6 +331,18 @@ mod tests {
             Some(&json!("gws.drive"))
         );
         assert_eq!(
+            envelope.action.attributes.get("provider_id"),
+            Some(&json!("gws"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("action_key"),
+            Some(&json!("drive.permissions.update"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("provider_action_id"),
+            Some(&json!("gws:drive.permissions.update"))
+        );
+        assert_eq!(
             envelope.action.attributes.get("semantic_action_label"),
             Some(&json!("drive.permissions.update"))
         );
@@ -369,6 +398,14 @@ mod tests {
             Some(&json!(443))
         );
         assert_eq!(
+            envelope.action.attributes.get("provider_id"),
+            Some(&json!("gws"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("action_key"),
+            Some(&json!("drive.files.get_media"))
+        );
+        assert_eq!(
             envelope.action.attributes.get("semantic_action_label"),
             Some(&json!("drive.files.get_media"))
         );
@@ -409,8 +446,26 @@ mod tests {
         assert_eq!(gmail.action.class, ActionClass::Gws);
         assert_eq!(admin.action.class, ActionClass::Gws);
         assert_eq!(
+            gmail.action.attributes.get("provider_id"),
+            Some(&json!("gws"))
+        );
+        assert_eq!(
+            admin.action.attributes.get("provider_id"),
+            Some(&json!("gws"))
+        );
+        assert_eq!(
+            gmail.action.attributes.get("action_key"),
+            Some(&json!(GwsActionKind::GmailUsersMessagesSend.to_string()))
+        );
+        assert_eq!(
             gmail.action.attributes.get("semantic_action_label"),
             Some(&json!(GwsActionKind::GmailUsersMessagesSend.to_string()))
+        );
+        assert_eq!(
+            admin.action.attributes.get("action_key"),
+            Some(&json!(
+                GwsActionKind::AdminReportsActivitiesList.to_string()
+            ))
         );
         assert_eq!(
             admin.action.attributes.get("semantic_action_label"),
@@ -438,7 +493,7 @@ mod tests {
 
         assert!(summary.contains("sources=api_observation,network_observation"));
         assert!(summary.contains("stages=normalize->policy->approval_projection"));
-        assert!(summary.contains("classification_fields=semantic_surface,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained"));
+        assert!(summary.contains("classification_fields=semantic_surface,provider_id,action_key,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained"));
     }
 
     fn fixture_session() -> SessionRecord {
