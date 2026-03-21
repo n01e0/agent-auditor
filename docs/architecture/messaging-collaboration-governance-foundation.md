@@ -26,8 +26,8 @@ The redaction rule for this phase is explicit from the start: messaging seams sh
 
 `crates/agenta-core/src/messaging.rs`
 
-- planned home for the concrete messaging / collaboration governance contract from P11-3
-- provider-neutral messaging action family and target descriptors
+- checked-in home for the concrete messaging / collaboration governance contract from P11-3
+- provider-neutral `MessagingAction`, `MessagingActionFamily`, `DeliveryScope`, and messaging target descriptor types
 - checked-in type surface that `agenta-policy`, audit records, and later provider modules can share
 
 `cmd/agent-auditor-hostd/src/poc/messaging/`

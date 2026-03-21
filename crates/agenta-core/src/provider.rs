@@ -26,12 +26,20 @@ impl ProviderId {
         Self("github".to_owned())
     }
 
+    pub fn slack() -> Self {
+        Self("slack".to_owned())
+    }
+
+    pub fn discord() -> Self {
+        Self("discord".to_owned())
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     pub fn is_known_provider(&self) -> bool {
-        matches!(self.as_str(), "gws" | "github")
+        matches!(self.as_str(), "gws" | "github" | "slack" | "discord")
     }
 }
 
@@ -823,13 +831,21 @@ mod tests {
     fn provider_id_helpers_parse_and_serde_round_trip() {
         let gws = ProviderId::gws();
         let github = ProviderId::github();
+        let slack = ProviderId::slack();
+        let discord = ProviderId::discord();
 
         assert_eq!(gws.as_str(), "gws");
         assert_eq!(github.as_str(), "github");
+        assert_eq!(slack.as_str(), "slack");
+        assert_eq!(discord.as_str(), "discord");
         assert!(gws.is_known_provider());
         assert!(github.is_known_provider());
+        assert!(slack.is_known_provider());
+        assert!(discord.is_known_provider());
         assert_eq!("gws".parse::<ProviderId>().unwrap(), gws);
         assert_eq!("github".parse::<ProviderId>().unwrap(), github);
+        assert_eq!("slack".parse::<ProviderId>().unwrap(), slack);
+        assert_eq!("discord".parse::<ProviderId>().unwrap(), discord);
         assert_eq!(
             serde_json::to_value(ProviderId::gws()).unwrap(),
             json!("gws")
@@ -837,6 +853,10 @@ mod tests {
         assert_eq!(
             serde_json::from_value::<ProviderId>(json!("github")).unwrap(),
             ProviderId::github()
+        );
+        assert_eq!(
+            serde_json::from_value::<ProviderId>(json!("discord")).unwrap(),
+            ProviderId::discord()
         );
         assert!("GWS".parse::<ProviderId>().is_err());
     }
