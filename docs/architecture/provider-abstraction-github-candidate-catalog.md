@@ -134,6 +134,7 @@ The point of this note is smaller: the next GitHub provider phase should be able
 - local runbook: [`../runbooks/provider-abstraction-foundation-local.md`](../runbooks/provider-abstraction-foundation-local.md)
 - known constraints: [`provider-abstraction-known-constraints.md`](provider-abstraction-known-constraints.md)
 - architecture overview: [`overview.md`](overview.md)
+- GitHub semantic-governance boundary: [`hostd-github-semantic-governance-poc.md`](hostd-github-semantic-governance-poc.md)
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - shared provider contract and metadata types: [`../../crates/agenta-core/src/provider.rs`](../../crates/agenta-core/src/provider.rs)
 - roadmap mirror: [`../roadmaps/provider-abstraction-foundation-tasklist.md`](../roadmaps/provider-abstraction-foundation-tasklist.md)

@@ -2,6 +2,7 @@ pub mod contract;
 pub mod enforcement;
 pub mod event_path;
 pub mod filesystem;
+pub mod github;
 pub mod gws;
 pub mod loader;
 pub mod network;
@@ -9,8 +10,8 @@ pub mod secret;
 
 use self::{
     enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
-    gws::ApiNetworkGwsPocPlan, loader::LoaderPlan, network::NetworkPocPlan,
-    secret::SecretAccessPocPlan,
+    github::GitHubSemanticGovernancePocPlan, gws::ApiNetworkGwsPocPlan, loader::LoaderPlan,
+    network::NetworkPocPlan, secret::SecretAccessPocPlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +22,7 @@ pub struct HostdPocPlan {
     pub network: NetworkPocPlan,
     pub secret: SecretAccessPocPlan,
     pub api_network_gws: ApiNetworkGwsPocPlan,
+    pub github: GitHubSemanticGovernancePocPlan,
     pub enforcement: EnforcementPocPlan,
 }
 
@@ -32,6 +34,7 @@ impl HostdPocPlan {
         let network = NetworkPocPlan::bootstrap();
         let secret = SecretAccessPocPlan::bootstrap();
         let api_network_gws = ApiNetworkGwsPocPlan::bootstrap();
+        let github = GitHubSemanticGovernancePocPlan::bootstrap();
         let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
@@ -41,6 +44,7 @@ impl HostdPocPlan {
             network,
             secret,
             api_network_gws,
+            github,
             enforcement,
         }
     }
@@ -51,6 +55,7 @@ mod tests {
     use super::{HostdPocPlan, contract::EventTransport};
     use crate::poc::{
         enforcement::contract::{EnforcementDirective, EnforcementScope},
+        github::contract::{GitHubSemanticSurface, GitHubSignalSource},
         gws::contract::GwsSignalSource,
         secret::contract::SecretSignalSource,
     };
@@ -142,6 +147,48 @@ mod tests {
         );
         assert_eq!(
             plan.api_network_gws.record.record_fields,
+            vec![
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "redaction_status",
+            ]
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_github_semantic_governance_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(
+            plan.github.taxonomy.sources,
+            vec![
+                GitHubSignalSource::ApiObservation,
+                GitHubSignalSource::BrowserObservation,
+            ]
+        );
+        assert_eq!(
+            plan.github.taxonomy.semantic_surfaces,
+            vec![
+                GitHubSemanticSurface::GitHub,
+                GitHubSemanticSurface::GitHubRepos,
+                GitHubSemanticSurface::GitHubBranches,
+                GitHubSemanticSurface::GitHubActions,
+                GitHubSemanticSurface::GitHubPulls,
+            ]
+        );
+        assert_eq!(
+            plan.github.metadata.metadata_fields,
+            vec![
+                "method",
+                "canonical_resource",
+                "side_effect",
+                "oauth_scopes",
+                "privilege_class",
+            ]
+        );
+        assert_eq!(
+            plan.github.record.record_fields,
             vec![
                 "normalized_event",
                 "policy_decision",
