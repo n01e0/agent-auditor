@@ -5,6 +5,7 @@ pub mod filesystem;
 pub mod github;
 pub mod gws;
 pub mod loader;
+pub mod messaging;
 pub mod network;
 pub mod rest;
 pub mod secret;
@@ -12,7 +13,8 @@ pub mod secret;
 use self::{
     enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
     github::GitHubSemanticGovernancePocPlan, gws::ApiNetworkGwsPocPlan, loader::LoaderPlan,
-    network::NetworkPocPlan, rest::GenericRestOAuthGovernancePlan, secret::SecretAccessPocPlan,
+    messaging::MessagingCollaborationGovernancePlan, network::NetworkPocPlan,
+    rest::GenericRestOAuthGovernancePlan, secret::SecretAccessPocPlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,6 +27,7 @@ pub struct HostdPocPlan {
     pub api_network_gws: ApiNetworkGwsPocPlan,
     pub github: GitHubSemanticGovernancePocPlan,
     pub generic_rest: GenericRestOAuthGovernancePlan,
+    pub messaging: MessagingCollaborationGovernancePlan,
     pub enforcement: EnforcementPocPlan,
 }
 
@@ -38,6 +41,7 @@ impl HostdPocPlan {
         let api_network_gws = ApiNetworkGwsPocPlan::bootstrap();
         let github = GitHubSemanticGovernancePocPlan::bootstrap();
         let generic_rest = GenericRestOAuthGovernancePlan::bootstrap();
+        let messaging = MessagingCollaborationGovernancePlan::bootstrap();
         let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
@@ -49,6 +53,7 @@ impl HostdPocPlan {
             api_network_gws,
             github,
             generic_rest,
+            messaging,
             enforcement,
         }
     }
@@ -224,6 +229,31 @@ mod tests {
         );
         assert_eq!(
             plan.generic_rest.record.record_fields,
+            vec![
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "redaction_status",
+            ]
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_messaging_governance_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(plan.messaging.taxonomy.providers, vec!["slack", "discord"]);
+        assert_eq!(
+            plan.messaging.taxonomy.action_families,
+            vec![
+                "message.send",
+                "channel.invite",
+                "permission.update",
+                "file.upload",
+            ]
+        );
+        assert_eq!(
+            plan.messaging.record.record_fields,
             vec![
                 "normalized_event",
                 "policy_decision",
