@@ -199,6 +199,7 @@ API / network governance should attach to the same `session_id` model. The first
 Google Workspace is the first planned semantic surface, but the contract should stay general.
 
 The first internal API / network GWS phase split is documented in [`hostd-api-network-gws-poc.md`](hostd-api-network-gws-poc.md).
+The follow-on cross-provider boundary that separates provider-specific taxonomy, the shared provider contract, and shared provider metadata is documented in [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md).
 
 ## Near-term decisions fixed by this document
 
