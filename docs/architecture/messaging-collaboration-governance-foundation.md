@@ -35,7 +35,7 @@ The redaction rule for this phase is explicit from the start: messaging seams sh
 - `contract.rs`
   - checked-in shared seams between provider taxonomy input, generic REST input, messaging-family normalization, policy projection, and record reflection
 - `taxonomy.rs`
-  - checked-in home for the provider-contract + generic REST → messaging-family boundary plan
+  - checked-in home for the provider-contract + generic REST → messaging-family boundary plan plus the first Slack / Discord minimal taxonomy model
 - `policy.rs`
   - checked-in home for messaging-policy boundary ownership and approval projection responsibilities
 - `record.rs`
@@ -210,6 +210,7 @@ This keeps the next tasks cleaner:
 ## Related docs
 
 - architecture overview: [`overview.md`](overview.md)
+- messaging action catalog: [`messaging-collaboration-action-catalog.md`](messaging-collaboration-action-catalog.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - generic REST / OAuth known constraints: [`generic-rest-oauth-governance-known-constraints.md`](generic-rest-oauth-governance-known-constraints.md)
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)

@@ -21,6 +21,7 @@ This repository currently contains the initial product framing and core design c
 - generic REST / OAuth governance local runbook: [`docs/runbooks/generic-rest-oauth-governance-local.md`](docs/runbooks/generic-rest-oauth-governance-local.md)
 - generic REST / OAuth governance known constraints: [`docs/architecture/generic-rest-oauth-governance-known-constraints.md`](docs/architecture/generic-rest-oauth-governance-known-constraints.md)
 - messaging / collaboration governance boundary: [`docs/architecture/messaging-collaboration-governance-foundation.md`](docs/architecture/messaging-collaboration-governance-foundation.md)
+- messaging / collaboration action catalog: [`docs/architecture/messaging-collaboration-action-catalog.md`](docs/architecture/messaging-collaboration-action-catalog.md)
 - hostd process deny / hold PoC boundary: [`docs/architecture/hostd-process-enforcement-poc.md`](docs/architecture/hostd-process-enforcement-poc.md)
 - initial fail-open / fail-closed policy: [`docs/architecture/failure-behavior.md`](docs/architecture/failure-behavior.md)
 - hostd network domain attribution: [`docs/architecture/hostd-network-domain-attribution.md`](docs/architecture/hostd-network-domain-attribution.md)
