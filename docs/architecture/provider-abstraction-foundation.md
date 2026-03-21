@@ -30,6 +30,7 @@ Provider-specific taxonomy remains in provider adapters and PoC modules until mi
 
 - current motivating implementation: `cmd/agent-auditor-hostd/src/poc/gws/`
 - next provider candidate fixed by the roadmap: GitHub
+- initial GitHub candidate action and metadata catalog: [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
 
 ## Responsibility split
 
@@ -107,4 +108,5 @@ This keeps the next tasks cleaner:
 - GWS phase boundary: [`hostd-api-network-gws-poc.md`](hostd-api-network-gws-poc.md)
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - policy contract notes: [`../policies/rego-contract.md`](../policies/rego-contract.md)
+- GitHub candidate catalog: [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
 - roadmap mirror: [`../roadmaps/provider-abstraction-foundation-tasklist.md`](../roadmaps/provider-abstraction-foundation-tasklist.md)
