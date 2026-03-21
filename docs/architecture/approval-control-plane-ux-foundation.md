@@ -174,6 +174,8 @@ This keeps the next tasks cleaner:
 ## Related docs
 
 - architecture overview: [`overview.md`](overview.md)
+- local runbook: [`../runbooks/approval-control-plane-ux-local.md`](../runbooks/approval-control-plane-ux-local.md)
+- known constraints: [`approval-control-plane-ux-known-constraints.md`](approval-control-plane-ux-known-constraints.md)
 - minimal model: [`approval-control-plane-ux-minimal-model.md`](approval-control-plane-ux-minimal-model.md)
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
