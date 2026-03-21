@@ -3,7 +3,9 @@ use agent_auditor_hostd::poc::{
     enforcement::contract::{EnforcementOutcome, EnforcementScope},
     event_path::ExecEvent,
     filesystem::persist::FilesystemPocStore,
-    gws::{contract::ApiRequestObservation, persist::GwsPocStore},
+    gws::{
+        contract::ApiRequestObservation, persist::GwsPocStore, preview_provider_metadata_catalog,
+    },
     network::{
         contract::{ClassifiedNetworkConnect, DestinationScope},
         persist::NetworkPocStore,
@@ -13,7 +15,10 @@ use agent_auditor_hostd::poc::{
         persist::SecretPocStore,
     },
 };
-use agenta_core::{PolicyDecision, PolicyDecisionKind, SessionRecord, Severity};
+use agenta_core::{
+    PolicyDecision, PolicyDecisionKind, SessionRecord, Severity,
+    provider::{ProviderAbstractionPlan, ProviderMetadataCatalog},
+};
 use agenta_policy::{
     PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
     apply_enforcement_to_approval_request, apply_enforcement_to_event,
@@ -38,6 +43,16 @@ fn main() {
         }
     }
     println!("event_path={}", plan.event_path.summary());
+    let provider_abstraction_plan = ProviderAbstractionPlan::bootstrap();
+    let provider_metadata_catalog = preview_provider_metadata_catalog();
+    println!(
+        "provider_abstraction_plan={}",
+        provider_abstraction_plan_summary(&provider_abstraction_plan)
+    );
+    println!(
+        "provider_abstraction_catalog={}",
+        provider_metadata_catalog_summary(&provider_metadata_catalog)
+    );
     println!("filesystem_watch={}", plan.filesystem.watch.summary());
     println!("filesystem_classify={}", plan.filesystem.classify.summary());
     println!("filesystem_emit={}", plan.filesystem.emit.summary());
@@ -104,6 +119,22 @@ fn main() {
         "gws_normalized_api={}",
         serde_json::to_string(&gws_normalized_api)
             .expect("gws normalized api preview should serialize")
+    );
+    let provider_abstraction_policy_input = PolicyInput::from_event(&gws_normalized_api);
+    println!(
+        "provider_abstraction_policy_input={}",
+        serde_json::to_string(&provider_abstraction_policy_input)
+            .expect("provider abstraction policy input preview should serialize")
+    );
+    let provider_abstraction_metadata_entry = provider_abstraction_policy_input
+        .provider_action
+        .as_ref()
+        .and_then(|provider_action| provider_metadata_catalog.find(&provider_action.id()))
+        .expect("preview catalog should contain metadata for the preview provider action");
+    println!(
+        "provider_abstraction_metadata_entry={}",
+        serde_json::to_string(provider_abstraction_metadata_entry)
+            .expect("provider abstraction metadata entry should serialize")
     );
     let gws_normalized_network = plan
         .api_network_gws
@@ -1395,4 +1426,25 @@ fn main() {
             std::process::exit(1);
         }
     }
+}
+
+fn provider_abstraction_plan_summary(plan: &ProviderAbstractionPlan) -> String {
+    format!(
+        "providers={} taxonomy_output={} contract_fields={} metadata_fields={}",
+        plan.taxonomy.providers.join(","),
+        plan.taxonomy.output_fields.join(","),
+        plan.contract.contract_fields.join(","),
+        plan.metadata.metadata_fields.join(",")
+    )
+}
+
+fn provider_metadata_catalog_summary(catalog: &ProviderMetadataCatalog) -> String {
+    let actions = catalog
+        .entries
+        .iter()
+        .map(|entry| entry.action.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!("entries={} actions={actions}", catalog.entries.len())
 }

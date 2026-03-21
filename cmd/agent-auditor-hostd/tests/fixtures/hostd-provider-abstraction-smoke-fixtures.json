@@ -1,0 +1,39 @@
+{
+  "provider_abstraction_plan": "providers=gws,github taxonomy_output=provider_id,provider_action_label,target_hint,taxonomy_reason contract_fields=provider_id,action_key,target_hint metadata_fields=method,canonical_resource,side_effect,oauth_scopes,privilege_class",
+  "provider_abstraction_catalog": "entries=4 actions=gws:drive.permissions.update,gws:drive.files.get_media,gws:gmail.users.messages.send,gws:admin.reports.activities.list",
+  "provider_abstraction_policy_input": {
+    "request_id": "req_poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview",
+    "provider_action": {
+      "provider_id": "gws",
+      "action_key": "drive.permissions.update",
+      "target_hint": "drive.files/abc123/permissions/perm456"
+    },
+    "action": {
+      "verb": "drive.permissions.update",
+      "target": "drive.files/abc123/permissions/perm456",
+      "attributes": {
+        "provider_id": "gws",
+        "action_key": "drive.permissions.update",
+        "provider_action_id": "gws:drive.permissions.update",
+        "semantic_action_label": "drive.permissions.update"
+      }
+    }
+  },
+  "provider_abstraction_metadata_entry": {
+    "action": {
+      "provider_id": "gws",
+      "action_key": "drive.permissions.update"
+    },
+    "method": "patch",
+    "canonical_resource": "drive.files/{fileId}/permissions/{permissionId}",
+    "side_effect": "updates a Drive permission and may transfer ownership when transferOwnership=true",
+    "oauth_scopes": {
+      "primary": "https://www.googleapis.com/auth/drive.file",
+      "documented": [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.file"
+      ]
+    },
+    "privilege_class": "sharing_write"
+  }
+}
