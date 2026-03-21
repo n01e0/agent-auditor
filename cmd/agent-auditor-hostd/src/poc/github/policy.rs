@@ -409,7 +409,7 @@ mod tests {
             crate::poc::github::contract::GitHubGovernanceObservation::preview_api_pulls_merge(),
             crate::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_secrets_create_or_update(),
         ];
-        let expected_actions = vec![
+        let expected_actions = [
             GitHubGovernanceActionKind::ReposUpdateVisibility,
             GitHubGovernanceActionKind::BranchesUpdateProtection,
             GitHubGovernanceActionKind::ActionsWorkflowDispatch,
