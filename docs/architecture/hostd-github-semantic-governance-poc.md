@@ -151,13 +151,14 @@ This keeps the next tasks cleaner:
 - concrete GitHub API interception or browser instrumentation details
 - the high-risk GitHub action taxonomy implementation itself
 - runtime proof that a live token carried the documented auth labels
-- operator runbook / known-constraints docs for this GitHub slice
 
 ## Related docs
 
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
 - GitHub candidate catalog: [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
 - architecture overview: [`overview.md`](overview.md)
+- local runbook: [`../runbooks/hostd-github-semantic-governance-poc-local.md`](../runbooks/hostd-github-semantic-governance-poc-local.md)
+- known constraints: [`hostd-github-semantic-governance-known-constraints.md`](hostd-github-semantic-governance-known-constraints.md)
 - roadmap mirror: [`../roadmaps/github-semantic-governance-tasklist.md`](../roadmaps/github-semantic-governance-tasklist.md)
 - product requirements: [`../PRD.md`](../PRD.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)

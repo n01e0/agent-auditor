@@ -203,6 +203,7 @@ The follow-on cross-provider boundary that separates provider-specific taxonomy,
 The local workflow and current limitations for that slice are documented in [`../runbooks/provider-abstraction-foundation-local.md`](../runbooks/provider-abstraction-foundation-local.md) and [`provider-abstraction-known-constraints.md`](provider-abstraction-known-constraints.md).
 The initial GitHub candidate action and metadata catalog for that shared provider shape is documented in [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md).
 The next GitHub-specific governance boundary that separates action taxonomy, provider metadata, policy, and record responsibilities is documented in [`hostd-github-semantic-governance-poc.md`](hostd-github-semantic-governance-poc.md).
+The local workflow and current limitations for that GitHub slice are documented in [`../runbooks/hostd-github-semantic-governance-poc-local.md`](../runbooks/hostd-github-semantic-governance-poc-local.md) and [`hostd-github-semantic-governance-known-constraints.md`](hostd-github-semantic-governance-known-constraints.md).
 
 ## Near-term decisions fixed by this document
 
