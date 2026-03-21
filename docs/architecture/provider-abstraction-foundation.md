@@ -105,6 +105,8 @@ This keeps the next tasks cleaner:
 ## Related docs
 
 - architecture overview: [`overview.md`](overview.md)
+- local runbook: [`../runbooks/provider-abstraction-foundation-local.md`](../runbooks/provider-abstraction-foundation-local.md)
+- known constraints: [`provider-abstraction-known-constraints.md`](provider-abstraction-known-constraints.md)
 - GWS phase boundary: [`hostd-api-network-gws-poc.md`](hostd-api-network-gws-poc.md)
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - policy contract notes: [`../policies/rego-contract.md`](../policies/rego-contract.md)
