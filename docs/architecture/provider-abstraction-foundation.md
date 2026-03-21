@@ -23,7 +23,8 @@ The redaction rule for this phase is also explicit from the start: provider abst
 
 - boundary plan for the provider abstraction phase
 - shared labels for provider-specific taxonomy, provider contract, and provider metadata ownership
-- future home for the shared contract and metadata modules once P8-2 and P8-3 land
+- concrete provider-common contract types from P8-2 (`provider_id + action_key + target_hint`)
+- concrete provider-common metadata types from P8-3 (`method`, `canonical_resource`, `side_effect`, `oauth_scopes`, `privilege_class`)
 
 Provider-specific taxonomy remains in provider adapters and PoC modules until migration work lands:
 

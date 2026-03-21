@@ -251,6 +251,370 @@ impl ProviderSemanticAction {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderMethod {
+    Get,
+    Post,
+    Put,
+    Patch,
+    Delete,
+    Head,
+    Options,
+}
+
+impl ProviderMethod {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Patch => "PATCH",
+            Self::Delete => "DELETE",
+            Self::Head => "HEAD",
+            Self::Options => "OPTIONS",
+        }
+    }
+}
+
+impl fmt::Display for ProviderMethod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ProviderMethod {
+    type Err = ParseProviderMethodError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.trim().to_ascii_uppercase().as_str() {
+            "GET" => Ok(Self::Get),
+            "POST" => Ok(Self::Post),
+            "PUT" => Ok(Self::Put),
+            "PATCH" => Ok(Self::Patch),
+            "DELETE" => Ok(Self::Delete),
+            "HEAD" => Ok(Self::Head),
+            "OPTIONS" => Ok(Self::Options),
+            _ => Err(ParseProviderMethodError {
+                value: value.to_owned(),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseProviderMethodError {
+    value: String,
+}
+
+impl fmt::Display for ParseProviderMethodError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid provider method `{}`: expected a supported HTTP verb",
+            self.value
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct CanonicalResource(String);
+
+impl CanonicalResource {
+    pub fn new(value: impl Into<String>) -> Result<Self, ParseCanonicalResourceError> {
+        let value = value.into();
+        if is_non_empty_descriptor(&value) {
+            Ok(Self(value))
+        } else {
+            Err(ParseCanonicalResourceError { value })
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for CanonicalResource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for CanonicalResource {
+    type Err = ParseCanonicalResourceError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<String> for CanonicalResource {
+    type Error = ParseCanonicalResourceError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<CanonicalResource> for String {
+    fn from(value: CanonicalResource) -> Self {
+        value.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseCanonicalResourceError {
+    value: String,
+}
+
+impl fmt::Display for ParseCanonicalResourceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid canonical resource `{}`: expected a non-empty redaction-safe resource string",
+            self.value
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct SideEffect(String);
+
+impl SideEffect {
+    pub fn new(value: impl Into<String>) -> Result<Self, ParseSideEffectError> {
+        let value = value.into();
+        if is_non_empty_descriptor(&value) {
+            Ok(Self(value))
+        } else {
+            Err(ParseSideEffectError { value })
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for SideEffect {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for SideEffect {
+    type Err = ParseSideEffectError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<String> for SideEffect {
+    type Error = ParseSideEffectError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<SideEffect> for String {
+    fn from(value: SideEffect) -> Self {
+        value.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseSideEffectError {
+    value: String,
+}
+
+impl fmt::Display for ParseSideEffectError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid side effect `{}`: expected a non-empty docs-backed descriptor",
+            self.value
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct OAuthScope(String);
+
+impl OAuthScope {
+    pub fn new(value: impl Into<String>) -> Result<Self, ParseOAuthScopeError> {
+        let value = value.into();
+        if is_non_empty_descriptor(&value) {
+            Ok(Self(value))
+        } else {
+            Err(ParseOAuthScopeError { value })
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for OAuthScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for OAuthScope {
+    type Err = ParseOAuthScopeError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<String> for OAuthScope {
+    type Error = ParseOAuthScopeError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<OAuthScope> for String {
+    fn from(value: OAuthScope) -> Self {
+        value.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseOAuthScopeError {
+    value: String,
+}
+
+impl fmt::Display for ParseOAuthScopeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid OAuth scope `{}`: expected a non-empty scope label",
+            self.value
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OAuthScopeSet {
+    pub primary: OAuthScope,
+    pub documented: Vec<OAuthScope>,
+}
+
+impl OAuthScopeSet {
+    pub fn new(primary: OAuthScope, documented: Vec<OAuthScope>) -> Self {
+        Self {
+            primary,
+            documented,
+        }
+    }
+
+    pub fn primary(&self) -> &OAuthScope {
+        &self.primary
+    }
+
+    pub fn documented(&self) -> &[OAuthScope] {
+        &self.documented
+    }
+
+    pub fn covers(&self, scope: &OAuthScope) -> bool {
+        self.primary == *scope || self.documented.iter().any(|item| item == scope)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrivilegeClass {
+    ReadOnly,
+    ContentRead,
+    ContentWrite,
+    SharingWrite,
+    OutboundSend,
+    AdminRead,
+    AdminWrite,
+}
+
+impl PrivilegeClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ReadOnly => "read_only",
+            Self::ContentRead => "content_read",
+            Self::ContentWrite => "content_write",
+            Self::SharingWrite => "sharing_write",
+            Self::OutboundSend => "outbound_send",
+            Self::AdminRead => "admin_read",
+            Self::AdminWrite => "admin_write",
+        }
+    }
+}
+
+impl fmt::Display for PrivilegeClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderActionMetadata {
+    pub action: ProviderActionId,
+    pub method: ProviderMethod,
+    pub canonical_resource: CanonicalResource,
+    pub side_effect: SideEffect,
+    pub oauth_scopes: OAuthScopeSet,
+    pub privilege_class: PrivilegeClass,
+}
+
+impl ProviderActionMetadata {
+    pub fn new(
+        action: ProviderActionId,
+        method: ProviderMethod,
+        canonical_resource: CanonicalResource,
+        side_effect: SideEffect,
+        oauth_scopes: OAuthScopeSet,
+        privilege_class: PrivilegeClass,
+    ) -> Self {
+        Self {
+            action,
+            method,
+            canonical_resource,
+            side_effect,
+            oauth_scopes,
+            privilege_class,
+        }
+    }
+
+    pub fn provider_id(&self) -> &ProviderId {
+        &self.action.provider_id
+    }
+
+    pub fn action_key(&self) -> &ActionKey {
+        &self.action.action_key
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProviderMetadataCatalog {
+    pub entries: Vec<ProviderActionMetadata>,
+}
+
+impl ProviderMetadataCatalog {
+    pub fn new(entries: Vec<ProviderActionMetadata>) -> Self {
+        Self { entries }
+    }
+
+    pub fn find(&self, action: &ProviderActionId) -> Option<&ProviderActionMetadata> {
+        self.entries.iter().find(|entry| &entry.action == action)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProviderAbstractionPlan {
     pub taxonomy: ProviderTaxonomyBoundary,
@@ -407,12 +771,18 @@ fn is_valid_identifier(value: &str, is_separator: impl Fn(char) -> bool) -> bool
     !previous_was_separator
 }
 
+fn is_non_empty_descriptor(value: &str) -> bool {
+    !value.trim().is_empty()
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
 
     use super::{
-        ActionKey, ProviderAbstractionPlan, ProviderActionId, ProviderId, ProviderSemanticAction,
+        ActionKey, CanonicalResource, OAuthScope, OAuthScopeSet, PrivilegeClass,
+        ProviderAbstractionPlan, ProviderActionId, ProviderActionMetadata, ProviderId,
+        ProviderMetadataCatalog, ProviderMethod, ProviderSemanticAction, SideEffect,
     };
 
     #[test]
@@ -504,6 +874,127 @@ mod tests {
                 "target_hint": "gmail.users/me",
             })
         );
+    }
+
+    #[test]
+    fn provider_method_parses_http_verbs_and_privilege_class_formats() {
+        assert_eq!(
+            "patch".parse::<ProviderMethod>().unwrap(),
+            ProviderMethod::Patch
+        );
+        assert_eq!(ProviderMethod::Get.to_string(), "GET");
+        assert_eq!(PrivilegeClass::SharingWrite.to_string(), "sharing_write");
+        assert!("TRACE".parse::<ProviderMethod>().is_err());
+    }
+
+    #[test]
+    fn provider_metadata_structures_round_trip_through_serde() {
+        let metadata = ProviderActionMetadata::new(
+            ProviderActionId::from_parts("gws", "drive.permissions.update").unwrap(),
+            ProviderMethod::Patch,
+            CanonicalResource::new("drive.files/{fileId}/permissions/{permissionId}").unwrap(),
+            SideEffect::new(
+                "updates a Drive permission and may transfer ownership when transferOwnership=true",
+            )
+            .unwrap(),
+            OAuthScopeSet::new(
+                OAuthScope::new("https://www.googleapis.com/auth/drive.file").unwrap(),
+                vec![
+                    OAuthScope::new("https://www.googleapis.com/auth/drive").unwrap(),
+                    OAuthScope::new("https://www.googleapis.com/auth/drive.file").unwrap(),
+                ],
+            ),
+            PrivilegeClass::SharingWrite,
+        );
+
+        assert_eq!(metadata.provider_id(), &ProviderId::gws());
+        assert_eq!(
+            metadata.action_key(),
+            &ActionKey::new("drive.permissions.update").unwrap()
+        );
+        assert_eq!(metadata.method, ProviderMethod::Patch);
+        assert_eq!(
+            metadata.canonical_resource.as_str(),
+            "drive.files/{fileId}/permissions/{permissionId}"
+        );
+        assert!(
+            metadata
+                .oauth_scopes
+                .covers(&OAuthScope::new("https://www.googleapis.com/auth/drive.file").unwrap())
+        );
+        assert_eq!(
+            serde_json::to_value(&metadata).unwrap(),
+            json!({
+                "action": {
+                    "provider_id": "gws",
+                    "action_key": "drive.permissions.update"
+                },
+                "method": "patch",
+                "canonical_resource": "drive.files/{fileId}/permissions/{permissionId}",
+                "side_effect": "updates a Drive permission and may transfer ownership when transferOwnership=true",
+                "oauth_scopes": {
+                    "primary": "https://www.googleapis.com/auth/drive.file",
+                    "documented": [
+                        "https://www.googleapis.com/auth/drive",
+                        "https://www.googleapis.com/auth/drive.file"
+                    ]
+                },
+                "privilege_class": "sharing_write"
+            })
+        );
+    }
+
+    #[test]
+    fn provider_metadata_catalog_is_keyed_by_shared_action_identity() {
+        let drive_download = ProviderActionMetadata::new(
+            ProviderActionId::from_parts("gws", "drive.files.get_media").unwrap(),
+            ProviderMethod::Get,
+            CanonicalResource::new("drive.files/{fileId}/content").unwrap(),
+            SideEffect::new("returns Drive file content bytes").unwrap(),
+            OAuthScopeSet::new(
+                OAuthScope::new("https://www.googleapis.com/auth/drive.readonly").unwrap(),
+                vec![
+                    OAuthScope::new("https://www.googleapis.com/auth/drive").unwrap(),
+                    OAuthScope::new("https://www.googleapis.com/auth/drive.readonly").unwrap(),
+                ],
+            ),
+            PrivilegeClass::ContentRead,
+        );
+        let gmail_send = ProviderActionMetadata::new(
+            ProviderActionId::from_parts("gws", "gmail.users.messages.send").unwrap(),
+            ProviderMethod::Post,
+            CanonicalResource::new("gmail.users/{userId}/messages:send").unwrap(),
+            SideEffect::new("sends the specified message to the listed recipients").unwrap(),
+            OAuthScopeSet::new(
+                OAuthScope::new("https://www.googleapis.com/auth/gmail.send").unwrap(),
+                vec![OAuthScope::new("https://www.googleapis.com/auth/gmail.send").unwrap()],
+            ),
+            PrivilegeClass::OutboundSend,
+        );
+        let catalog = ProviderMetadataCatalog::new(vec![drive_download, gmail_send]);
+
+        let found = catalog
+            .find(&ProviderActionId::from_parts("gws", "drive.files.get_media").unwrap())
+            .unwrap();
+
+        assert_eq!(found.method, ProviderMethod::Get);
+        assert_eq!(found.privilege_class, PrivilegeClass::ContentRead);
+        assert_eq!(
+            found.oauth_scopes.primary(),
+            &OAuthScope::new("https://www.googleapis.com/auth/drive.readonly").unwrap()
+        );
+        assert!(
+            catalog
+                .find(&ProviderActionId::from_parts("github", "repos.contents.get").unwrap())
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn provider_metadata_rejects_blank_descriptors() {
+        assert!(CanonicalResource::new("   ").is_err());
+        assert!(SideEffect::new("\n").is_err());
+        assert!(OAuthScope::new("").is_err());
     }
 
     #[test]
