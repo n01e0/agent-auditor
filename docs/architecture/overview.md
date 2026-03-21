@@ -202,6 +202,7 @@ The first internal API / network GWS phase split is documented in [`hostd-api-ne
 The follow-on cross-provider boundary that separates provider-specific taxonomy, the shared provider contract, and shared provider metadata is documented in [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md).
 The local workflow and current limitations for that slice are documented in [`../runbooks/provider-abstraction-foundation-local.md`](../runbooks/provider-abstraction-foundation-local.md) and [`provider-abstraction-known-constraints.md`](provider-abstraction-known-constraints.md).
 The initial GitHub candidate action and metadata catalog for that shared provider shape is documented in [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md).
+The next GitHub-specific governance boundary that separates action taxonomy, provider metadata, policy, and record responsibilities is documented in [`hostd-github-semantic-governance-poc.md`](hostd-github-semantic-governance-poc.md).
 
 ## Near-term decisions fixed by this document
 
