@@ -63,6 +63,9 @@ fn main() {
     );
     println!("generic_rest_policy={}", plan.generic_rest.policy.summary());
     println!("generic_rest_record={}", plan.generic_rest.record.summary());
+    println!("messaging_taxonomy={}", plan.messaging.taxonomy.summary());
+    println!("messaging_policy={}", plan.messaging.policy.summary());
+    println!("messaging_record={}", plan.messaging.record.summary());
     println!("filesystem_watch={}", plan.filesystem.watch.summary());
     println!("filesystem_classify={}", plan.filesystem.classify.summary());
     println!("filesystem_emit={}", plan.filesystem.emit.summary());
