@@ -12,12 +12,13 @@ This note records the current constraints of the repository-wide provider-abstra
    - the current end-to-end preview that populates shared provider fields comes from `cmd/agent-auditor-hostd/src/poc/gws/`
    - the provider-abstraction smoke output is therefore proof that the shared contract works with the current GWS slice, not proof of a generalized multi-provider runtime
 
-3. **GitHub is taxonomy-, metadata-, normalization-, and policy-fixed, not runtime-implemented**
+3. **GitHub is taxonomy-, metadata-, normalization-, policy-, and record-fixed, not runtime-implemented**
    - `provider-abstraction-github-candidate-catalog.md` now fixes the first six GitHub governance action keys plus docs-backed method / resource / required permission / side effect descriptors
    - `cmd/agent-auditor-hostd/src/poc/github/taxonomy.rs` classifies those six high-risk GitHub governance actions in a redaction-safe PoC taxonomy seam
    - `cmd/agent-auditor-hostd/src/poc/github/policy.rs` now normalizes those classified actions into `agenta-core` with shared provider-action identity
    - `examples/policies/github_action.rego` now evaluates those normalized GitHub actions in `agenta-policy`
-   - there is still no checked-in approval path or hostd bootstrap preview flow for those actions
+   - `cmd/agent-auditor-hostd/src/poc/github/record.rs` and `persist.rs` now reflect allow / hold / deny outcomes into append-only GitHub audit and approval records
+   - there is still no live GitHub interception path or production control-plane delivery for those actions
 
 4. **Provider-specific taxonomy still lives in provider modules**
    - the abstraction boundary deliberately leaves provider-native matching heuristics in provider adapters and PoC modules

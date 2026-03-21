@@ -1,5 +1,6 @@
 pub mod contract;
 pub mod metadata;
+pub mod persist;
 pub mod policy;
 pub mod record;
 pub mod taxonomy;
@@ -47,6 +48,7 @@ mod tests {
     use crate::poc::github::contract::{
         GitHubGovernanceActionKind, GitHubSemanticSurface, GitHubSignalSource,
     };
+    use crate::poc::github::persist::GitHubPocStore;
 
     #[test]
     fn bootstrap_plan_keeps_taxonomy_metadata_policy_and_record_separate() {
@@ -347,6 +349,216 @@ mod tests {
                 PolicyDecisionKind::Deny,
             ]
         );
+    }
+
+    #[test]
+    fn github_hold_reflects_into_event_approval_and_audit_records() {
+        let plan = GitHubSemanticGovernancePocPlan::bootstrap();
+        let session = fixture_session();
+        let store = GitHubPocStore::fresh(unique_test_root()).expect("store should init");
+        let classified = plan
+            .taxonomy
+            .classify_signal(
+                &crate::poc::github::contract::GitHubGovernanceObservation::preview_api_repos_update_visibility(),
+            )
+            .expect("visibility preview should classify");
+        let observed = plan
+            .policy
+            .normalize_classified_action(&classified, &session);
+        let decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&PolicyInput::from_event(&observed))
+            .expect("github policy should evaluate");
+        let approval_request = approval_request_from_decision(
+            &apply_decision_to_event(&observed, &decision),
+            &decision,
+        )
+        .expect("require approval should create approval request");
+        let (enriched, approval_request) = plan
+            .record
+            .reflect_hold(&observed, &decision, &approval_request)
+            .expect("hold reflection should succeed");
+
+        store
+            .append_audit_record(&enriched)
+            .expect("hold audit record should append");
+        store
+            .append_approval_request(&approval_request)
+            .expect("hold approval request should append");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(enriched.result.status, ResultStatus::ApprovalRequired);
+        assert_eq!(approval_request.status, ApprovalStatus::Pending);
+        assert_eq!(
+            enriched.enforcement.as_ref().map(|info| info.status),
+            Some(agenta_core::EnforcementStatus::Held)
+        );
+        assert_eq!(
+            approval_request
+                .enforcement
+                .as_ref()
+                .map(|info| info.status),
+            Some(agenta_core::EnforcementStatus::Held)
+        );
+        assert_eq!(
+            store
+                .latest_audit_record()
+                .expect("audit record should read"),
+            Some(enriched)
+        );
+        assert_eq!(
+            store
+                .latest_approval_request()
+                .expect("approval request should read"),
+            Some(approval_request)
+        );
+    }
+
+    #[test]
+    fn github_allow_and_deny_reflect_into_audit_records() {
+        let plan = GitHubSemanticGovernancePocPlan::bootstrap();
+        let session = fixture_session();
+        let store = GitHubPocStore::fresh(unique_test_root()).expect("store should init");
+
+        let rerun = plan
+            .taxonomy
+            .classify_signal(
+                &crate::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_runs_rerun(),
+            )
+            .expect("rerun preview should classify");
+        let rerun_observed = plan.policy.normalize_classified_action(&rerun, &session);
+        let rerun_decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&PolicyInput::from_event(&rerun_observed))
+            .expect("rerun policy should evaluate");
+        let rerun_enriched = plan
+            .record
+            .reflect_allow(&rerun_observed, &rerun_decision)
+            .expect("allow reflection should succeed");
+
+        store
+            .append_audit_record(&rerun_enriched)
+            .expect("allow audit record should append");
+        assert_eq!(rerun_decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(rerun_enriched.result.status, ResultStatus::Allowed);
+        assert!(rerun_enriched.enforcement.is_none());
+
+        let secret_write = plan
+            .taxonomy
+            .classify_signal(
+                &crate::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_secrets_create_or_update(),
+            )
+            .expect("secret write preview should classify");
+        let secret_write_observed = plan
+            .policy
+            .normalize_classified_action(&secret_write, &session);
+        let secret_write_decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&PolicyInput::from_event(&secret_write_observed))
+            .expect("secret write policy should evaluate");
+        let secret_write_enriched = plan
+            .record
+            .reflect_deny(&secret_write_observed, &secret_write_decision)
+            .expect("deny reflection should succeed");
+
+        store
+            .append_audit_record(&secret_write_enriched)
+            .expect("deny audit record should append");
+
+        assert_eq!(secret_write_decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(secret_write_enriched.result.status, ResultStatus::Denied);
+        assert_eq!(
+            secret_write_enriched
+                .enforcement
+                .as_ref()
+                .map(|info| info.status),
+            Some(agenta_core::EnforcementStatus::Denied)
+        );
+        assert_eq!(
+            store
+                .latest_audit_record()
+                .expect("audit record should read"),
+            Some(secret_write_enriched)
+        );
+    }
+
+    #[test]
+    fn github_all_supported_actions_round_trip_through_policy_and_records() {
+        let plan = GitHubSemanticGovernancePocPlan::bootstrap();
+        let session = fixture_session();
+        let previews = [
+            crate::poc::github::contract::GitHubGovernanceObservation::preview_api_repos_update_visibility(),
+            crate::poc::github::contract::GitHubGovernanceObservation::preview_api_branches_update_protection(),
+            crate::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_workflow_dispatch(),
+            crate::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_runs_rerun(),
+            crate::poc::github::contract::GitHubGovernanceObservation::preview_api_pulls_merge(),
+            crate::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_secrets_create_or_update(),
+        ];
+
+        let recorded_statuses = previews
+            .iter()
+            .map(|preview| {
+                plan.taxonomy
+                    .classify_signal(preview)
+                    .expect("preview should classify")
+            })
+            .map(|classified| {
+                plan.policy
+                    .normalize_classified_action(&classified, &session)
+            })
+            .map(|observed| {
+                let decision = RegoPolicyEvaluator::github_action_example()
+                    .evaluate(&PolicyInput::from_event(&observed))
+                    .expect("github policy should evaluate");
+
+                match decision.decision {
+                    PolicyDecisionKind::Allow => {
+                        plan.record
+                            .reflect_allow(&observed, &decision)
+                            .expect("allow reflection should succeed")
+                            .result
+                            .status
+                    }
+                    PolicyDecisionKind::RequireApproval => {
+                        let approval_request = approval_request_from_decision(
+                            &apply_decision_to_event(&observed, &decision),
+                            &decision,
+                        )
+                        .expect("require approval should create approval request");
+                        plan.record
+                            .reflect_hold(&observed, &decision, &approval_request)
+                            .expect("hold reflection should succeed")
+                            .0
+                            .result
+                            .status
+                    }
+                    PolicyDecisionKind::Deny => {
+                        plan.record
+                            .reflect_deny(&observed, &decision)
+                            .expect("deny reflection should succeed")
+                            .result
+                            .status
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            recorded_statuses,
+            vec![
+                ResultStatus::ApprovalRequired,
+                ResultStatus::ApprovalRequired,
+                ResultStatus::ApprovalRequired,
+                ResultStatus::Allowed,
+                ResultStatus::ApprovalRequired,
+                ResultStatus::Denied,
+            ]
+        );
+    }
+
+    fn unique_test_root() -> std::path::PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time should advance")
+            .as_nanos();
+        std::env::temp_dir().join(format!("agent-auditor-hostd-github-mod-test-{nonce}"))
     }
 
     fn fixture_session() -> SessionRecord {
