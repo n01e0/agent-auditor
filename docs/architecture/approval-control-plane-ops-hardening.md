@@ -209,6 +209,7 @@ Those stay for P12-4 and P12-5.
 
 - phase boundary: [`approval-control-plane-ux-foundation.md`](approval-control-plane-ux-foundation.md)
 - minimal model: [`approval-control-plane-ux-minimal-model.md`](approval-control-plane-ux-minimal-model.md)
+- status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
 - architecture overview: [`overview.md`](overview.md)
 - failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - hostd enforcement known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)

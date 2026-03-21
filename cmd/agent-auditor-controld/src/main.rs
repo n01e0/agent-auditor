@@ -1,7 +1,10 @@
 use agenta_core::{
     Action, ActionClass, Actor, ActorKind, ApprovalDecisionRecord, ApprovalPolicy, ApprovalRequest,
     ApprovalRequestAction, ApprovalScope, ApprovalStatus, RequesterContext, SessionRef, Severity,
-    controlplane::{ApprovalOpsHardeningStatus, ApprovalOpsSignals, ApprovalQueueItem},
+    controlplane::{
+        ApprovalNotificationSummary, ApprovalOpsHardeningStatus, ApprovalOpsSignals,
+        ApprovalQueueItem, ApprovalReconciliationSummary, ApprovalStatusSummary,
+    },
 };
 use agenta_policy::PolicyInput;
 use chrono::TimeZone;
@@ -82,16 +85,21 @@ fn main() {
     };
 
     let queue_item = ApprovalQueueItem::from_request(&approval_request);
-    let stale_status = ApprovalOpsHardeningStatus::derive(
+    let stale_ops_status = ApprovalOpsHardeningStatus::derive(
         &queue_item,
         &ApprovalOpsSignals {
             stale: true,
-            audit_record_present: false,
+            audit_record_present: true,
             decision_record_present: false,
             downstream_completion_recorded: false,
             requires_merge_follow_up: false,
         },
     );
+    let stale_status_summary = ApprovalStatusSummary::derive(&queue_item, &stale_ops_status);
+    let stale_notification =
+        ApprovalNotificationSummary::derive(&queue_item, &stale_status_summary);
+    let stale_reconciliation =
+        ApprovalReconciliationSummary::derive(&queue_item, &stale_ops_status);
 
     let mut approved_request = approval_request.clone();
     approved_request.status = ApprovalStatus::Approved;
@@ -101,7 +109,7 @@ fn main() {
         outcome: Some(ApprovalStatus::Approved),
     });
     let approved_queue_item = ApprovalQueueItem::from_request(&approved_request);
-    let waiting_merge_status = ApprovalOpsHardeningStatus::derive(
+    let waiting_merge_ops_status = ApprovalOpsHardeningStatus::derive(
         &approved_queue_item,
         &ApprovalOpsSignals {
             stale: false,
@@ -111,6 +119,12 @@ fn main() {
             requires_merge_follow_up: true,
         },
     );
+    let waiting_merge_status_summary =
+        ApprovalStatusSummary::derive(&approved_queue_item, &waiting_merge_ops_status);
+    let waiting_merge_notification =
+        ApprovalNotificationSummary::derive(&approved_queue_item, &waiting_merge_status_summary);
+    let waiting_merge_reconciliation =
+        ApprovalReconciliationSummary::derive(&approved_queue_item, &waiting_merge_ops_status);
 
     println!("agent-auditor-controld bootstrap");
     println!(
@@ -139,12 +153,45 @@ fn main() {
     );
     println!(
         "approval_ops_hardening_status_stale={}",
-        serde_json::to_string(&stale_status)
+        serde_json::to_string(&stale_ops_status)
             .expect("approval ops hardening stale status should serialize")
     );
     println!(
         "approval_ops_hardening_status_waiting_merge={}",
-        serde_json::to_string(&waiting_merge_status)
+        serde_json::to_string(&waiting_merge_ops_status)
             .expect("approval ops hardening waiting-merge status should serialize")
+    );
+    println!(
+        "approval_control_plane_surface_model=components=approval_status_summary,approval_notification_summary,approval_reconciliation_summary focuses=status,notification,reconciliation"
+    );
+    println!(
+        "approval_status_summary_stale={}",
+        serde_json::to_string(&stale_status_summary)
+            .expect("approval status summary should serialize")
+    );
+    println!(
+        "approval_notification_summary_stale={}",
+        serde_json::to_string(&stale_notification)
+            .expect("approval notification summary should serialize")
+    );
+    println!(
+        "approval_reconciliation_summary_stale={}",
+        serde_json::to_string(&stale_reconciliation)
+            .expect("approval reconciliation summary should serialize")
+    );
+    println!(
+        "approval_status_summary_waiting_merge={}",
+        serde_json::to_string(&waiting_merge_status_summary)
+            .expect("approval waiting-merge status summary should serialize")
+    );
+    println!(
+        "approval_notification_summary_waiting_merge={}",
+        serde_json::to_string(&waiting_merge_notification)
+            .expect("approval waiting-merge notification should serialize")
+    );
+    println!(
+        "approval_reconciliation_summary_waiting_merge={}",
+        serde_json::to_string(&waiting_merge_reconciliation)
+            .expect("approval waiting-merge reconciliation should serialize")
     );
 }

@@ -176,6 +176,7 @@ This keeps the next tasks cleaner:
 - architecture overview: [`overview.md`](overview.md)
 - minimal model: [`approval-control-plane-ux-minimal-model.md`](approval-control-plane-ux-minimal-model.md)
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
+- status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
 - messaging / collaboration governance boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
 - generic REST / OAuth governance boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - hostd enforcement foundation: [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md)
