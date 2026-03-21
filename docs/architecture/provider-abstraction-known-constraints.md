@@ -97,6 +97,8 @@ It is **not yet** good evidence of:
 - phase boundary: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
 - local runbook: [`../runbooks/provider-abstraction-foundation-local.md`](../runbooks/provider-abstraction-foundation-local.md)
 - GitHub candidate catalog: [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
+- GitHub local runbook: [`../runbooks/hostd-github-semantic-governance-poc-local.md`](../runbooks/hostd-github-semantic-governance-poc-local.md)
+- GitHub known constraints: [`hostd-github-semantic-governance-known-constraints.md`](hostd-github-semantic-governance-known-constraints.md)
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - architecture overview: [`overview.md`](overview.md)
 - roadmap mirror: [`../roadmaps/provider-abstraction-foundation-tasklist.md`](../roadmaps/provider-abstraction-foundation-tasklist.md)

@@ -114,6 +114,9 @@ cargo test -p agent-auditor-hostd --test gws_enforcement_smoke
   - `cmd/agent-auditor-hostd/tests/provider_abstraction_smoke.rs`
 - next-provider docs catalog fixed for the shared metadata shape:
   - `docs/architecture/provider-abstraction-github-candidate-catalog.md`
+- GitHub-specific local workflow and limitations for that next-provider slice:
+  - `docs/runbooks/hostd-github-semantic-governance-poc-local.md`
+  - `docs/architecture/hostd-github-semantic-governance-known-constraints.md`
 
 ## How to interpret the current preview
 
