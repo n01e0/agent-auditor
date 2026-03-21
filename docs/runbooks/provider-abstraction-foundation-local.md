@@ -123,7 +123,7 @@ Use these rules when reading the current output:
 - `provider_abstraction_catalog` is a checked-in preview catalog for the currently wired GWS actions, not a generic live provider registry
 - `provider_abstraction_policy_input` proves that the shared provider contract can be derived from a normalized event and exposed to policy without depending on the legacy GWS-only label
 - `provider_abstraction_metadata_entry` proves that the shared action identity can join against docs-backed metadata without re-running provider-specific classification
-- the GitHub catalog is fixed in docs for the next phase, and the repository now has a checked-in PoC taxonomy classifier for six high-risk GitHub governance actions, but there is still **no** live GitHub runtime adapter or interception path yet
+- the GitHub catalog now fixes docs-backed method / resource / required permission / side effect metadata for six high-risk GitHub governance actions, and the repository has a checked-in PoC taxonomy classifier for those actions, but there is still **no** live GitHub runtime adapter or interception path yet
 - the `oauth_scopes` field is the current stable metadata field name across providers; for GitHub it currently carries docs-backed auth labels rather than runtime-verified grants
 
 ## What to validate before trusting the preview outputs
@@ -149,5 +149,5 @@ Update this document when any of the following happens:
 - the shared provider contract fields change in `agenta-core`
 - the shared metadata schema adds or splits fields beyond the current `oauth_scopes` / privilege model
 - hostd bootstrap output stops exposing the provider-abstraction summary or metadata join preview lines
-- GitHub moves from docs-only candidate catalog into a real runtime-backed provider implementation
+- GitHub moves from a docs-backed governance metadata catalog into a real runtime-backed provider implementation
 - provider metadata stops being maintained as a checked-in code/docs catalog and becomes a generated or remote-backed registry
