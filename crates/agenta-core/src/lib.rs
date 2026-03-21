@@ -1,3 +1,5 @@
+pub mod provider;
+
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
