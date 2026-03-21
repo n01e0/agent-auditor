@@ -4,7 +4,11 @@ use agenta_core::{
     Action, Actor, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction, ApprovalStatus,
     CollectorKind, EnforcementInfo, EventEnvelope, PolicyDecision, PolicyDecisionKind,
     PolicyMetadata, RequesterContext, ResultStatus, SessionRef,
-    provider::{ActionKey, ProviderActionId, ProviderId, ProviderSemanticAction},
+    provider::{
+        ActionKey, OAuthScope, OAuthScopeSet, PrivilegeClass, ProviderActionId, ProviderId,
+        ProviderSemanticAction, SideEffect,
+    },
+    rest::{GenericRestAction, PathTemplate, QueryClass, RestHost},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -22,6 +26,8 @@ const NETWORK_DESTINATION_POLICY_MODULE: &str =
 const SECRET_ACCESS_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/secret_access.rego");
 const GWS_ACTION_POLICY_MODULE: &str = include_str!("../../../examples/policies/gws_action.rego");
+const GENERIC_REST_ACTION_POLICY_MODULE: &str =
+    include_str!("../../../examples/policies/generic_rest_action.rego");
 const GITHUB_ACTION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/github_action.rego");
 
@@ -50,6 +56,8 @@ pub struct PolicyInput {
     pub action: Action,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_action: Option<ProviderSemanticAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generic_rest_action: Option<GenericRestAction>,
     pub context: PolicyContext,
 }
 
@@ -61,6 +69,7 @@ impl PolicyInput {
         action: Action,
     ) -> Self {
         let provider_action = provider_action_from_action(&action);
+        let generic_rest_action = generic_rest_action_from_action(&action);
         Self {
             request_id: request_id.into(),
             timestamp: Utc::now(),
@@ -68,6 +77,7 @@ impl PolicyInput {
             actor,
             action,
             provider_action,
+            generic_rest_action,
             context: PolicyContext {
                 recent_denies: 0,
                 labels: Vec::new(),
@@ -79,6 +89,7 @@ impl PolicyInput {
 
     pub fn from_event(event: &EventEnvelope) -> Self {
         let provider_action = provider_action_from_action(&event.action);
+        let generic_rest_action = generic_rest_action_from_action(&event.action);
         let mut input = Self {
             request_id: format!("req_{}", event.event_id),
             timestamp: event.timestamp,
@@ -86,6 +97,7 @@ impl PolicyInput {
             actor: event.actor.clone(),
             action: event.action.clone(),
             provider_action,
+            generic_rest_action,
             context: PolicyContext {
                 recent_denies: 0,
                 labels: vec![format!("event_type:{}", event_type_label(event))],
@@ -173,6 +185,55 @@ fn provider_action_from_action(action: &Action) -> Option<ProviderSemanticAction
 
 fn action_attribute<'a>(action: &'a Action, key: &str) -> Option<&'a str> {
     action.attributes.get(key).and_then(Value::as_str)
+}
+
+fn generic_rest_action_from_action(action: &Action) -> Option<GenericRestAction> {
+    let provider_action = provider_action_from_action(action)?;
+    let method = action_attribute(action, "method")?.parse().ok()?;
+    let host = action_attribute(action, "host")?.parse::<RestHost>().ok()?;
+    let path_template = action_attribute(action, "path_template")?
+        .parse::<PathTemplate>()
+        .ok()?;
+    let query_class = action_attribute(action, "query_class")?
+        .parse::<QueryClass>()
+        .ok()?;
+    let oauth_scope_labels = action
+        .attributes
+        .get("oauth_scope_labels")
+        .and_then(oauth_scope_set_from_value)?;
+    let side_effect =
+        action_attribute(action, "side_effect").and_then(|value| SideEffect::new(value).ok())?;
+    let privilege_class = action_attribute(action, "privilege_class")
+        .and_then(|value| value.parse::<PrivilegeClass>().ok())?;
+
+    Some(GenericRestAction::from_provider_action(
+        provider_action,
+        method,
+        host,
+        path_template,
+        query_class,
+        oauth_scope_labels,
+        side_effect,
+        privilege_class,
+    ))
+}
+
+fn oauth_scope_set_from_value(value: &Value) -> Option<OAuthScopeSet> {
+    let object = value.as_object()?;
+    let primary = object
+        .get("primary")
+        .and_then(Value::as_str)
+        .and_then(|value| OAuthScope::new(value).ok())?;
+    let documented = match object.get("documented") {
+        Some(Value::Array(values)) => values
+            .iter()
+            .map(|value| value.as_str().and_then(|scope| OAuthScope::new(scope).ok()))
+            .collect::<Option<Vec<_>>>()?,
+        Some(_) => return None,
+        None => Vec::new(),
+    };
+
+    Some(OAuthScopeSet::new(primary, documented))
 }
 
 #[derive(Debug, Error)]
@@ -263,6 +324,16 @@ impl RegoPolicyEvaluator {
             vec![(
                 "examples/policies/github_action.rego".to_owned(),
                 GITHUB_ACTION_POLICY_MODULE.to_owned(),
+            )],
+        )
+    }
+
+    pub fn generic_rest_action_example() -> Self {
+        Self::new(
+            POLICY_ENTRYPOINT,
+            vec![(
+                "examples/policies/generic_rest_action.rego".to_owned(),
+                GENERIC_REST_ACTION_POLICY_MODULE.to_owned(),
             )],
         )
     }
@@ -455,6 +526,8 @@ mod tests {
 
         assert_eq!(input.request_id, "req_1");
         assert_eq!(input.context.recent_denies, 0);
+        assert!(input.provider_action.is_none());
+        assert!(input.generic_rest_action.is_none());
         assert!(input.context.labels.is_empty());
         assert!(input.context.coverage.is_none());
         assert!(input.context.attributes.is_empty());
@@ -513,6 +586,7 @@ mod tests {
         assert_eq!(input.action.class, ActionClass::Filesystem);
         assert_eq!(input.action.verb.as_deref(), Some("read"));
         assert!(input.provider_action.is_none());
+        assert!(input.generic_rest_action.is_none());
         assert_eq!(input.context.labels, vec!["event_type:filesystem_access"]);
         assert_eq!(
             input.context.coverage,
@@ -530,6 +604,7 @@ mod tests {
             Some(&json!(4242))
         );
         assert!(value.get("provider_action").is_none());
+        assert!(value.get("generic_rest_action").is_none());
     }
 
     #[test]
@@ -561,6 +636,66 @@ mod tests {
         assert_eq!(
             value["provider_action"]["target_hint"],
             json!("drive.files/abc123/permissions/perm456")
+        );
+    }
+
+    #[test]
+    fn policy_input_from_event_derives_generic_rest_action_from_flat_contract_fields() {
+        let input = PolicyInput::from_event(&generic_rest_event(GenericRestEventFixture {
+            event_id: "evt_rest_gmail_send",
+            provider_id: "gws",
+            action_key: "gmail.users.messages.send",
+            target: "gmail.users/me",
+            event_type: EventType::GwsAction,
+            action_class: ActionClass::Gws,
+            source_kind: "api_observation",
+            semantic_surface: "gws.gmail",
+            method: "POST",
+            host: "gmail.googleapis.com",
+            path_template: "/gmail/v1/users/{userId}/messages/send",
+            query_class: "action_arguments",
+            primary_scope: "https://www.googleapis.com/auth/gmail.send",
+            documented_scopes: &["https://www.googleapis.com/auth/gmail.send"],
+            side_effect: "sends a Gmail message to one or more recipients",
+            privilege_class: "outbound_send",
+        }));
+        let value = serde_json::to_value(&input).expect("policy input should serialize");
+
+        assert_eq!(
+            input
+                .provider_action
+                .as_ref()
+                .map(|item| item.action_key.as_str()),
+            Some("gmail.users.messages.send")
+        );
+        assert_eq!(
+            input
+                .generic_rest_action
+                .as_ref()
+                .map(|item| item.host.as_str()),
+            Some("gmail.googleapis.com")
+        );
+        assert_eq!(
+            input
+                .generic_rest_action
+                .as_ref()
+                .map(|item| item.path_template.as_str()),
+            Some("/gmail/v1/users/{userId}/messages/send")
+        );
+        assert_eq!(
+            input
+                .generic_rest_action
+                .as_ref()
+                .map(|item| item.query_class),
+            Some(QueryClass::ActionArguments)
+        );
+        assert_eq!(
+            value["generic_rest_action"]["oauth_scope_labels"]["primary"],
+            json!("https://www.googleapis.com/auth/gmail.send")
+        );
+        assert_eq!(
+            value["generic_rest_action"]["privilege_class"],
+            json!("outbound_send")
         );
     }
 
@@ -1444,6 +1579,151 @@ mod tests {
         );
     }
 
+    #[test]
+    fn generic_rest_action_rego_denies_secret_writes() {
+        let input = PolicyInput::from_event(&generic_rest_event(GenericRestEventFixture {
+            event_id: "evt_rest_github_secret_write",
+            provider_id: "github",
+            action_key: "actions.secrets.create_or_update",
+            target: "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+            event_type: EventType::GithubAction,
+            action_class: ActionClass::Github,
+            source_kind: "api_observation",
+            semantic_surface: "github.actions",
+            method: "PUT",
+            host: "api.github.com",
+            path_template: "/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+            query_class: "none",
+            primary_scope: "github.permission:secrets:write",
+            documented_scopes: &["github.permission:secrets:write", "github.oauth:repo"],
+            side_effect: "creates or updates an encrypted repository Actions secret",
+            privilege_class: "admin_write",
+        }));
+
+        let decision = RegoPolicyEvaluator::generic_rest_action_example()
+            .evaluate(&input)
+            .expect("generic REST secret-write rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("generic_rest.secret_write.denied")
+        );
+        assert_eq!(decision.severity, Some(Severity::Critical));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Generic REST secret write is denied")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(
+            decision.tags,
+            vec![
+                "generic_rest".to_owned(),
+                "secret".to_owned(),
+                "deny".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn generic_rest_action_rego_requires_approval_for_outbound_send() {
+        let input = PolicyInput::from_event(&generic_rest_event(GenericRestEventFixture {
+            event_id: "evt_rest_gmail_send",
+            provider_id: "gws",
+            action_key: "gmail.users.messages.send",
+            target: "gmail.users/me",
+            event_type: EventType::GwsAction,
+            action_class: ActionClass::Gws,
+            source_kind: "api_observation",
+            semantic_surface: "gws.gmail",
+            method: "POST",
+            host: "gmail.googleapis.com",
+            path_template: "/gmail/v1/users/{userId}/messages/send",
+            query_class: "action_arguments",
+            primary_scope: "https://www.googleapis.com/auth/gmail.send",
+            documented_scopes: &["https://www.googleapis.com/auth/gmail.send"],
+            side_effect: "sends a Gmail message to one or more recipients",
+            privilege_class: "outbound_send",
+        }));
+
+        let decision = RegoPolicyEvaluator::generic_rest_action_example()
+            .evaluate(&input)
+            .expect("generic REST outbound-send rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("generic_rest.outbound_send.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Outbound REST actions require approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(
+            decision.tags,
+            vec![
+                "generic_rest".to_owned(),
+                "outbound_send".to_owned(),
+                "approval".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn generic_rest_action_rego_allows_read_only_audit_listing() {
+        let input = PolicyInput::from_event(&generic_rest_event(GenericRestEventFixture {
+            event_id: "evt_rest_admin_reports",
+            provider_id: "gws",
+            action_key: "admin.reports.activities.list",
+            target: "admin.reports/users/all/applications/drive",
+            event_type: EventType::GwsAction,
+            action_class: ActionClass::Gws,
+            source_kind: "api_observation",
+            semantic_surface: "gws.admin",
+            method: "GET",
+            host: "admin.googleapis.com",
+            path_template: "/admin/reports/v1/activity/users/all/applications/{applicationName}",
+            query_class: "filter",
+            primary_scope: "https://www.googleapis.com/auth/admin.reports.audit.readonly",
+            documented_scopes: &["https://www.googleapis.com/auth/admin.reports.audit.readonly"],
+            side_effect: "lists admin activity reports without mutating tenant state",
+            privilege_class: "admin_read",
+        }));
+
+        let decision = RegoPolicyEvaluator::generic_rest_action_example()
+            .evaluate(&input)
+            .expect("generic REST read-only rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("generic_rest.read_only.allow")
+        );
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Read-only generic REST audit retrieval is allowed")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(
+            decision.tags,
+            vec![
+                "generic_rest".to_owned(),
+                "read_only".to_owned(),
+                "allow".to_owned()
+            ]
+        );
+    }
+
     fn require_approval_decision() -> PolicyDecision {
         PolicyDecision {
             decision: PolicyDecisionKind::RequireApproval,
@@ -1673,6 +1953,117 @@ mod tests {
             ResultInfo {
                 status: ResultStatus::Observed,
                 reason: Some("observed by hostd GitHub semantic-governance PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: CollectorKind::RuntimeHint,
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: None,
+                ppid: None,
+            },
+        )
+    }
+
+    struct GenericRestEventFixture<'a> {
+        event_id: &'a str,
+        provider_id: &'a str,
+        action_key: &'a str,
+        target: &'a str,
+        event_type: EventType,
+        action_class: ActionClass,
+        source_kind: &'a str,
+        semantic_surface: &'a str,
+        method: &'a str,
+        host: &'a str,
+        path_template: &'a str,
+        query_class: &'a str,
+        primary_scope: &'a str,
+        documented_scopes: &'a [&'a str],
+        side_effect: &'a str,
+        privilege_class: &'a str,
+    }
+
+    fn generic_rest_event(fixture: GenericRestEventFixture<'_>) -> EventEnvelope {
+        let GenericRestEventFixture {
+            event_id,
+            provider_id,
+            action_key,
+            target,
+            event_type,
+            action_class,
+            source_kind,
+            semantic_surface,
+            method,
+            host,
+            path_template,
+            query_class,
+            primary_scope,
+            documented_scopes,
+            side_effect,
+            privilege_class,
+        } = fixture;
+
+        let mut attributes = JsonMap::new();
+        attributes.insert("source_kind".to_owned(), json!(source_kind));
+        attributes.insert("request_id".to_owned(), json!(format!("req_{event_id}")));
+        attributes.insert(
+            "transport".to_owned(),
+            json!(if source_kind == "browser_observation" {
+                "browser"
+            } else {
+                "https"
+            }),
+        );
+        attributes.insert("semantic_surface".to_owned(), json!(semantic_surface));
+        attributes.insert("provider_id".to_owned(), json!(provider_id));
+        attributes.insert("action_key".to_owned(), json!(action_key));
+        attributes.insert(
+            "provider_action_id".to_owned(),
+            json!(format!("{provider_id}:{action_key}")),
+        );
+        attributes.insert("target_hint".to_owned(), json!(target));
+        attributes.insert("method".to_owned(), json!(method));
+        attributes.insert("host".to_owned(), json!(host));
+        attributes.insert("path_template".to_owned(), json!(path_template));
+        attributes.insert("query_class".to_owned(), json!(query_class));
+        attributes.insert(
+            "oauth_scope_labels".to_owned(),
+            json!({
+                "primary": primary_scope,
+                "documented": documented_scopes,
+            }),
+        );
+        attributes.insert("side_effect".to_owned(), json!(side_effect));
+        attributes.insert("privilege_class".to_owned(), json!(privilege_class));
+
+        EventEnvelope::new(
+            event_id,
+            event_type,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: Some("bundle-bootstrap".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: action_class,
+                verb: Some(action_key.to_owned()),
+                target: Some(target.to_owned()),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd generic REST policy fixture".to_owned()),
                 exit_code: None,
                 error: None,
             },

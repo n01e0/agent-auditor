@@ -562,6 +562,40 @@ impl fmt::Display for PrivilegeClass {
     }
 }
 
+impl FromStr for PrivilegeClass {
+    type Err = ParsePrivilegeClassError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "read_only" => Ok(Self::ReadOnly),
+            "content_read" => Ok(Self::ContentRead),
+            "content_write" => Ok(Self::ContentWrite),
+            "sharing_write" => Ok(Self::SharingWrite),
+            "outbound_send" => Ok(Self::OutboundSend),
+            "admin_read" => Ok(Self::AdminRead),
+            "admin_write" => Ok(Self::AdminWrite),
+            _ => Err(ParsePrivilegeClassError {
+                value: value.to_owned(),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsePrivilegeClassError {
+    value: String,
+}
+
+impl fmt::Display for ParsePrivilegeClassError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid privilege class `{}`: expected a supported shared privilege label",
+            self.value
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProviderActionMetadata {
     pub action: ProviderActionId,
@@ -884,7 +918,12 @@ mod tests {
         );
         assert_eq!(ProviderMethod::Get.to_string(), "GET");
         assert_eq!(PrivilegeClass::SharingWrite.to_string(), "sharing_write");
+        assert_eq!(
+            "admin_write".parse::<PrivilegeClass>().unwrap(),
+            PrivilegeClass::AdminWrite
+        );
         assert!("TRACE".parse::<ProviderMethod>().is_err());
+        assert!("custom_write".parse::<PrivilegeClass>().is_err());
     }
 
     #[test]
