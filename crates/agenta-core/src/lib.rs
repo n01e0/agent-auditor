@@ -1,3 +1,4 @@
+pub mod controlplane;
 pub mod messaging;
 pub mod provider;
 pub mod rest;

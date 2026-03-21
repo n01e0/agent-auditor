@@ -174,6 +174,7 @@ This keeps the next tasks cleaner:
 ## Related docs
 
 - architecture overview: [`overview.md`](overview.md)
+- minimal model: [`approval-control-plane-ux-minimal-model.md`](approval-control-plane-ux-minimal-model.md)
 - messaging / collaboration governance boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
 - generic REST / OAuth governance boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - hostd enforcement foundation: [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md)
