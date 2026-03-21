@@ -188,6 +188,8 @@ This keeps the next tasks cleaner:
 ## Related docs
 
 - architecture overview: [`overview.md`](overview.md)
+- local runbook: [`../runbooks/generic-rest-oauth-governance-local.md`](../runbooks/generic-rest-oauth-governance-local.md)
+- known constraints: [`generic-rest-oauth-governance-known-constraints.md`](generic-rest-oauth-governance-known-constraints.md)
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
 - provider abstraction known constraints: [`provider-abstraction-known-constraints.md`](provider-abstraction-known-constraints.md)
 - GitHub semantic governance boundary: [`hostd-github-semantic-governance-poc.md`](hostd-github-semantic-governance-poc.md)
