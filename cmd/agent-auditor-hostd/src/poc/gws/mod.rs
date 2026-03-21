@@ -7,9 +7,14 @@ pub mod posture;
 pub mod record;
 pub mod session_linkage;
 
+use agenta_core::provider::{
+    CanonicalResource, OAuthScope, OAuthScopeSet, PrivilegeClass, ProviderActionMetadata,
+    ProviderMetadataCatalog, ProviderMethod, SideEffect,
+};
+
 use self::{
-    approval::ApprovalPathPlan, classify::ClassifyPlan, evaluate::EvaluatePlan, record::RecordPlan,
-    session_linkage::SessionLinkagePlan,
+    approval::ApprovalPathPlan, classify::ClassifyPlan, contract::GwsActionKind,
+    evaluate::EvaluatePlan, record::RecordPlan, session_linkage::SessionLinkagePlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,11 +44,91 @@ impl ApiNetworkGwsPocPlan {
     }
 }
 
+pub fn preview_provider_metadata_catalog() -> ProviderMetadataCatalog {
+    ProviderMetadataCatalog::new(vec![
+        ProviderActionMetadata::new(
+            GwsActionKind::DrivePermissionsUpdate.provider_action_id(),
+            ProviderMethod::Patch,
+            CanonicalResource::new("drive.files/{fileId}/permissions/{permissionId}")
+                .expect("preview canonical resource should be valid"),
+            SideEffect::new(
+                "updates a Drive permission and may transfer ownership when transferOwnership=true",
+            )
+            .expect("preview side effect should be valid"),
+            OAuthScopeSet::new(
+                OAuthScope::new("https://www.googleapis.com/auth/drive.file")
+                    .expect("preview scope should be valid"),
+                vec![
+                    OAuthScope::new("https://www.googleapis.com/auth/drive")
+                        .expect("preview scope should be valid"),
+                    OAuthScope::new("https://www.googleapis.com/auth/drive.file")
+                        .expect("preview scope should be valid"),
+                ],
+            ),
+            PrivilegeClass::SharingWrite,
+        ),
+        ProviderActionMetadata::new(
+            GwsActionKind::DriveFilesGetMedia.provider_action_id(),
+            ProviderMethod::Get,
+            CanonicalResource::new("drive.files/{fileId}/content")
+                .expect("preview canonical resource should be valid"),
+            SideEffect::new("returns Drive file content bytes")
+                .expect("preview side effect should be valid"),
+            OAuthScopeSet::new(
+                OAuthScope::new("https://www.googleapis.com/auth/drive.readonly")
+                    .expect("preview scope should be valid"),
+                vec![
+                    OAuthScope::new("https://www.googleapis.com/auth/drive")
+                        .expect("preview scope should be valid"),
+                    OAuthScope::new("https://www.googleapis.com/auth/drive.readonly")
+                        .expect("preview scope should be valid"),
+                ],
+            ),
+            PrivilegeClass::ContentRead,
+        ),
+        ProviderActionMetadata::new(
+            GwsActionKind::GmailUsersMessagesSend.provider_action_id(),
+            ProviderMethod::Post,
+            CanonicalResource::new("gmail.users/{userId}/messages:send")
+                .expect("preview canonical resource should be valid"),
+            SideEffect::new("sends the specified message to the listed recipients")
+                .expect("preview side effect should be valid"),
+            OAuthScopeSet::new(
+                OAuthScope::new("https://www.googleapis.com/auth/gmail.send")
+                    .expect("preview scope should be valid"),
+                vec![
+                    OAuthScope::new("https://www.googleapis.com/auth/gmail.send")
+                        .expect("preview scope should be valid"),
+                ],
+            ),
+            PrivilegeClass::OutboundSend,
+        ),
+        ProviderActionMetadata::new(
+            GwsActionKind::AdminReportsActivitiesList.provider_action_id(),
+            ProviderMethod::Get,
+            CanonicalResource::new("admin.reports.activities/{applicationName}")
+                .expect("preview canonical resource should be valid"),
+            SideEffect::new("returns Admin Reports activity entries for the requested application")
+                .expect("preview side effect should be valid"),
+            OAuthScopeSet::new(
+                OAuthScope::new("https://www.googleapis.com/auth/admin.reports.audit.readonly")
+                    .expect("preview scope should be valid"),
+                vec![
+                    OAuthScope::new("https://www.googleapis.com/auth/admin.reports.audit.readonly")
+                        .expect("preview scope should be valid"),
+                ],
+            ),
+            PrivilegeClass::AdminRead,
+        ),
+    ])
+}
+
 #[cfg(test)]
 mod tests {
     use agenta_core::{
         ActionClass, ApprovalScope, ApprovalStatus, EventType, PolicyDecision, PolicyDecisionKind,
         ResultStatus, SessionRecord, Severity,
+        provider::{PrivilegeClass, ProviderMethod},
     };
     use agenta_policy::{
         PolicyEvaluator, PolicyInput, RegoPolicyEvaluator, apply_decision_to_event,
@@ -51,7 +136,7 @@ mod tests {
         approval_request_from_decision,
     };
 
-    use super::ApiNetworkGwsPocPlan;
+    use super::{ApiNetworkGwsPocPlan, preview_provider_metadata_catalog};
     use crate::poc::{
         enforcement::contract::{EnforcementDirective, EnforcementOutcome, EnforcementScope},
         gws::{
@@ -517,6 +602,73 @@ mod tests {
             admin_reports_activities_list_decision.decision,
             PolicyDecisionKind::Allow
         );
+    }
+
+    #[test]
+    fn gws_provider_metadata_catalog_covers_all_preview_actions_for_policy_input() {
+        let session = SessionRecord::placeholder("openclaw-main", "sess_gws_provider_catalog");
+        let plan = ApiNetworkGwsPocPlan::bootstrap();
+        let catalog = preview_provider_metadata_catalog();
+
+        let previews = [
+            (
+                plan.classify
+                    .classify_action(&plan.session_linkage.link_api_observation(
+                        &ApiRequestObservation::preview_drive_permissions_update(),
+                        &session,
+                    ))
+                    .expect("drive permissions update should classify"),
+                ProviderMethod::Patch,
+                PrivilegeClass::SharingWrite,
+            ),
+            (
+                plan.classify
+                    .classify_action(&plan.session_linkage.link_network_observation(
+                        &NetworkRequestObservation::preview_drive_files_get_media(),
+                        &session,
+                    ))
+                    .expect("drive files get_media should classify"),
+                ProviderMethod::Get,
+                PrivilegeClass::ContentRead,
+            ),
+            (
+                plan.classify
+                    .classify_action(&plan.session_linkage.link_api_observation(
+                        &ApiRequestObservation::preview_gmail_users_messages_send(),
+                        &session,
+                    ))
+                    .expect("gmail send should classify"),
+                ProviderMethod::Post,
+                PrivilegeClass::OutboundSend,
+            ),
+            (
+                plan.classify
+                    .classify_action(&plan.session_linkage.link_api_observation(
+                        &ApiRequestObservation::preview_admin_reports_activities_list(),
+                        &session,
+                    ))
+                    .expect("admin reports list should classify"),
+                ProviderMethod::Get,
+                PrivilegeClass::AdminRead,
+            ),
+        ];
+
+        for (classified, expected_method, expected_privilege) in previews {
+            let normalized = plan
+                .evaluate
+                .normalize_classified_action(&classified, &session);
+            let provider_action = PolicyInput::from_event(&normalized)
+                .provider_action
+                .expect("normalized GWS event should derive shared provider action");
+            let metadata = catalog
+                .find(&provider_action.id())
+                .expect("preview catalog should contain metadata for provider action");
+
+            assert_eq!(metadata.provider_id(), &provider_action.provider_id);
+            assert_eq!(metadata.action_key(), &provider_action.action_key);
+            assert_eq!(metadata.method, expected_method);
+            assert_eq!(metadata.privilege_class, expected_privilege);
+        }
     }
 
     #[test]
