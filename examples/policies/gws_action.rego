@@ -10,11 +10,11 @@ default decision := {
 }
 
 is_gws_action if {
-  input.action.class == "gws"
+  input.provider_action.provider_id == "gws"
 }
 
-semantic_action_label := label if {
-  label := input.action.attributes.semantic_action_label
+action_key := key if {
+  key := input.provider_action.action_key
 }
 
 decision := {
@@ -30,7 +30,7 @@ decision := {
   "tags": ["gws", "drive", "approval"]
 } if {
   is_gws_action
-  semantic_action_label == "drive.permissions.update"
+  action_key == "drive.permissions.update"
 }
 
 decision := {
@@ -46,7 +46,7 @@ decision := {
   "tags": ["gws", "drive", "approval"]
 } if {
   is_gws_action
-  semantic_action_label == "drive.files.get_media"
+  action_key == "drive.files.get_media"
 }
 
 decision := {
@@ -62,7 +62,7 @@ decision := {
   "tags": ["gws", "gmail", "approval"]
 } if {
   is_gws_action
-  semantic_action_label == "gmail.users.messages.send"
+  action_key == "gmail.users.messages.send"
 }
 
 decision := {
@@ -74,5 +74,5 @@ decision := {
   "tags": ["gws", "admin", "allow"]
 } if {
   is_gws_action
-  semantic_action_label == "admin.reports.activities.list"
+  action_key == "admin.reports.activities.list"
 }
