@@ -2,7 +2,7 @@
 
 This note fixes the docs-backed provider metadata for the first GitHub semantic-governance slice.
 
-It is intentionally a **catalog-only** document. It does not claim that a live GitHub interceptor, normalized event path, policy runtime, or approval recorder already exists.
+It is intentionally a **catalog-only** document. It does not claim that a live GitHub interceptor, policy runtime, or approval recorder already exists.
 
 Snapshot date for the external source links below: **2026-03-21**.
 
