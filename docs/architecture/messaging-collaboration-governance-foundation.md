@@ -211,6 +211,8 @@ This keeps the next tasks cleaner:
 
 - architecture overview: [`overview.md`](overview.md)
 - messaging action catalog: [`messaging-collaboration-action-catalog.md`](messaging-collaboration-action-catalog.md)
+- local runbook: [`../runbooks/messaging-collaboration-governance-local.md`](../runbooks/messaging-collaboration-governance-local.md)
+- known constraints: [`messaging-collaboration-governance-known-constraints.md`](messaging-collaboration-governance-known-constraints.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - generic REST / OAuth known constraints: [`generic-rest-oauth-governance-known-constraints.md`](generic-rest-oauth-governance-known-constraints.md)
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
