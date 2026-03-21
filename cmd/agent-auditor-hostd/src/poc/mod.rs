@@ -6,12 +6,13 @@ pub mod github;
 pub mod gws;
 pub mod loader;
 pub mod network;
+pub mod rest;
 pub mod secret;
 
 use self::{
     enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
     github::GitHubSemanticGovernancePocPlan, gws::ApiNetworkGwsPocPlan, loader::LoaderPlan,
-    network::NetworkPocPlan, secret::SecretAccessPocPlan,
+    network::NetworkPocPlan, rest::GenericRestOAuthGovernancePlan, secret::SecretAccessPocPlan,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +24,7 @@ pub struct HostdPocPlan {
     pub secret: SecretAccessPocPlan,
     pub api_network_gws: ApiNetworkGwsPocPlan,
     pub github: GitHubSemanticGovernancePocPlan,
+    pub generic_rest: GenericRestOAuthGovernancePlan,
     pub enforcement: EnforcementPocPlan,
 }
 
@@ -35,6 +37,7 @@ impl HostdPocPlan {
         let secret = SecretAccessPocPlan::bootstrap();
         let api_network_gws = ApiNetworkGwsPocPlan::bootstrap();
         let github = GitHubSemanticGovernancePocPlan::bootstrap();
+        let generic_rest = GenericRestOAuthGovernancePlan::bootstrap();
         let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
@@ -45,6 +48,7 @@ impl HostdPocPlan {
             secret,
             api_network_gws,
             github,
+            generic_rest,
             enforcement,
         }
     }
@@ -189,6 +193,37 @@ mod tests {
         );
         assert_eq!(
             plan.github.record.record_fields,
+            vec![
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "redaction_status",
+            ]
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_generic_rest_governance_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(plan.generic_rest.normalize.providers, vec!["gws", "github"]);
+        assert_eq!(
+            plan.generic_rest.normalize.generic_contract_fields,
+            vec![
+                "provider_id",
+                "action_key",
+                "target_hint",
+                "method",
+                "host",
+                "path_template",
+                "query_class",
+                "oauth_scope_labels",
+                "side_effect",
+                "privilege_class",
+            ]
+        );
+        assert_eq!(
+            plan.generic_rest.record.record_fields,
             vec![
                 "normalized_event",
                 "policy_decision",

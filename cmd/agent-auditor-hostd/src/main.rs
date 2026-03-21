@@ -54,6 +54,12 @@ fn main() {
         "provider_abstraction_catalog={}",
         provider_metadata_catalog_summary(&provider_metadata_catalog)
     );
+    println!(
+        "generic_rest_normalize={}",
+        plan.generic_rest.normalize.summary()
+    );
+    println!("generic_rest_policy={}", plan.generic_rest.policy.summary());
+    println!("generic_rest_record={}", plan.generic_rest.record.summary());
     println!("filesystem_watch={}", plan.filesystem.watch.summary());
     println!("filesystem_classify={}", plan.filesystem.classify.summary());
     println!("filesystem_emit={}", plan.filesystem.emit.summary());

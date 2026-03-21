@@ -17,6 +17,7 @@ This repository currently contains the initial product framing and core design c
 - hostd enforcement foundation boundary: [`docs/architecture/hostd-enforcement-foundation.md`](docs/architecture/hostd-enforcement-foundation.md)
 - hostd enforcement local runbook: [`docs/runbooks/hostd-enforcement-foundation-local.md`](docs/runbooks/hostd-enforcement-foundation-local.md)
 - hostd enforcement known constraints: [`docs/architecture/hostd-enforcement-known-constraints.md`](docs/architecture/hostd-enforcement-known-constraints.md)
+- generic REST / OAuth governance boundary: [`docs/architecture/generic-rest-oauth-governance-foundation.md`](docs/architecture/generic-rest-oauth-governance-foundation.md)
 - hostd process deny / hold PoC boundary: [`docs/architecture/hostd-process-enforcement-poc.md`](docs/architecture/hostd-process-enforcement-poc.md)
 - initial fail-open / fail-closed policy: [`docs/architecture/failure-behavior.md`](docs/architecture/failure-behavior.md)
 - hostd network domain attribution: [`docs/architecture/hostd-network-domain-attribution.md`](docs/architecture/hostd-network-domain-attribution.md)
