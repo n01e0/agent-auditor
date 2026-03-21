@@ -123,7 +123,7 @@ Use these rules when reading the current output:
 - `provider_abstraction_catalog` is a checked-in preview catalog for the currently wired GWS actions, not a generic live provider registry
 - `provider_abstraction_policy_input` proves that the shared provider contract can be derived from a normalized event and exposed to policy without depending on the legacy GWS-only label
 - `provider_abstraction_metadata_entry` proves that the shared action identity can join against docs-backed metadata without re-running provider-specific classification
-- the GitHub catalog is fixed in docs for the next phase, but there is **no** checked-in live GitHub classifier, runtime adapter, or interception path yet
+- the GitHub catalog is fixed in docs for the next phase, and the repository now has a checked-in PoC taxonomy classifier for six high-risk GitHub governance actions, but there is still **no** live GitHub runtime adapter or interception path yet
 - the `oauth_scopes` field is the current stable metadata field name across providers; for GitHub it currently carries docs-backed auth labels rather than runtime-verified grants
 
 ## What to validate before trusting the preview outputs

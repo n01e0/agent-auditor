@@ -27,7 +27,7 @@ The redaction rule for this phase is explicit from the start: raw GitHub request
   - supported GitHub signal-source labels, semantic surfaces, planned high-risk governance action labels, and redaction contract
 - `taxonomy.rs`
   - GitHub governance taxonomy boundary plan
-  - future home for GitHub high-risk action matching from API / browser request hints
+  - checked-in home for GitHub high-risk action matching from API / browser request hints
 - `metadata.rs`
   - docs-backed GitHub metadata boundary plan
   - current home for the ownership rule that method / canonical resource / side effect / auth labels / privilege class stay outside taxonomy and record
@@ -119,7 +119,7 @@ The boundary is intentionally small but explicit about the labels it will carry 
   - `github.actions`
   - `github.pulls`
 
-These are boundary labels, not the full long-term runtime. P9-1 also fixes the first high-risk GitHub governance candidate set that the next taxonomy task will implement through the classify seam:
+These are boundary labels, not the full long-term runtime. P9-1 fixed the first high-risk GitHub governance candidate set, and P9-2 now implements them through the classify seam:
 
 - `repos.update_visibility`
 - `branches.update_protection`
@@ -129,6 +129,11 @@ These are boundary labels, not the full long-term runtime. P9-1 also fixes the f
 - `actions.secrets.create_or_update`
 
 The earlier [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md) still owns the shared docs-backed metadata shape. This GitHub governance boundary is narrower and more operational: it keeps high-risk GitHub semantic taxonomy, metadata join, policy, and record responsibilities separate before runtime logic lands.
+
+Current checked-in taxonomy coverage stays redaction-safe:
+
+- `repos.update_visibility` currently requires a redaction-safe visibility target hint in addition to the repository mutation route, because the bare `PATCH /repos/{owner}/{repo}` path alone is not specific enough
+- the other five supported actions classify directly from method + GitHub route hints, with browser-origin signals allowed to reuse upstream route-template hints instead of exposing raw page payloads
 
 ## Why this split now
 
