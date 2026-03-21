@@ -1,0 +1,859 @@
+{
+  "messaging_taxonomy": "providers=slack,discord surfaces=slack.chat,slack.conversations,slack.files,discord.channels,discord.threads,discord.permissions action_families=message.send,channel.invite,permission.update,file.upload upstream_provider_contract=provider_id,action_key,target_hint upstream_generic_rest=method,host,path_template,query_class,oauth_scope_labels,side_effect,privilege_class upstream_provider_taxonomy=semantic_surface,classifier_labels,classifier_reasons classification_fields=semantic_surface,provider_id,action_key,action_family,target_hint,channel_hint,conversation_hint,delivery_scope,membership_target_kind,permission_target_kind,file_target_kind,attachment_count_hint,classifier_labels,classifier_reasons,content_retained actions=chat.post_message,conversations.invite,files.upload_v2,channels.messages.create,channels.thread_members.put,channels.permissions.put messaging_fields=provider_id,action_key,action_family,target_hint,channel_hint,conversation_hint,delivery_scope,membership_target_kind,permission_target_kind,file_target_kind,attachment_count_hint stages=provider_join->family_inference->label->handoff",
+  "messaging_policy": "providers=slack,discord action_families=message.send,channel.invite,permission.update,file.upload input_fields=provider_id,action_key,action_family,target_hint,channel_hint,conversation_hint,delivery_scope,membership_target_kind,permission_target_kind,file_target_kind,attachment_count_hint decision_fields=normalized_event,policy_decision,approval_request,redaction_status stages=normalize->policy->approval_projection",
+  "messaging_record": "providers=slack,discord action_families=message.send,channel.invite,permission.update,file.upload input_fields=normalized_event,policy_decision,approval_request,redaction_status record_fields=normalized_event,policy_decision,approval_request,redaction_status stages=persist->publish sinks=structured_log,audit_store,approval_store",
+  "messaging_normalized_allow": {
+    "event_id": "evt_msg_slack_send_allow",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "policy_bundle_version": "bundle-bootstrap",
+      "environment": "dev"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd"
+    },
+    "action": {
+      "class": "browser",
+      "verb": "chat.post_message",
+      "target": "slack.channels/C12345678",
+      "attributes": {
+        "action_key": "chat.post_message",
+        "action_family": "message.send",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:chat:write",
+          "documented": [
+            "slack.scope:chat:write"
+          ]
+        },
+        "path_template": "/api/chat.postMessage",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "slack:chat.post_message",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.chat",
+        "side_effect": "sends a message into a Slack conversation",
+        "target_hint": "slack.channels/C12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd generic REST smoke preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc"
+    }
+  },
+  "messaging_policy_decision_allow": {
+    "decision": "allow",
+    "rule_id": "messaging.message_send.allow",
+    "severity": "low",
+    "reason": "Public-channel messaging sends are allowed by the preview policy",
+    "approval": null,
+    "tags": [
+      "messaging",
+      "message_send",
+      "allow"
+    ]
+  },
+  "messaging_enriched_allow": {
+    "event_id": "evt_msg_slack_send_allow",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "chat.post_message",
+      "target": "slack.channels/C12345678",
+      "attributes": {
+        "action_key": "chat.post_message",
+        "action_family": "message.send",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:chat:write",
+          "documented": [
+            "slack.scope:chat:write"
+          ]
+        },
+        "path_template": "/api/chat.postMessage",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "slack:chat.post_message",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.chat",
+        "side_effect": "sends a message into a Slack conversation",
+        "target_hint": "slack.channels/C12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "Public-channel messaging sends are allowed by the preview policy"
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "messaging.message_send.allow",
+      "severity": "low",
+      "explanation": "Public-channel messaging sends are allowed by the preview policy"
+    }
+  },
+  "messaging_normalized_require_approval": {
+    "event_id": "evt_msg_discord_invite_require_approval",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "policy_bundle_version": "bundle-bootstrap",
+      "environment": "dev"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd"
+    },
+    "action": {
+      "class": "browser",
+      "verb": "channels.thread_members.put",
+      "target": "discord.threads/123456789012345678/members/234567890123456789",
+      "attributes": {
+        "action_key": "channels.thread_members.put",
+        "action_family": "channel.invite",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:create_public_threads",
+          "documented": [
+            "discord.permission:create_public_threads",
+            "discord.permission:send_messages_in_threads"
+          ]
+        },
+        "path_template": "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.thread_members.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.threads",
+        "side_effect": "adds a member into a Discord thread",
+        "target_hint": "discord.threads/123456789012345678/members/234567890123456789",
+        "conversation_hint": "discord.threads/123456789012345678",
+        "delivery_scope": "thread",
+        "membership_target_kind": "thread_member"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd generic REST smoke preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc"
+    }
+  },
+  "messaging_policy_decision_require_approval": {
+    "decision": "require_approval",
+    "rule_id": "messaging.channel_invite.requires_approval",
+    "severity": "high",
+    "reason": "Messaging membership expansion requires approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": [
+      "messaging",
+      "channel_invite",
+      "approval"
+    ]
+  },
+  "messaging_approval_request_require_approval": {
+    "approval_id": "apr_evt_msg_discord_invite_require_approval",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "evt_msg_discord_invite_require_approval",
+    "request": {
+      "action_class": "browser",
+      "action_verb": "channels.thread_members.put",
+      "target": "discord.threads/123456789012345678/members/234567890123456789",
+      "summary": "Messaging membership expansion requires approval",
+      "attributes": {
+        "action_key": "channels.thread_members.put",
+        "action_family": "channel.invite",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:create_public_threads",
+          "documented": [
+            "discord.permission:create_public_threads",
+            "discord.permission:send_messages_in_threads"
+          ]
+        },
+        "path_template": "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.thread_members.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.threads",
+        "side_effect": "adds a member into a Discord thread",
+        "target_hint": "discord.threads/123456789012345678/members/234567890123456789",
+        "conversation_hint": "discord.threads/123456789012345678",
+        "delivery_scope": "thread",
+        "membership_target_kind": "thread_member"
+      }
+    },
+    "policy": {
+      "rule_id": "messaging.channel_invite.requires_approval",
+      "severity": "high",
+      "reason": "Messaging membership expansion requires approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "Messaging membership expansion requires approval",
+      "human_request": null
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging membership expansion requires approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_discord_invite_require_approval"
+    }
+  },
+  "messaging_enriched_require_approval": {
+    "event_id": "evt_msg_discord_invite_require_approval",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "channels.thread_members.put",
+      "target": "discord.threads/123456789012345678/members/234567890123456789",
+      "attributes": {
+        "action_key": "channels.thread_members.put",
+        "action_family": "channel.invite",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:create_public_threads",
+          "documented": [
+            "discord.permission:create_public_threads",
+            "discord.permission:send_messages_in_threads"
+          ]
+        },
+        "path_template": "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.thread_members.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.threads",
+        "side_effect": "adds a member into a Discord thread",
+        "target_hint": "discord.threads/123456789012345678/members/234567890123456789",
+        "conversation_hint": "discord.threads/123456789012345678",
+        "delivery_scope": "thread",
+        "membership_target_kind": "thread_member"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "Messaging membership expansion requires approval"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "messaging.channel_invite.requires_approval",
+      "severity": "high",
+      "explanation": "Messaging membership expansion requires approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging membership expansion requires approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_discord_invite_require_approval"
+    }
+  },
+  "messaging_normalized_deny": {
+    "event_id": "evt_msg_discord_permission_deny",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "policy_bundle_version": "bundle-bootstrap",
+      "environment": "dev"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd"
+    },
+    "action": {
+      "class": "browser",
+      "verb": "channels.permissions.put",
+      "target": "discord.channels/123456789012345678/permissions/role:345678901234567890",
+      "attributes": {
+        "action_key": "channels.permissions.put",
+        "action_family": "permission.update",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:manage_roles",
+          "documented": [
+            "discord.permission:manage_channels"
+          ]
+        },
+        "path_template": "/api/v10/channels/{channel_id}/permissions/{overwrite_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.permissions.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.permissions",
+        "side_effect": "updates a Discord channel permission overwrite",
+        "target_hint": "discord.channels/123456789012345678/permissions/role:345678901234567890",
+        "channel_hint": "discord.channels/123456789012345678",
+        "permission_target_kind": "channel_permission_overwrite"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd generic REST smoke preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc"
+    }
+  },
+  "messaging_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "messaging.permission_update.denied",
+    "severity": "critical",
+    "reason": "Messaging permission updates are denied by the preview policy",
+    "approval": null,
+    "tags": [
+      "messaging",
+      "permission_update",
+      "deny"
+    ]
+  },
+  "messaging_enriched_deny": {
+    "event_id": "evt_msg_discord_permission_deny",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "channels.permissions.put",
+      "target": "discord.channels/123456789012345678/permissions/role:345678901234567890",
+      "attributes": {
+        "action_key": "channels.permissions.put",
+        "action_family": "permission.update",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:manage_roles",
+          "documented": [
+            "discord.permission:manage_channels"
+          ]
+        },
+        "path_template": "/api/v10/channels/{channel_id}/permissions/{overwrite_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.permissions.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.permissions",
+        "side_effect": "updates a Discord channel permission overwrite",
+        "target_hint": "discord.channels/123456789012345678/permissions/role:345678901234567890",
+        "channel_hint": "discord.channels/123456789012345678",
+        "permission_target_kind": "channel_permission_overwrite"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "Messaging permission updates are denied by the preview policy"
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "messaging.permission_update.denied",
+      "severity": "critical",
+      "explanation": "Messaging permission updates are denied by the preview policy"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "Messaging permission updates are denied by the preview policy",
+      "enforced": true,
+      "approval_id": null
+    }
+  },
+  "messaging_normalized_file_upload": {
+    "event_id": "evt_msg_slack_file_upload_require_approval",
+    "event_type": "network_connect",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "policy_bundle_version": "bundle-bootstrap",
+      "environment": "dev"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd"
+    },
+    "action": {
+      "class": "browser",
+      "verb": "files.upload_v2",
+      "target": "slack.channels/C12345678/files/F12345678",
+      "attributes": {
+        "action_key": "files.upload_v2",
+        "action_family": "file.upload",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:files:write",
+          "documented": [
+            "slack.scope:files:write"
+          ]
+        },
+        "path_template": "/api/files.uploadV2",
+        "privilege_class": "content_write",
+        "provider_action_id": "slack:files.upload_v2",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.files",
+        "side_effect": "uploads a file into a Slack conversation",
+        "target_hint": "slack.channels/C12345678/files/F12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel",
+        "file_target_kind": "channel_attachment",
+        "attachment_count_hint": 1
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd generic REST smoke preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc"
+    }
+  },
+  "messaging_policy_decision_file_upload": {
+    "decision": "require_approval",
+    "rule_id": "messaging.file_upload.requires_approval",
+    "severity": "high",
+    "reason": "Messaging file uploads require approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": [
+      "messaging",
+      "file_upload",
+      "approval"
+    ]
+  },
+  "messaging_approval_request_file_upload": {
+    "approval_id": "apr_evt_msg_slack_file_upload_require_approval",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "evt_msg_slack_file_upload_require_approval",
+    "request": {
+      "action_class": "browser",
+      "action_verb": "files.upload_v2",
+      "target": "slack.channels/C12345678/files/F12345678",
+      "summary": "Messaging file uploads require approval",
+      "attributes": {
+        "action_key": "files.upload_v2",
+        "action_family": "file.upload",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:files:write",
+          "documented": [
+            "slack.scope:files:write"
+          ]
+        },
+        "path_template": "/api/files.uploadV2",
+        "privilege_class": "content_write",
+        "provider_action_id": "slack:files.upload_v2",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.files",
+        "side_effect": "uploads a file into a Slack conversation",
+        "target_hint": "slack.channels/C12345678/files/F12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel",
+        "file_target_kind": "channel_attachment",
+        "attachment_count_hint": 1
+      }
+    },
+    "policy": {
+      "rule_id": "messaging.file_upload.requires_approval",
+      "severity": "high",
+      "reason": "Messaging file uploads require approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "Messaging file uploads require approval",
+      "human_request": null
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging file uploads require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_slack_file_upload_require_approval"
+    }
+  },
+  "messaging_enriched_file_upload": {
+    "event_id": "evt_msg_slack_file_upload_require_approval",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "files.upload_v2",
+      "target": "slack.channels/C12345678/files/F12345678",
+      "attributes": {
+        "action_key": "files.upload_v2",
+        "action_family": "file.upload",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:files:write",
+          "documented": [
+            "slack.scope:files:write"
+          ]
+        },
+        "path_template": "/api/files.uploadV2",
+        "privilege_class": "content_write",
+        "provider_action_id": "slack:files.upload_v2",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.files",
+        "side_effect": "uploads a file into a Slack conversation",
+        "target_hint": "slack.channels/C12345678/files/F12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel",
+        "file_target_kind": "channel_attachment",
+        "attachment_count_hint": 1
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "Messaging file uploads require approval"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "messaging.file_upload.requires_approval",
+      "severity": "high",
+      "explanation": "Messaging file uploads require approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging file uploads require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_slack_file_upload_require_approval"
+    }
+  },
+  "persisted_messaging_audit_record_allow": {
+    "event_id": "evt_msg_slack_send_allow",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "chat.post_message",
+      "target": "slack.channels/C12345678",
+      "attributes": {
+        "action_key": "chat.post_message",
+        "action_family": "message.send",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:chat:write",
+          "documented": [
+            "slack.scope:chat:write"
+          ]
+        },
+        "path_template": "/api/chat.postMessage",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "slack:chat.post_message",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.chat",
+        "side_effect": "sends a message into a Slack conversation",
+        "target_hint": "slack.channels/C12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "Public-channel messaging sends are allowed by the preview policy"
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "messaging.message_send.allow",
+      "severity": "low",
+      "explanation": "Public-channel messaging sends are allowed by the preview policy"
+    }
+  },
+  "persisted_messaging_audit_record_require_approval": {
+    "event_id": "evt_msg_discord_invite_require_approval",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "channels.thread_members.put",
+      "target": "discord.threads/123456789012345678/members/234567890123456789",
+      "attributes": {
+        "action_key": "channels.thread_members.put",
+        "action_family": "channel.invite",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:create_public_threads",
+          "documented": [
+            "discord.permission:create_public_threads",
+            "discord.permission:send_messages_in_threads"
+          ]
+        },
+        "path_template": "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.thread_members.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.threads",
+        "side_effect": "adds a member into a Discord thread",
+        "target_hint": "discord.threads/123456789012345678/members/234567890123456789",
+        "conversation_hint": "discord.threads/123456789012345678",
+        "delivery_scope": "thread",
+        "membership_target_kind": "thread_member"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "Messaging membership expansion requires approval"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "messaging.channel_invite.requires_approval",
+      "severity": "high",
+      "explanation": "Messaging membership expansion requires approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging membership expansion requires approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_discord_invite_require_approval"
+    }
+  },
+  "persisted_messaging_approval_request_require_approval": {
+    "approval_id": "apr_evt_msg_discord_invite_require_approval",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "evt_msg_discord_invite_require_approval",
+    "request": {
+      "action_class": "browser",
+      "action_verb": "channels.thread_members.put",
+      "target": "discord.threads/123456789012345678/members/234567890123456789",
+      "summary": "Messaging membership expansion requires approval",
+      "attributes": {
+        "action_key": "channels.thread_members.put",
+        "action_family": "channel.invite",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:create_public_threads",
+          "documented": [
+            "discord.permission:create_public_threads",
+            "discord.permission:send_messages_in_threads"
+          ]
+        },
+        "path_template": "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.thread_members.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.threads",
+        "side_effect": "adds a member into a Discord thread",
+        "target_hint": "discord.threads/123456789012345678/members/234567890123456789",
+        "conversation_hint": "discord.threads/123456789012345678",
+        "delivery_scope": "thread",
+        "membership_target_kind": "thread_member"
+      }
+    },
+    "policy": {
+      "rule_id": "messaging.channel_invite.requires_approval",
+      "severity": "high",
+      "reason": "Messaging membership expansion requires approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "Messaging membership expansion requires approval",
+      "human_request": null
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging membership expansion requires approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_discord_invite_require_approval"
+    }
+  },
+  "persisted_messaging_audit_record_deny": {
+    "event_id": "evt_msg_discord_permission_deny",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "channels.permissions.put",
+      "target": "discord.channels/123456789012345678/permissions/role:345678901234567890",
+      "attributes": {
+        "action_key": "channels.permissions.put",
+        "action_family": "permission.update",
+        "host": "discord.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "discord.permission:manage_roles",
+          "documented": [
+            "discord.permission:manage_channels"
+          ]
+        },
+        "path_template": "/api/v10/channels/{channel_id}/permissions/{overwrite_id}",
+        "privilege_class": "sharing_write",
+        "provider_action_id": "discord:channels.permissions.put",
+        "provider_id": "discord",
+        "query_class": "none",
+        "semantic_surface": "discord.permissions",
+        "side_effect": "updates a Discord channel permission overwrite",
+        "target_hint": "discord.channels/123456789012345678/permissions/role:345678901234567890",
+        "channel_hint": "discord.channels/123456789012345678",
+        "permission_target_kind": "channel_permission_overwrite"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "Messaging permission updates are denied by the preview policy"
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "messaging.permission_update.denied",
+      "severity": "critical",
+      "explanation": "Messaging permission updates are denied by the preview policy"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "Messaging permission updates are denied by the preview policy",
+      "enforced": true,
+      "approval_id": null
+    }
+  },
+  "persisted_messaging_audit_record_file_upload": {
+    "event_id": "evt_msg_slack_file_upload_require_approval",
+    "event_type": "network_connect",
+    "action": {
+      "class": "browser",
+      "verb": "files.upload_v2",
+      "target": "slack.channels/C12345678/files/F12345678",
+      "attributes": {
+        "action_key": "files.upload_v2",
+        "action_family": "file.upload",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:files:write",
+          "documented": [
+            "slack.scope:files:write"
+          ]
+        },
+        "path_template": "/api/files.uploadV2",
+        "privilege_class": "content_write",
+        "provider_action_id": "slack:files.upload_v2",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.files",
+        "side_effect": "uploads a file into a Slack conversation",
+        "target_hint": "slack.channels/C12345678/files/F12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel",
+        "file_target_kind": "channel_attachment",
+        "attachment_count_hint": 1
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "Messaging file uploads require approval"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "messaging.file_upload.requires_approval",
+      "severity": "high",
+      "explanation": "Messaging file uploads require approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging file uploads require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_slack_file_upload_require_approval"
+    }
+  },
+  "persisted_messaging_approval_request_file_upload": {
+    "approval_id": "apr_evt_msg_slack_file_upload_require_approval",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "evt_msg_slack_file_upload_require_approval",
+    "request": {
+      "action_class": "browser",
+      "action_verb": "files.upload_v2",
+      "target": "slack.channels/C12345678/files/F12345678",
+      "summary": "Messaging file uploads require approval",
+      "attributes": {
+        "action_key": "files.upload_v2",
+        "action_family": "file.upload",
+        "host": "slack.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "slack.scope:files:write",
+          "documented": [
+            "slack.scope:files:write"
+          ]
+        },
+        "path_template": "/api/files.uploadV2",
+        "privilege_class": "content_write",
+        "provider_action_id": "slack:files.upload_v2",
+        "provider_id": "slack",
+        "query_class": "action_arguments",
+        "semantic_surface": "slack.files",
+        "side_effect": "uploads a file into a Slack conversation",
+        "target_hint": "slack.channels/C12345678/files/F12345678",
+        "channel_hint": "slack.channels/C12345678",
+        "delivery_scope": "public_channel",
+        "file_target_kind": "channel_attachment",
+        "attachment_count_hint": 1
+      }
+    },
+    "policy": {
+      "rule_id": "messaging.file_upload.requires_approval",
+      "severity": "high",
+      "reason": "Messaging file uploads require approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "Messaging file uploads require approval",
+      "human_request": null
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Messaging file uploads require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_msg_slack_file_upload_require_approval"
+    }
+  }
+}

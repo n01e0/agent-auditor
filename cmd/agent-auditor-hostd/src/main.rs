@@ -7,6 +7,7 @@ use agent_auditor_hostd::poc::{
     gws::{
         contract::ApiRequestObservation, persist::GwsPocStore, preview_provider_metadata_catalog,
     },
+    messaging::persist::MessagingPocStore,
     network::{
         contract::{ClassifiedNetworkConnect, DestinationScope},
         persist::NetworkPocStore,
@@ -993,6 +994,436 @@ fn main() {
         }
         Err(error) => {
             eprintln!("persisted_generic_rest_audit_record_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    let preview_messaging_policy = |normalized: &EventEnvelope| {
+        let input = PolicyInput::from_event(normalized);
+        RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&input)
+            .map(|decision| {
+                let decision_applied = apply_decision_to_event(normalized, &decision);
+                let approval_request = approval_request_from_decision(&decision_applied, &decision);
+                (decision_applied, decision, approval_request)
+            })
+    };
+
+    let messaging_normalized_allow = messaging_preview_event(
+        "evt_msg_slack_send_allow",
+        "slack",
+        "chat.post_message",
+        "slack.channels/C12345678",
+        "slack.chat",
+        "POST",
+        "slack.com",
+        "/api/chat.postMessage",
+        "action_arguments",
+        "slack.scope:chat:write",
+        &["slack.scope:chat:write"],
+        "sends a message into a Slack conversation",
+        "outbound_send",
+        "message.send",
+        Some("slack.channels/C12345678"),
+        None,
+        Some("public_channel"),
+        None,
+        None,
+        None,
+        None,
+    );
+    println!(
+        "messaging_normalized_allow={}",
+        serde_json::to_string(&messaging_normalized_allow)
+            .expect("messaging allow preview should serialize")
+    );
+    let (_, messaging_policy_decision_allow, _) =
+        match preview_messaging_policy(&messaging_normalized_allow) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("messaging_policy_allow_error={error}");
+                std::process::exit(1);
+            }
+        };
+    let messaging_enriched_allow = match plan.messaging.record.reflect_allow(
+        &messaging_normalized_allow,
+        &messaging_policy_decision_allow,
+    ) {
+        Ok(enriched) => enriched,
+        Err(error) => {
+            eprintln!("messaging_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "messaging_policy_decision_allow={}",
+        serde_json::to_string(&messaging_policy_decision_allow)
+            .expect("messaging allow policy decision should serialize")
+    );
+    println!(
+        "messaging_enriched_allow={}",
+        serde_json::to_string(&messaging_enriched_allow)
+            .expect("messaging allow enriched event should serialize")
+    );
+
+    let messaging_normalized_require_approval = messaging_preview_event(
+        "evt_msg_discord_invite_require_approval",
+        "discord",
+        "channels.thread_members.put",
+        "discord.threads/123456789012345678/members/234567890123456789",
+        "discord.threads",
+        "PUT",
+        "discord.com",
+        "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+        "none",
+        "discord.permission:create_public_threads",
+        &[
+            "discord.permission:create_public_threads",
+            "discord.permission:send_messages_in_threads",
+        ],
+        "adds a member into a Discord thread",
+        "sharing_write",
+        "channel.invite",
+        None,
+        Some("discord.threads/123456789012345678"),
+        Some("thread"),
+        Some("thread_member"),
+        None,
+        None,
+        None,
+    );
+    println!(
+        "messaging_normalized_require_approval={}",
+        serde_json::to_string(&messaging_normalized_require_approval)
+            .expect("messaging require approval preview should serialize")
+    );
+    let (
+        _messaging_decision_applied_require_approval,
+        messaging_policy_decision_require_approval,
+        messaging_approval_request_require_approval,
+    ) = match preview_messaging_policy(&messaging_normalized_require_approval) {
+        Ok(parts) => parts,
+        Err(error) => {
+            eprintln!("messaging_policy_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let messaging_approval_request_require_approval =
+        match &messaging_approval_request_require_approval {
+            Some(approval_request) => approval_request,
+            None => {
+                eprintln!(
+                    "messaging_approval_request_require_approval_error=missing approval request"
+                );
+                std::process::exit(1);
+            }
+        };
+    let (messaging_enriched_require_approval, messaging_approval_request_require_approval) =
+        match plan.messaging.record.reflect_hold(
+            &messaging_normalized_require_approval,
+            &messaging_policy_decision_require_approval,
+            messaging_approval_request_require_approval,
+        ) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("messaging_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        };
+    println!(
+        "messaging_policy_decision_require_approval={}",
+        serde_json::to_string(&messaging_policy_decision_require_approval)
+            .expect("messaging require approval policy decision should serialize")
+    );
+    println!(
+        "messaging_enriched_require_approval={}",
+        serde_json::to_string(&messaging_enriched_require_approval)
+            .expect("messaging require approval enriched event should serialize")
+    );
+    println!(
+        "messaging_approval_request_require_approval={}",
+        serde_json::to_string(&messaging_approval_request_require_approval)
+            .expect("messaging require approval request should serialize")
+    );
+
+    let messaging_normalized_deny = messaging_preview_event(
+        "evt_msg_discord_permission_deny",
+        "discord",
+        "channels.permissions.put",
+        "discord.channels/123456789012345678/permissions/role:345678901234567890",
+        "discord.permissions",
+        "PUT",
+        "discord.com",
+        "/api/v10/channels/{channel_id}/permissions/{overwrite_id}",
+        "none",
+        "discord.permission:manage_roles",
+        &["discord.permission:manage_channels"],
+        "updates a Discord channel permission overwrite",
+        "sharing_write",
+        "permission.update",
+        Some("discord.channels/123456789012345678"),
+        None,
+        None,
+        None,
+        Some("channel_permission_overwrite"),
+        None,
+        None,
+    );
+    println!(
+        "messaging_normalized_deny={}",
+        serde_json::to_string(&messaging_normalized_deny)
+            .expect("messaging deny preview should serialize")
+    );
+    let (_, messaging_policy_decision_deny, _) =
+        match preview_messaging_policy(&messaging_normalized_deny) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("messaging_policy_deny_error={error}");
+                std::process::exit(1);
+            }
+        };
+    let messaging_enriched_deny = match plan
+        .messaging
+        .record
+        .reflect_deny(&messaging_normalized_deny, &messaging_policy_decision_deny)
+    {
+        Ok(enriched) => enriched,
+        Err(error) => {
+            eprintln!("messaging_record_deny_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "messaging_policy_decision_deny={}",
+        serde_json::to_string(&messaging_policy_decision_deny)
+            .expect("messaging deny policy decision should serialize")
+    );
+    println!(
+        "messaging_enriched_deny={}",
+        serde_json::to_string(&messaging_enriched_deny)
+            .expect("messaging deny enriched event should serialize")
+    );
+
+    let messaging_normalized_file_upload = messaging_preview_event(
+        "evt_msg_slack_file_upload_require_approval",
+        "slack",
+        "files.upload_v2",
+        "slack.channels/C12345678/files/F12345678",
+        "slack.files",
+        "POST",
+        "slack.com",
+        "/api/files.uploadV2",
+        "action_arguments",
+        "slack.scope:files:write",
+        &["slack.scope:files:write"],
+        "uploads a file into a Slack conversation",
+        "content_write",
+        "file.upload",
+        Some("slack.channels/C12345678"),
+        None,
+        Some("public_channel"),
+        None,
+        None,
+        Some("channel_attachment"),
+        Some(1),
+    );
+    println!(
+        "messaging_normalized_file_upload={}",
+        serde_json::to_string(&messaging_normalized_file_upload)
+            .expect("messaging file upload preview should serialize")
+    );
+    let (
+        _messaging_decision_applied_file_upload,
+        messaging_policy_decision_file_upload,
+        messaging_approval_request_file_upload,
+    ) = match preview_messaging_policy(&messaging_normalized_file_upload) {
+        Ok(parts) => parts,
+        Err(error) => {
+            eprintln!("messaging_policy_file_upload_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let messaging_approval_request_file_upload = match &messaging_approval_request_file_upload {
+        Some(approval_request) => approval_request,
+        None => {
+            eprintln!("messaging_approval_request_file_upload_error=missing approval request");
+            std::process::exit(1);
+        }
+    };
+    let (messaging_enriched_file_upload, messaging_approval_request_file_upload) =
+        match plan.messaging.record.reflect_hold(
+            &messaging_normalized_file_upload,
+            &messaging_policy_decision_file_upload,
+            messaging_approval_request_file_upload,
+        ) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("messaging_record_file_upload_error={error}");
+                std::process::exit(1);
+            }
+        };
+    println!(
+        "messaging_policy_decision_file_upload={}",
+        serde_json::to_string(&messaging_policy_decision_file_upload)
+            .expect("messaging file upload policy decision should serialize")
+    );
+    println!(
+        "messaging_enriched_file_upload={}",
+        serde_json::to_string(&messaging_enriched_file_upload)
+            .expect("messaging file upload enriched event should serialize")
+    );
+    println!(
+        "messaging_approval_request_file_upload={}",
+        serde_json::to_string(&messaging_approval_request_file_upload)
+            .expect("messaging file upload approval request should serialize")
+    );
+
+    let messaging_store = match MessagingPocStore::bootstrap() {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("messaging_store_error={error}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(error) = messaging_store.append_audit_record(&messaging_enriched_allow) {
+        eprintln!("persisted_messaging_audit_record_allow_error={error}");
+        std::process::exit(1);
+    }
+    match messaging_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_messaging_audit_record_allow={json}"),
+            Err(error) => {
+                eprintln!("persisted_messaging_audit_record_allow_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_messaging_audit_record_allow_error=missing persisted messaging audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_messaging_audit_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = messaging_store.append_audit_record(&messaging_enriched_require_approval) {
+        eprintln!("persisted_messaging_audit_record_require_approval_error={error}");
+        std::process::exit(1);
+    }
+    match messaging_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_messaging_audit_record_require_approval={json}"),
+            Err(error) => {
+                eprintln!("persisted_messaging_audit_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_messaging_audit_record_require_approval_error=missing persisted messaging audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_messaging_audit_record_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) =
+        messaging_store.append_approval_request(&messaging_approval_request_require_approval)
+    {
+        eprintln!("persisted_messaging_approval_request_require_approval_error={error}");
+        std::process::exit(1);
+    }
+    match messaging_store.latest_approval_request() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_messaging_approval_request_require_approval={json}"),
+            Err(error) => {
+                eprintln!("persisted_messaging_approval_request_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_messaging_approval_request_require_approval_error=missing persisted messaging approval request"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_messaging_approval_request_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = messaging_store.append_audit_record(&messaging_enriched_deny) {
+        eprintln!("persisted_messaging_audit_record_deny_error={error}");
+        std::process::exit(1);
+    }
+    match messaging_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_messaging_audit_record_deny={json}"),
+            Err(error) => {
+                eprintln!("persisted_messaging_audit_record_deny_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_messaging_audit_record_deny_error=missing persisted messaging audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_messaging_audit_record_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = messaging_store.append_audit_record(&messaging_enriched_file_upload) {
+        eprintln!("persisted_messaging_audit_record_file_upload_error={error}");
+        std::process::exit(1);
+    }
+    match messaging_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_messaging_audit_record_file_upload={json}"),
+            Err(error) => {
+                eprintln!("persisted_messaging_audit_record_file_upload_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_messaging_audit_record_file_upload_error=missing persisted messaging audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_messaging_audit_record_file_upload_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) =
+        messaging_store.append_approval_request(&messaging_approval_request_file_upload)
+    {
+        eprintln!("persisted_messaging_approval_request_file_upload_error={error}");
+        std::process::exit(1);
+    }
+    match messaging_store.latest_approval_request() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_messaging_approval_request_file_upload={json}"),
+            Err(error) => {
+                eprintln!("persisted_messaging_approval_request_file_upload_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_messaging_approval_request_file_upload_error=missing persisted messaging approval request"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_messaging_approval_request_file_upload_error={error}");
             std::process::exit(1);
         }
     }
@@ -2102,6 +2533,96 @@ fn generic_rest_preview_event(
             ppid: None,
         },
     )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn messaging_preview_event(
+    event_id: &str,
+    provider_id: &str,
+    action_key: &str,
+    target: &str,
+    semantic_surface: &str,
+    method: &str,
+    host: &str,
+    path_template: &str,
+    query_class: &str,
+    primary_scope: &str,
+    documented_scopes: &[&str],
+    side_effect: &str,
+    privilege_class: &str,
+    action_family: &str,
+    channel_hint: Option<&str>,
+    conversation_hint: Option<&str>,
+    delivery_scope: Option<&str>,
+    membership_target_kind: Option<&str>,
+    permission_target_kind: Option<&str>,
+    file_target_kind: Option<&str>,
+    attachment_count_hint: Option<u16>,
+) -> EventEnvelope {
+    let mut event = generic_rest_preview_event(
+        event_id,
+        provider_id,
+        action_key,
+        target,
+        EventType::NetworkConnect,
+        ActionClass::Browser,
+        semantic_surface,
+        method,
+        host,
+        path_template,
+        query_class,
+        primary_scope,
+        documented_scopes,
+        side_effect,
+        privilege_class,
+    );
+    event
+        .action
+        .attributes
+        .insert("action_family".to_owned(), serde_json::json!(action_family));
+    if let Some(channel_hint) = channel_hint {
+        event
+            .action
+            .attributes
+            .insert("channel_hint".to_owned(), serde_json::json!(channel_hint));
+    }
+    if let Some(conversation_hint) = conversation_hint {
+        event.action.attributes.insert(
+            "conversation_hint".to_owned(),
+            serde_json::json!(conversation_hint),
+        );
+    }
+    if let Some(delivery_scope) = delivery_scope {
+        event.action.attributes.insert(
+            "delivery_scope".to_owned(),
+            serde_json::json!(delivery_scope),
+        );
+    }
+    if let Some(membership_target_kind) = membership_target_kind {
+        event.action.attributes.insert(
+            "membership_target_kind".to_owned(),
+            serde_json::json!(membership_target_kind),
+        );
+    }
+    if let Some(permission_target_kind) = permission_target_kind {
+        event.action.attributes.insert(
+            "permission_target_kind".to_owned(),
+            serde_json::json!(permission_target_kind),
+        );
+    }
+    if let Some(file_target_kind) = file_target_kind {
+        event.action.attributes.insert(
+            "file_target_kind".to_owned(),
+            serde_json::json!(file_target_kind),
+        );
+    }
+    if let Some(attachment_count_hint) = attachment_count_hint {
+        event.action.attributes.insert(
+            "attachment_count_hint".to_owned(),
+            serde_json::json!(attachment_count_hint),
+        );
+    }
+    event
 }
 
 fn provider_abstraction_plan_summary(plan: &ProviderAbstractionPlan) -> String {
