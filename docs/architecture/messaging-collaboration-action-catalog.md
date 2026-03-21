@@ -150,6 +150,7 @@ The point of this note is smaller: later phases should be able to build on a sta
 
 The current repository mirrors this catalog in:
 
+- `crates/agenta-core/src/messaging.rs`
 - `cmd/agent-auditor-hostd/src/poc/messaging/contract.rs`
 - `cmd/agent-auditor-hostd/src/poc/messaging/taxonomy.rs`
 
