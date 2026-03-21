@@ -1346,6 +1346,12 @@ mod tests {
         attributes.insert("request_id".to_owned(), json!(format!("req_{event_id}")));
         attributes.insert("transport".to_owned(), json!("https"));
         attributes.insert("semantic_surface".to_owned(), json!(semantic_surface));
+        attributes.insert("provider_id".to_owned(), json!("gws"));
+        attributes.insert("action_key".to_owned(), json!(semantic_action_label));
+        attributes.insert(
+            "provider_action_id".to_owned(),
+            json!(format!("gws:{semantic_action_label}")),
+        );
         attributes.insert(
             "semantic_action_label".to_owned(),
             json!(semantic_action_label),

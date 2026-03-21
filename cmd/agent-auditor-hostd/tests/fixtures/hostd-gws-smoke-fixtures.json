@@ -2,10 +2,10 @@
   "gws_session_linkage": "sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin linkage_fields=source_kind,request_id,transport,authority_hint,method_hint,path_hint,destination_ip,destination_port,semantic_surface_hint,session_id,agent_id,workspace_id,linkage_reason stages=ingest->session_correlate->surface_hint->handoff",
   "gws_session_linked_api": "event=gws.session_linked source=api_observation request_id=req_drive_permissions_update_preview transport=https authority_hint=www.googleapis.com method_hint=PATCH path_hint=/drive/v3/files/abc123/permissions/perm456 destination_ip=- destination_port=- semantic_surface_hint=gws.drive session_id=sess_bootstrap_hostd agent_id=openclaw-main workspace_id=- linkage_reason=request adapter supplied session-owned API metadata",
   "gws_session_linked_network": "event=gws.session_linked source=network_observation request_id=req_sess_bootstrap_hostd_142_250_191_138_443 transport=tcp authority_hint=www.googleapis.com method_hint=PATCH path_hint=/drive/v3/files/abc123/permissions/perm456 destination_ip=142.250.191.138 destination_port=443 semantic_surface_hint=gws.drive session_id=sess_bootstrap_hostd agent_id=openclaw-main workspace_id=- linkage_reason=network observation linked session identity from session-scoped GWS egress metadata",
-  "gws_classify": "sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin linkage_fields=source_kind,request_id,transport,authority_hint,method_hint,path_hint,destination_ip,destination_port,semantic_surface_hint,session_id,agent_id,workspace_id,linkage_reason classification_fields=semantic_surface,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained actions=drive.permissions.update,drive.files.get_media,gmail.users.messages.send,admin.reports.activities.list stages=service_map->taxonomy->label->handoff",
-  "gws_classified_api": "event=gws.classified source=api_observation request_id=req_drive_permissions_update_preview semantic_surface=gws.drive semantic_action=drive.permissions.update target_hint=drive.files/abc123/permissions/perm456 content_retained=false",
-  "gws_classified_network": "event=gws.classified source=network_observation request_id=req_sess_bootstrap_hostd_142_250_191_138_443 semantic_surface=gws.drive semantic_action=drive.permissions.update target_hint=drive.files/abc123/permissions/perm456 content_retained=false",
-  "gws_evaluate": "sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin linkage_fields=source_kind,request_id,transport,authority_hint,method_hint,path_hint,destination_ip,destination_port,semantic_surface_hint,session_id,agent_id,workspace_id,linkage_reason classification_fields=semantic_surface,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained stages=normalize->policy->approval_projection",
+  "gws_classify": "sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin linkage_fields=source_kind,request_id,transport,authority_hint,method_hint,path_hint,destination_ip,destination_port,semantic_surface_hint,session_id,agent_id,workspace_id,linkage_reason classification_fields=semantic_surface,provider_id,action_key,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained actions=drive.permissions.update,drive.files.get_media,gmail.users.messages.send,admin.reports.activities.list stages=service_map->taxonomy->label->handoff",
+  "gws_classified_api": "event=gws.classified source=api_observation request_id=req_drive_permissions_update_preview semantic_surface=gws.drive semantic_action=drive.permissions.update provider_action_id=gws:drive.permissions.update target_hint=drive.files/abc123/permissions/perm456 content_retained=false",
+  "gws_classified_network": "event=gws.classified source=network_observation request_id=req_sess_bootstrap_hostd_142_250_191_138_443 semantic_surface=gws.drive semantic_action=drive.permissions.update provider_action_id=gws:drive.permissions.update target_hint=drive.files/abc123/permissions/perm456 content_retained=false",
+  "gws_evaluate": "sources=api_observation,network_observation surfaces=gws,gws.drive,gws.gmail,gws.admin linkage_fields=source_kind,request_id,transport,authority_hint,method_hint,path_hint,destination_ip,destination_port,semantic_surface_hint,session_id,agent_id,workspace_id,linkage_reason classification_fields=semantic_surface,provider_id,action_key,semantic_action_label,target_hint,classifier_labels,classifier_reasons,content_retained stages=normalize->policy->approval_projection",
   "gws_normalized_api": {
     "event_id": "poc_gws_action_api_observation_drive.permissions.update_req_drive_permissions_update_preview",
     "event_type": "gws_action",
@@ -43,7 +43,10 @@
         "semantic_surface": "gws.drive",
         "source_kind": "api_observation",
         "target_hint": "drive.files/abc123/permissions/perm456",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "drive.permissions.update",
+        "provider_action_id": "gws:drive.permissions.update"
       }
     },
     "result": {
@@ -103,7 +106,10 @@
         "semantic_surface": "gws.drive",
         "source_kind": "network_observation",
         "target_hint": "drive.files/abc123/permissions/perm456",
-        "transport": "tcp"
+        "transport": "tcp",
+        "provider_id": "gws",
+        "action_key": "drive.permissions.update",
+        "provider_action_id": "gws:drive.permissions.update"
       }
     },
     "result": {
@@ -161,7 +167,10 @@
         "semantic_surface": "gws.drive",
         "source_kind": "api_observation",
         "target_hint": "drive.files/abc123/permissions/perm456",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "drive.permissions.update",
+        "provider_action_id": "gws:drive.permissions.update"
       }
     },
     "result": {
@@ -238,7 +247,10 @@
         "semantic_surface": "gws.drive",
         "source_kind": "api_observation",
         "target_hint": "drive.files/abc123/permissions/perm456",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "drive.permissions.update",
+        "provider_action_id": "gws:drive.permissions.update"
       }
     },
     "policy": {
@@ -300,7 +312,10 @@
         "semantic_surface": "gws.admin",
         "source_kind": "api_observation",
         "target_hint": "admin.reports/users/all/applications/drive",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "admin.reports.activities.list",
+        "provider_action_id": "gws:admin.reports.activities.list"
       }
     },
     "result": {
@@ -358,7 +373,10 @@
         "semantic_surface": "gws.admin",
         "source_kind": "api_observation",
         "target_hint": "admin.reports/users/all/applications/drive",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "admin.reports.activities.list",
+        "provider_action_id": "gws:admin.reports.activities.list"
       }
     },
     "result": {
@@ -434,7 +452,10 @@
         "semantic_surface": "gws.drive",
         "source_kind": "api_observation",
         "target_hint": "drive.files/abc123/permissions/perm456",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "drive.permissions.update",
+        "provider_action_id": "gws:drive.permissions.update"
       }
     },
     "result": {
@@ -495,7 +516,10 @@
         "semantic_surface": "gws.drive",
         "source_kind": "api_observation",
         "target_hint": "drive.files/abc123/permissions/perm456",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "drive.permissions.update",
+        "provider_action_id": "gws:drive.permissions.update"
       }
     },
     "policy": {
@@ -557,7 +581,10 @@
         "semantic_surface": "gws.admin",
         "source_kind": "api_observation",
         "target_hint": "admin.reports/users/all/applications/drive",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "admin.reports.activities.list",
+        "provider_action_id": "gws:admin.reports.activities.list"
       }
     },
     "result": {
@@ -634,7 +661,10 @@
         "semantic_surface": "gws.gmail",
         "source_kind": "api_observation",
         "target_hint": "gmail.users/me",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "gmail.users.messages.send",
+        "provider_action_id": "gws:gmail.users.messages.send"
       }
     },
     "result": {
@@ -692,7 +722,10 @@
         "semantic_surface": "gws.gmail",
         "source_kind": "api_observation",
         "target_hint": "gmail.users/me",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "gmail.users.messages.send",
+        "provider_action_id": "gws:gmail.users.messages.send"
       }
     },
     "result": {
@@ -788,7 +821,10 @@
         "semantic_surface": "gws.gmail",
         "source_kind": "api_observation",
         "target_hint": "gmail.users/me",
-        "transport": "https"
+        "transport": "https",
+        "provider_id": "gws",
+        "action_key": "gmail.users.messages.send",
+        "provider_action_id": "gws:gmail.users.messages.send"
       }
     },
     "result": {

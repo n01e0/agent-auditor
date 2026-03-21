@@ -247,6 +247,12 @@ mod tests {
         );
         attributes.insert("transport".to_owned(), json!("https"));
         attributes.insert("semantic_surface".to_owned(), json!("gws.drive"));
+        attributes.insert("provider_id".to_owned(), json!("gws"));
+        attributes.insert("action_key".to_owned(), json!("drive.permissions.update"));
+        attributes.insert(
+            "provider_action_id".to_owned(),
+            json!("gws:drive.permissions.update"),
+        );
         attributes.insert(
             "semantic_action_label".to_owned(),
             json!("drive.permissions.update"),
@@ -330,6 +336,8 @@ mod tests {
                 summary: Some("Drive permission updates require approval".to_owned()),
                 attributes: [
                     ("source_kind".to_owned(), json!("api_observation")),
+                    ("provider_id".to_owned(), json!("gws")),
+                    ("action_key".to_owned(), json!("drive.permissions.update")),
                     (
                         "semantic_action_label".to_owned(),
                         json!("drive.permissions.update"),

@@ -174,6 +174,8 @@ mod tests {
             plan.classify.classification_fields,
             vec![
                 "semantic_surface",
+                "provider_id",
+                "action_key",
                 "semantic_action_label",
                 "target_hint",
                 "classifier_labels",
@@ -239,6 +241,14 @@ mod tests {
         assert_eq!(
             normalized.action.target.as_deref(),
             Some("drive.files/abc123/permissions/perm456")
+        );
+        assert_eq!(
+            normalized.action.attributes.get("provider_id"),
+            Some(&serde_json::json!("gws"))
+        );
+        assert_eq!(
+            normalized.action.attributes.get("action_key"),
+            Some(&serde_json::json!("drive.permissions.update"))
         );
     }
 

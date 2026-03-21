@@ -23,6 +23,8 @@ impl ClassifyPlan {
             linkage_fields: boundary.linkage_fields.clone(),
             classification_fields: vec![
                 "semantic_surface",
+                "provider_id",
+                "action_key",
                 "semantic_action_label",
                 "target_hint",
                 "classifier_labels",
@@ -49,6 +51,8 @@ impl ClassifyPlan {
                 linkage_fields: boundary.linkage_fields,
                 classification_fields: vec![
                     "semantic_surface",
+                    "provider_id",
+                    "action_key",
                     "semantic_action_label",
                     "target_hint",
                     "classifier_labels",
@@ -72,6 +76,7 @@ impl ClassifyPlan {
 
         let (semantic_action, target_hint) =
             classify_semantic_action(method, normalized_path, path, normalized_authority)?;
+        let provider_action = semantic_action.provider_semantic_action(target_hint.clone());
 
         Some(ClassifiedGwsAction {
             source: action.source,
@@ -84,6 +89,7 @@ impl ClassifyPlan {
             destination_port: action.destination_port,
             semantic_surface: semantic_action.surface(),
             semantic_action,
+            provider_action,
             target_hint,
             classifier_labels: semantic_action.classifier_labels(),
             classifier_reasons: vec![semantic_action.reason()],
@@ -330,6 +336,8 @@ mod tests {
             handoff.classification_fields,
             vec![
                 "semantic_surface",
+                "provider_id",
+                "action_key",
                 "semantic_action_label",
                 "target_hint",
                 "classifier_labels",
@@ -366,6 +374,15 @@ mod tests {
         );
         assert_eq!(
             classified.target_hint,
+            "drive.files/abc123/permissions/perm456"
+        );
+        assert_eq!(classified.provider_action.provider_id.to_string(), "gws");
+        assert_eq!(
+            classified.provider_action.action_key.as_str(),
+            "drive.permissions.update"
+        );
+        assert_eq!(
+            classified.provider_action.target_hint(),
             "drive.files/abc123/permissions/perm456"
         );
         assert_eq!(

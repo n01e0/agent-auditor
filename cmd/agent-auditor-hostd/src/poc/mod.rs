@@ -131,6 +131,8 @@ mod tests {
             plan.api_network_gws.classify.classification_fields,
             vec![
                 "semantic_surface",
+                "provider_id",
+                "action_key",
                 "semantic_action_label",
                 "target_hint",
                 "classifier_labels",
