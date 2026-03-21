@@ -34,6 +34,9 @@ impl GitHubSemanticGovernancePocPlan {
 
 #[cfg(test)]
 mod tests {
+    use agenta_core::{ActionClass, EventType, SessionRecord, SessionWorkspace};
+    use agenta_policy::PolicyInput;
+
     use super::GitHubSemanticGovernancePocPlan;
     use crate::poc::github::contract::{
         GitHubGovernanceActionKind, GitHubSemanticSurface, GitHubSignalSource,
@@ -147,6 +150,34 @@ mod tests {
     }
 
     #[test]
+    fn bootstrap_plan_normalizes_preview_github_action_into_agenta_core() {
+        let plan = GitHubSemanticGovernancePocPlan::bootstrap();
+        let classified = plan
+            .taxonomy
+            .classify_signal(
+                &crate::poc::github::contract::GitHubGovernanceObservation::preview_api_pulls_merge(
+                ),
+            )
+            .expect("preview pull merge should classify");
+        let normalized = plan
+            .policy
+            .normalize_classified_action(&classified, &fixture_session());
+        let provider_action = PolicyInput::from_event(&normalized)
+            .provider_action
+            .expect("normalized GitHub event should derive shared provider action");
+
+        assert_eq!(normalized.event_type, EventType::GithubAction);
+        assert_eq!(normalized.action.class, ActionClass::Github);
+        assert_eq!(normalized.action.verb.as_deref(), Some("pulls.merge"));
+        assert_eq!(
+            normalized.action.target.as_deref(),
+            Some("repos/n01e0/agent-auditor/pulls/69")
+        );
+        assert_eq!(provider_action.provider_id.to_string(), "github");
+        assert_eq!(provider_action.action_key.to_string(), "pulls.merge");
+    }
+
+    #[test]
     fn bootstrap_plan_carries_initial_high_risk_github_actions_without_runtime_logic() {
         let plan = GitHubSemanticGovernancePocPlan::bootstrap();
 
@@ -171,5 +202,16 @@ mod tests {
             plan.record.redaction_contract,
             "raw GitHub request or response payloads, issue bodies, pull-request bodies, diff hunks, workflow YAML bodies, and secret values must not cross the GitHub governance seams"
         );
+    }
+
+    fn fixture_session() -> SessionRecord {
+        let mut session = SessionRecord::placeholder("openclaw-main", "sess_github_mod");
+        session.workspace = Some(SessionWorkspace {
+            workspace_id: Some("ws_github_mod".to_owned()),
+            path: Some("/workspace".to_owned()),
+            repo: Some("n01e0/agent-auditor".to_owned()),
+            branch: Some("main".to_owned()),
+        });
+        session
     }
 }

@@ -18,6 +18,7 @@ pub enum EventType {
     NetworkConnect,
     SecretAccess,
     GwsAction,
+    GithubAction,
     PolicyDecision,
     ApprovalRequested,
     ApprovalResolved,
@@ -44,6 +45,7 @@ pub enum ActionClass {
     Alert,
     Browser,
     Gws,
+    Github,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

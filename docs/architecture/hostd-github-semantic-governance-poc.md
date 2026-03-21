@@ -33,7 +33,7 @@ The redaction rule for this phase is explicit from the start: raw GitHub request
   - current home for the ownership rule that method / canonical resource / side effect / auth labels / privilege class stay outside taxonomy and record
 - `policy.rs`
   - normalization + metadata join + policy bridge plan after taxonomy
-  - future home for `agenta-core` GitHub governance event shaping and `agenta-policy` evaluation
+  - checked-in home for `agenta-core` GitHub governance event shaping and future home for `agenta-policy` evaluation
 - `record.rs`
   - audit / approval record plan after policy evaluation
   - future home for append-only storage and publish fanout
@@ -78,7 +78,7 @@ Does **not** own:
 
 Owns:
 
-- normalizing classified GitHub governance candidates toward `agenta-core`
+- normalizing classified GitHub governance candidates toward `agenta-core` with `event_type=github_action` and `action.class=github`
 - joining docs-backed provider metadata onto shared GitHub action identity before evaluation
 - bridging normalized GitHub governance actions into `agenta-policy`
 - projecting `allow` / `deny` / `require_approval` plus approval-request candidates for recording
@@ -149,7 +149,6 @@ This keeps the next tasks cleaner:
 
 - concrete GitHub API interception or browser instrumentation details
 - the high-risk GitHub action taxonomy implementation itself
-- concrete `agenta-core` GitHub governance event normalization
 - concrete `agenta-policy` GitHub policy evaluation
 - durable audit / approval persistence implementation
 - runtime proof that a live token carried the documented auth labels
