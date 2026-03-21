@@ -25,8 +25,8 @@ The redaction rule for this phase is explicit from the start: generic REST / OAu
 
 `crates/agenta-core/src/rest.rs`
 
-- planned home for the concrete generic REST / OAuth governance contract from P10-2
-- provider-neutral method / host / path / query-class / scope / side-effect / privilege descriptors
+- checked-in home for the concrete generic REST / OAuth governance contract from P10-2
+- provider-neutral `GenericRestAction`, `RestHost`, `PathTemplate`, and `QueryClass` types
 - checked-in type surface that `agenta-policy`, audit records, and later provider modules can share
 
 `cmd/agent-auditor-hostd/src/poc/rest/`
