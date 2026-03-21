@@ -160,4 +160,4 @@ Still out of scope here:
 - architecture overview: [`overview.md`](overview.md)
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - shared provider contract and metadata types: [`../../crates/agenta-core/src/provider.rs`](../../crates/agenta-core/src/provider.rs)
-- roadmap mirror: [`../roadmaps/provider-abstraction-foundation-tasklist.md`](../roadmaps/provider-abstraction-foundation-tasklist.md)
+- roadmap mirror: [`../roadmaps/github-semantic-governance-tasklist.md`](../roadmaps/github-semantic-governance-tasklist.md)

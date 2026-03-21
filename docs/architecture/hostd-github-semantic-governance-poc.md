@@ -160,6 +160,7 @@ This keeps the next tasks cleaner:
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
 - GitHub candidate catalog: [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
 - architecture overview: [`overview.md`](overview.md)
+- roadmap mirror: [`../roadmaps/github-semantic-governance-tasklist.md`](../roadmaps/github-semantic-governance-tasklist.md)
 - product requirements: [`../PRD.md`](../PRD.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
 - shared provider contract and metadata types: [`../../crates/agenta-core/src/provider.rs`](../../crates/agenta-core/src/provider.rs)
