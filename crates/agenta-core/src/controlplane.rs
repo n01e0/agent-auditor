@@ -224,6 +224,232 @@ impl ApprovalOpsHardeningStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalStatusKind {
+    PendingReview,
+    StaleQueue,
+    Drifted,
+    WaitingDownstream,
+    WaitingMerge,
+    Resolved,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalStatusSummary {
+    pub kind: ApprovalStatusKind,
+    pub headline: String,
+    pub detail: String,
+    pub actionable: bool,
+}
+
+impl ApprovalStatusSummary {
+    pub fn derive(queue_item: &ApprovalQueueItem, ops_status: &ApprovalOpsHardeningStatus) -> Self {
+        match ops_status.drift {
+            ApprovalQueueDrift::MissingAuditRecord => Self {
+                kind: ApprovalStatusKind::Drifted,
+                headline: "Approval queue drift detected".to_owned(),
+                detail: format!(
+                    "{} is missing durable audit evidence and should be replayed from audit",
+                    queue_item.approval_id
+                ),
+                actionable: false,
+            },
+            ApprovalQueueDrift::MissingDecisionRecord => Self {
+                kind: ApprovalStatusKind::Drifted,
+                headline: "Approval decision drift detected".to_owned(),
+                detail: format!(
+                    "{} has a reviewer outcome but is missing the durable decision record",
+                    queue_item.approval_id
+                ),
+                actionable: false,
+            },
+            ApprovalQueueDrift::MissingDownstreamCompletion => match ops_status.waiting {
+                ApprovalWaitingState::WaitingMerge => Self {
+                    kind: ApprovalStatusKind::WaitingMerge,
+                    headline: "Approval is waiting for merge".to_owned(),
+                    detail: format!(
+                        "{} is approved but still waiting for merge-like completion",
+                        queue_item.approval_id
+                    ),
+                    actionable: false,
+                },
+                _ => Self {
+                    kind: ApprovalStatusKind::WaitingDownstream,
+                    headline: "Approval is waiting for downstream completion".to_owned(),
+                    detail: format!(
+                        "{} is approved but the downstream completion signal is still missing",
+                        queue_item.approval_id
+                    ),
+                    actionable: false,
+                },
+            },
+            ApprovalQueueDrift::InSync => match ops_status.freshness {
+                ApprovalQueueFreshness::Stale => Self {
+                    kind: ApprovalStatusKind::StaleQueue,
+                    headline: "Approval queue item is stale".to_owned(),
+                    detail: format!(
+                        "{} should be refreshed before a reviewer acts on it",
+                        queue_item.approval_id
+                    ),
+                    actionable: false,
+                },
+                _ => match ops_status.waiting {
+                    ApprovalWaitingState::ReviewerDecision => Self {
+                        kind: ApprovalStatusKind::PendingReview,
+                        headline: "Approval is waiting for reviewer decision".to_owned(),
+                        detail: queue_item.decision_summary.action_summary.clone(),
+                        actionable: true,
+                    },
+                    ApprovalWaitingState::DownstreamCompletion => Self {
+                        kind: ApprovalStatusKind::WaitingDownstream,
+                        headline: "Approval is waiting for downstream completion".to_owned(),
+                        detail: format!(
+                            "{} is approved and waiting for downstream completion",
+                            queue_item.approval_id
+                        ),
+                        actionable: false,
+                    },
+                    ApprovalWaitingState::WaitingMerge => Self {
+                        kind: ApprovalStatusKind::WaitingMerge,
+                        headline: "Approval is waiting for merge".to_owned(),
+                        detail: format!(
+                            "{} is approved and waiting for merge-like completion",
+                            queue_item.approval_id
+                        ),
+                        actionable: false,
+                    },
+                    ApprovalWaitingState::Resolved => Self {
+                        kind: ApprovalStatusKind::Resolved,
+                        headline: "Approval flow is resolved".to_owned(),
+                        detail: format!(
+                            "{} no longer requires reviewer or downstream action",
+                            queue_item.approval_id
+                        ),
+                        actionable: false,
+                    },
+                },
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalNotificationClass {
+    ReviewRequired,
+    StaleQueueAlert,
+    DriftAlert,
+    WaitingMergeReminder,
+    ResolutionUpdate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalNotificationAudience {
+    Reviewer,
+    Ops,
+    Requester,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalNotificationSummary {
+    pub class: ApprovalNotificationClass,
+    pub audience: ApprovalNotificationAudience,
+    pub headline: String,
+    pub status_line: String,
+}
+
+impl ApprovalNotificationSummary {
+    pub fn derive(queue_item: &ApprovalQueueItem, status: &ApprovalStatusSummary) -> Self {
+        match status.kind {
+            ApprovalStatusKind::PendingReview => Self {
+                class: ApprovalNotificationClass::ReviewRequired,
+                audience: ApprovalNotificationAudience::Reviewer,
+                headline: "Reviewer action required".to_owned(),
+                status_line: format!(
+                    "{} requires review: {}",
+                    queue_item.approval_id, status.detail
+                ),
+            },
+            ApprovalStatusKind::StaleQueue => Self {
+                class: ApprovalNotificationClass::StaleQueueAlert,
+                audience: ApprovalNotificationAudience::Ops,
+                headline: "Approval queue item became stale".to_owned(),
+                status_line: status.detail.clone(),
+            },
+            ApprovalStatusKind::Drifted => Self {
+                class: ApprovalNotificationClass::DriftAlert,
+                audience: ApprovalNotificationAudience::Ops,
+                headline: "Approval reconciliation drift detected".to_owned(),
+                status_line: status.detail.clone(),
+            },
+            ApprovalStatusKind::WaitingDownstream | ApprovalStatusKind::WaitingMerge => Self {
+                class: ApprovalNotificationClass::WaitingMergeReminder,
+                audience: ApprovalNotificationAudience::Requester,
+                headline: "Approval is waiting on follow-up completion".to_owned(),
+                status_line: status.detail.clone(),
+            },
+            ApprovalStatusKind::Resolved => Self {
+                class: ApprovalNotificationClass::ResolutionUpdate,
+                audience: ApprovalNotificationAudience::Requester,
+                headline: "Approval flow resolved".to_owned(),
+                status_line: status.detail.clone(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalReconciliationState {
+    InSync,
+    NeedsQueueRefresh,
+    NeedsAuditReplay,
+    AwaitingCompletion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalReconciliationSummary {
+    pub state: ApprovalReconciliationState,
+    pub note: String,
+}
+
+impl ApprovalReconciliationSummary {
+    pub fn derive(queue_item: &ApprovalQueueItem, ops_status: &ApprovalOpsHardeningStatus) -> Self {
+        match ops_status.recovery {
+            ApprovalRecoveryAction::ReplayFromAudit => Self {
+                state: ApprovalReconciliationState::NeedsAuditReplay,
+                note: format!(
+                    "{} should be rebuilt from durable approval/audit records",
+                    queue_item.approval_id
+                ),
+            },
+            ApprovalRecoveryAction::RefreshQueueProjection => Self {
+                state: ApprovalReconciliationState::NeedsQueueRefresh,
+                note: format!(
+                    "{} should be refreshed from append-only inputs before review continues",
+                    queue_item.approval_id
+                ),
+            },
+            ApprovalRecoveryAction::AwaitDownstreamCompletion => Self {
+                state: ApprovalReconciliationState::AwaitingCompletion,
+                note: format!(
+                    "{} is still waiting for downstream or merge-like completion",
+                    queue_item.approval_id
+                ),
+            },
+            ApprovalRecoveryAction::NoneNeeded => Self {
+                state: ApprovalReconciliationState::InSync,
+                note: format!(
+                    "{} is consistent with the current control-plane view",
+                    queue_item.approval_id
+                ),
+            },
+        }
+    }
+}
+
 fn action_summary_for_request(request: &ApprovalRequest) -> String {
     request
         .request
@@ -493,5 +719,127 @@ mod tests {
         assert_eq!(status.drift, ApprovalQueueDrift::InSync);
         assert_eq!(status.recovery, ApprovalRecoveryAction::NoneNeeded);
         assert_eq!(status.waiting, ApprovalWaitingState::Resolved);
+    }
+
+    #[test]
+    fn status_summary_marks_pending_review_as_actionable() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Pending;
+        request.decision = None;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: false,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+
+        assert_eq!(status.kind, ApprovalStatusKind::PendingReview);
+        assert!(status.actionable);
+        assert_eq!(
+            status.detail,
+            "Invite a new member into the incident thread"
+        );
+    }
+
+    #[test]
+    fn notification_summary_prioritizes_drift_alerts_for_ops() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Pending;
+        request.decision = None;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: false,
+                decision_record_present: false,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+        let notification = ApprovalNotificationSummary::derive(&queue_item, &status);
+
+        assert_eq!(status.kind, ApprovalStatusKind::Drifted);
+        assert_eq!(notification.class, ApprovalNotificationClass::DriftAlert);
+        assert_eq!(notification.audience, ApprovalNotificationAudience::Ops);
+        assert!(
+            notification
+                .status_line
+                .contains("missing durable audit evidence")
+        );
+    }
+
+    #[test]
+    fn reconciliation_summary_maps_stale_pending_items_to_queue_refresh() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Pending;
+        request.decision = None;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: true,
+                audit_record_present: true,
+                decision_record_present: false,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+        let reconciliation = ApprovalReconciliationSummary::derive(&queue_item, &ops_status);
+
+        assert_eq!(
+            reconciliation.state,
+            ApprovalReconciliationState::NeedsQueueRefresh
+        );
+        assert!(
+            reconciliation
+                .note
+                .contains("refreshed from append-only inputs")
+        );
+    }
+
+    #[test]
+    fn waiting_merge_status_surfaces_requester_notification_and_completion_wait() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+        let notification = ApprovalNotificationSummary::derive(&queue_item, &status);
+        let reconciliation = ApprovalReconciliationSummary::derive(&queue_item, &ops_status);
+
+        assert_eq!(status.kind, ApprovalStatusKind::WaitingMerge);
+        assert_eq!(
+            notification.class,
+            ApprovalNotificationClass::WaitingMergeReminder
+        );
+        assert_eq!(
+            notification.audience,
+            ApprovalNotificationAudience::Requester
+        );
+        assert_eq!(
+            reconciliation.state,
+            ApprovalReconciliationState::AwaitingCompletion
+        );
     }
 }
