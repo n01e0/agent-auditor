@@ -1,0 +1,234 @@
+{
+  "github_taxonomy": "sources=api_observation,browser_observation surfaces=github,github.repos,github.branches,github.actions,github.pulls input_fields=source_kind,transport,authority_hint,method_hint,route_template_hint,path_hint,target_hint,provider_hint,classifier_labels,classifier_reasons taxonomy_fields=semantic_surface,provider_id,action_key,target_hint,classifier_labels,classifier_reasons,content_retained actions=repos.update_visibility,branches.update_protection,actions.workflow_dispatch,actions.runs.rerun,pulls.merge,actions.secrets.create_or_update stages=service_map->taxonomy->label->handoff",
+  "github_metadata": "contract_fields=provider_id,action_key metadata_fields=method,canonical_resource,side_effect,oauth_scopes,privilege_class semantic_actions=repos.update_visibility,branches.update_protection,actions.workflow_dispatch,actions.runs.rerun,pulls.merge,actions.secrets.create_or_update stages=catalog->lookup documentation_sources=docs/architecture/provider-abstraction-github-candidate-catalog.md|official GitHub REST endpoint documentation|official GitHub fine-grained permission and OAuth scope documentation",
+  "github_policy": "sources=api_observation,browser_observation surfaces=github,github.repos,github.branches,github.actions,github.pulls taxonomy_fields=semantic_surface,provider_id,action_key,target_hint,classifier_labels,classifier_reasons,content_retained metadata_fields=method,canonical_resource,side_effect,oauth_scopes,privilege_class stages=normalize->annotate->evaluate->project",
+  "github_record": "sources=api_observation,browser_observation surfaces=github,github.repos,github.branches,github.actions,github.pulls record_fields=normalized_event,policy_decision,approval_request,redaction_status stages=persist->publish sinks=structured_log,audit_store,approval_store",
+  "github_classified_require_approval": "event=github.classified source=api_observation request_id=req_github_repos_update_visibility_preview semantic_surface=github.repos semantic_action=repos.update_visibility provider_action_id=github:repos.update_visibility target_hint=repos/n01e0/agent-auditor/visibility content_retained=false",
+  "github_normalized_require_approval": {
+    "event_id": "poc_github_action_api_observation_repos.update_visibility_req_github_repos_update_visibility_preview",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "repos.update_visibility",
+      "target": "repos/n01e0/agent-auditor/visibility",
+      "attributes": {
+        "provider_id": "github",
+        "action_key": "repos.update_visibility",
+        "semantic_surface": "github.repos",
+        "source_kind": "api_observation",
+        "content_retained": false
+      }
+    },
+    "result": {
+      "status": "observed"
+    },
+    "policy": null,
+    "enforcement": null,
+    "source": {
+      "collector": "runtime_hint"
+    }
+  },
+  "github_policy_decision_require_approval": {
+    "decision": "require_approval",
+    "rule_id": "github.repos.update_visibility.requires_approval",
+    "severity": "high",
+    "reason": "Repository visibility changes require approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": ["github", "repos", "approval"]
+  },
+  "github_approval_request_require_approval": {
+    "approval_id": "apr_poc_github_action_api_observation_repos.update_visibility_req_github_repos_update_visibility_preview",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "poc_github_action_api_observation_repos.update_visibility_req_github_repos_update_visibility_preview",
+    "request": {
+      "action_class": "github",
+      "action_verb": "repos.update_visibility",
+      "target": "repos/n01e0/agent-auditor/visibility"
+    },
+    "policy": {
+      "rule_id": "github.repos.update_visibility.requires_approval",
+      "severity": "high",
+      "reason": "Repository visibility changes require approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "decision": null,
+    "enforcement": {
+      "directive": "hold",
+      "status": "held"
+    }
+  },
+  "github_enriched_require_approval": {
+    "event_id": "poc_github_action_api_observation_repos.update_visibility_req_github_repos_update_visibility_preview",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "repos.update_visibility",
+      "target": "repos/n01e0/agent-auditor/visibility"
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "Repository visibility changes require approval"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "github.repos.update_visibility.requires_approval",
+      "severity": "high"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held"
+    }
+  },
+  "github_normalized_allow": {
+    "event_id": "poc_github_action_api_observation_actions.runs.rerun_req_github_actions_runs_rerun_preview",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "actions.runs.rerun",
+      "target": "repos/n01e0/agent-auditor/actions/runs/123456",
+      "attributes": {
+        "provider_id": "github",
+        "action_key": "actions.runs.rerun",
+        "semantic_surface": "github.actions",
+        "source_kind": "api_observation",
+        "content_retained": false
+      }
+    },
+    "result": {
+      "status": "observed"
+    }
+  },
+  "github_policy_decision_allow": {
+    "decision": "allow",
+    "rule_id": "github.actions.runs_rerun.allow",
+    "severity": "low",
+    "reason": "Workflow rerun is allowed by the GitHub preview policy",
+    "approval": null,
+    "tags": ["github", "actions", "allow"]
+  },
+  "github_enriched_allow": {
+    "event_id": "poc_github_action_api_observation_actions.runs.rerun_req_github_actions_runs_rerun_preview",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "actions.runs.rerun",
+      "target": "repos/n01e0/agent-auditor/actions/runs/123456"
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "Workflow rerun is allowed by the GitHub preview policy"
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "github.actions.runs_rerun.allow",
+      "severity": "low"
+    },
+    "enforcement": null
+  },
+  "github_normalized_deny": {
+    "event_id": "poc_github_action_api_observation_actions.secrets.create_or_update_req_github_actions_secrets_create_or_update_preview",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "actions.secrets.create_or_update",
+      "target": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+      "attributes": {
+        "provider_id": "github",
+        "action_key": "actions.secrets.create_or_update",
+        "semantic_surface": "github.actions",
+        "source_kind": "api_observation",
+        "content_retained": false
+      }
+    },
+    "result": {
+      "status": "observed"
+    }
+  },
+  "github_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "github.actions.secrets_create_or_update.denied",
+    "severity": "critical",
+    "reason": "Repository Actions secret writes are denied by the GitHub preview policy",
+    "approval": null,
+    "tags": ["github", "actions", "deny"]
+  },
+  "github_enriched_deny": {
+    "event_id": "poc_github_action_api_observation_actions.secrets.create_or_update_req_github_actions_secrets_create_or_update_preview",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "actions.secrets.create_or_update",
+      "target": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN"
+    },
+    "result": {
+      "status": "denied",
+      "reason": "Repository Actions secret writes are denied by the GitHub preview policy"
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "github.actions.secrets_create_or_update.denied",
+      "severity": "critical"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied"
+    }
+  },
+  "persisted_github_audit_record_require_approval": {
+    "event_id": "poc_github_action_api_observation_repos.update_visibility_req_github_repos_update_visibility_preview",
+    "result": {
+      "status": "approval_required"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "github.repos.update_visibility.requires_approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held"
+    }
+  },
+  "persisted_github_approval_request": {
+    "approval_id": "apr_poc_github_action_api_observation_repos.update_visibility_req_github_repos_update_visibility_preview",
+    "status": "pending",
+    "policy": {
+      "rule_id": "github.repos.update_visibility.requires_approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held"
+    }
+  },
+  "persisted_github_audit_record_allow": {
+    "event_id": "poc_github_action_api_observation_actions.runs.rerun_req_github_actions_runs_rerun_preview",
+    "result": {
+      "status": "allowed"
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "github.actions.runs_rerun.allow"
+    },
+    "enforcement": null
+  },
+  "persisted_github_audit_record_deny": {
+    "event_id": "poc_github_action_api_observation_actions.secrets.create_or_update_req_github_actions_secrets_create_or_update_preview",
+    "result": {
+      "status": "denied"
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "github.actions.secrets_create_or_update.denied"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied"
+    }
+  }
+}

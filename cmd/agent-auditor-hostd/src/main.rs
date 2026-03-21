@@ -3,6 +3,7 @@ use agent_auditor_hostd::poc::{
     enforcement::contract::{EnforcementOutcome, EnforcementScope},
     event_path::ExecEvent,
     filesystem::persist::FilesystemPocStore,
+    github::persist::GitHubPocStore,
     gws::{
         contract::ApiRequestObservation, persist::GwsPocStore, preview_provider_metadata_catalog,
     },
@@ -417,6 +418,284 @@ fn main() {
         }
     }
     println!("gws_record={}", plan.api_network_gws.record.summary());
+    println!("github_taxonomy={}", plan.github.taxonomy.summary());
+    println!("github_metadata={}", plan.github.metadata.summary());
+    println!("github_policy={}", plan.github.policy.summary());
+    let github_require_approval_classified = match plan.github.taxonomy.classify_signal(
+        &agent_auditor_hostd::poc::github::contract::GitHubGovernanceObservation::preview_api_repos_update_visibility(),
+    ) {
+        Some(classified) => classified,
+        None => {
+            eprintln!("github_classify_require_approval_error=preview GitHub action did not classify");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "github_classified_require_approval={}",
+        github_require_approval_classified.log_line()
+    );
+    let github_normalized_require_approval = plan
+        .github
+        .policy
+        .normalize_classified_action(&github_require_approval_classified, &session);
+    println!(
+        "github_normalized_require_approval={}",
+        serde_json::to_string(&github_normalized_require_approval)
+            .expect("github normalized require approval preview should serialize")
+    );
+    let preview_github_policy = |normalized: &agenta_core::EventEnvelope| {
+        let input = PolicyInput::from_event(normalized);
+        RegoPolicyEvaluator::github_action_example()
+            .evaluate(&input)
+            .map(|decision| {
+                let decision_applied = apply_decision_to_event(normalized, &decision);
+                let approval_request = approval_request_from_decision(&decision_applied, &decision);
+                (decision_applied, decision, approval_request)
+            })
+    };
+    let (
+        _github_decision_applied_require_approval,
+        github_policy_decision_require_approval,
+        github_approval_request_require_approval,
+    ) = match preview_github_policy(&github_normalized_require_approval) {
+        Ok(parts) => parts,
+        Err(error) => {
+            eprintln!("github_policy_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let github_approval_request_require_approval = match &github_approval_request_require_approval {
+        Some(approval_request) => approval_request,
+        None => {
+            eprintln!("github_approval_request_require_approval_error=missing approval request");
+            std::process::exit(1);
+        }
+    };
+    let (github_enriched_require_approval, github_approval_request_require_approval) =
+        match plan.github.record.reflect_hold(
+            &github_normalized_require_approval,
+            &github_policy_decision_require_approval,
+            github_approval_request_require_approval,
+        ) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("github_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        };
+    println!(
+        "github_policy_decision_require_approval={}",
+        serde_json::to_string(&github_policy_decision_require_approval)
+            .expect("github require approval policy decision should serialize")
+    );
+    println!(
+        "github_enriched_require_approval={}",
+        serde_json::to_string(&github_enriched_require_approval)
+            .expect("github enriched require approval preview should serialize")
+    );
+    println!(
+        "github_approval_request_require_approval={}",
+        serde_json::to_string(&github_approval_request_require_approval)
+            .expect("github require approval request should serialize")
+    );
+
+    let github_allow_classified = match plan.github.taxonomy.classify_signal(
+        &agent_auditor_hostd::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_runs_rerun(),
+    ) {
+        Some(classified) => classified,
+        None => {
+            eprintln!("github_classify_allow_error=preview GitHub action did not classify");
+            std::process::exit(1);
+        }
+    };
+    let github_normalized_allow = plan
+        .github
+        .policy
+        .normalize_classified_action(&github_allow_classified, &session);
+    let (_, github_policy_decision_allow, _) = match preview_github_policy(&github_normalized_allow)
+    {
+        Ok(parts) => parts,
+        Err(error) => {
+            eprintln!("github_policy_allow_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let github_enriched_allow = match plan
+        .github
+        .record
+        .reflect_allow(&github_normalized_allow, &github_policy_decision_allow)
+    {
+        Ok(enriched) => enriched,
+        Err(error) => {
+            eprintln!("github_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "github_normalized_allow={}",
+        serde_json::to_string(&github_normalized_allow)
+            .expect("github normalized allow preview should serialize")
+    );
+    println!(
+        "github_policy_decision_allow={}",
+        serde_json::to_string(&github_policy_decision_allow)
+            .expect("github allow policy decision should serialize")
+    );
+    println!(
+        "github_enriched_allow={}",
+        serde_json::to_string(&github_enriched_allow)
+            .expect("github enriched allow preview should serialize")
+    );
+
+    let github_deny_classified = match plan.github.taxonomy.classify_signal(
+        &agent_auditor_hostd::poc::github::contract::GitHubGovernanceObservation::preview_api_actions_secrets_create_or_update(),
+    ) {
+        Some(classified) => classified,
+        None => {
+            eprintln!("github_classify_deny_error=preview GitHub action did not classify");
+            std::process::exit(1);
+        }
+    };
+    let github_normalized_deny = plan
+        .github
+        .policy
+        .normalize_classified_action(&github_deny_classified, &session);
+    let (_, github_policy_decision_deny, _) = match preview_github_policy(&github_normalized_deny) {
+        Ok(parts) => parts,
+        Err(error) => {
+            eprintln!("github_policy_deny_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let github_enriched_deny = match plan
+        .github
+        .record
+        .reflect_deny(&github_normalized_deny, &github_policy_decision_deny)
+    {
+        Ok(enriched) => enriched,
+        Err(error) => {
+            eprintln!("github_record_deny_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "github_normalized_deny={}",
+        serde_json::to_string(&github_normalized_deny)
+            .expect("github normalized deny preview should serialize")
+    );
+    println!(
+        "github_policy_decision_deny={}",
+        serde_json::to_string(&github_policy_decision_deny)
+            .expect("github deny policy decision should serialize")
+    );
+    println!(
+        "github_enriched_deny={}",
+        serde_json::to_string(&github_enriched_deny)
+            .expect("github enriched deny preview should serialize")
+    );
+
+    let github_store = match GitHubPocStore::bootstrap() {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("github_store_error={error}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(error) = github_store.append_audit_record(&github_enriched_require_approval) {
+        eprintln!("persisted_github_audit_record_require_approval_error={error}");
+        std::process::exit(1);
+    }
+    match github_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_github_audit_record_require_approval={json}"),
+            Err(error) => {
+                eprintln!("persisted_github_audit_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_github_audit_record_require_approval_error=missing persisted github audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_github_audit_record_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) =
+        github_store.append_approval_request(&github_approval_request_require_approval)
+    {
+        eprintln!("persisted_github_approval_request_error={error}");
+        std::process::exit(1);
+    }
+    match github_store.latest_approval_request() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_github_approval_request={json}"),
+            Err(error) => {
+                eprintln!("persisted_github_approval_request_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_github_approval_request_error=missing persisted github approval request"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_github_approval_request_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = github_store.append_audit_record(&github_enriched_allow) {
+        eprintln!("persisted_github_audit_record_allow_error={error}");
+        std::process::exit(1);
+    }
+    match github_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_github_audit_record_allow={json}"),
+            Err(error) => {
+                eprintln!("persisted_github_audit_record_allow_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_github_audit_record_allow_error=missing persisted github audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_github_audit_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = github_store.append_audit_record(&github_enriched_deny) {
+        eprintln!("persisted_github_audit_record_deny_error={error}");
+        std::process::exit(1);
+    }
+    match github_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_github_audit_record_deny={json}"),
+            Err(error) => {
+                eprintln!("persisted_github_audit_record_deny_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_github_audit_record_deny_error=missing persisted github audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_github_audit_record_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+    println!("github_record={}", plan.github.record.summary());
     println!(
         "enforcement_decision={}",
         plan.enforcement.decision.summary()
