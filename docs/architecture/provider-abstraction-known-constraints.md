@@ -12,11 +12,12 @@ This note records the current constraints of the repository-wide provider-abstra
    - the current end-to-end preview that populates shared provider fields comes from `cmd/agent-auditor-hostd/src/poc/gws/`
    - the provider-abstraction smoke output is therefore proof that the shared contract works with the current GWS slice, not proof of a generalized multi-provider runtime
 
-3. **GitHub is taxonomy-, metadata-, and normalization-fixed, not runtime-implemented**
+3. **GitHub is taxonomy-, metadata-, normalization-, and policy-fixed, not runtime-implemented**
    - `provider-abstraction-github-candidate-catalog.md` now fixes the first six GitHub governance action keys plus docs-backed method / resource / required permission / side effect descriptors
    - `cmd/agent-auditor-hostd/src/poc/github/taxonomy.rs` classifies those six high-risk GitHub governance actions in a redaction-safe PoC taxonomy seam
    - `cmd/agent-auditor-hostd/src/poc/github/policy.rs` now normalizes those classified actions into `agenta-core` with shared provider-action identity
-   - there is still no checked-in GitHub policy example, approval path, or hostd bootstrap preview flow for those actions
+   - `examples/policies/github_action.rego` now evaluates those normalized GitHub actions in `agenta-policy`
+   - there is still no checked-in approval path or hostd bootstrap preview flow for those actions
 
 4. **Provider-specific taxonomy still lives in provider modules**
    - the abstraction boundary deliberately leaves provider-native matching heuristics in provider adapters and PoC modules
@@ -49,7 +50,8 @@ This note records the current constraints of the repository-wide provider-abstra
 
 8. **Policy generalization is narrower than provider implementation**
    - `agenta-policy` now evaluates on provider + action identity through `input.provider_action`
-   - the checked-in example policy is still the GWS preview policy, not a general provider policy pack that already covers GitHub or other providers
+   - the checked-in example policies now cover the current GWS preview set plus the first GitHub governance preview set
+   - that is still not a general provider policy pack that already covers arbitrary providers or a full GitHub runtime surface
 
 9. **Bootstrap preview output is deterministic and repository-local**
    - the provider-abstraction smoke test validates stable bootstrap lines from `agent-auditor-hostd`
@@ -77,6 +79,7 @@ Today’s provider-abstraction foundation is good for:
 - proving that GWS can populate the shared provider contract end to end
 - proving that `agenta-policy` can evaluate on provider + action identity
 - fixing the first GitHub governance action metadata catalog in docs
+- keeping a checked-in GitHub preview policy aligned with the current six-action governance slice
 - keeping CI coverage around the current shared contract / metadata / smoke-test agreement
 
 It is **not yet** good evidence of:

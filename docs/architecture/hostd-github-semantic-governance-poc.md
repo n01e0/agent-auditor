@@ -33,7 +33,7 @@ The redaction rule for this phase is explicit from the start: raw GitHub request
   - current home for the ownership rule that method / canonical resource / side effect / auth labels / privilege class stay outside taxonomy and record
 - `policy.rs`
   - normalization + metadata join + policy bridge plan after taxonomy
-  - checked-in home for `agenta-core` GitHub governance event shaping and future home for `agenta-policy` evaluation
+  - checked-in home for `agenta-core` GitHub governance event shaping and GitHub `agenta-policy` evaluation tests
 - `record.rs`
   - audit / approval record plan after policy evaluation
   - future home for append-only storage and publish fanout
@@ -142,14 +142,13 @@ This keeps the next tasks cleaner:
 
 - **P9-2** can implement high-risk GitHub action taxonomy against a stable upstream seam
 - **P9-3** fixes the first docs-backed GitHub metadata catalog without owning request matching or audit persistence
-- **P9-4 / P9-5** can normalize and evaluate GitHub governance actions against stable taxonomy and metadata seams
+- **P9-4 / P9-5** normalize GitHub governance actions into `agenta-core` and evaluate them through a checked-in GitHub preview policy against stable taxonomy and metadata seams
 - **P9-6** can reflect decisions into durable records without reaching back into taxonomy or metadata curation
 
 ## Explicitly out of scope for P9-1
 
 - concrete GitHub API interception or browser instrumentation details
 - the high-risk GitHub action taxonomy implementation itself
-- concrete `agenta-policy` GitHub policy evaluation
 - durable audit / approval persistence implementation
 - runtime proof that a live token carried the documented auth labels
 - operator runbook / known-constraints docs for this GitHub slice
