@@ -1,0 +1,542 @@
+{
+  "generic_rest_normalize": "providers=gws,github upstream_contract=provider_id,action_key,target_hint upstream_metadata=method,canonical_resource,side_effect,oauth_scopes,privilege_class generic_fields=provider_id,action_key,target_hint,method,host,path_template,query_class,oauth_scope_labels,side_effect,privilege_class stages=provider_contract_join->rest_normalize->oauth_label->handoff",
+  "generic_rest_policy": "providers=gws,github input_fields=provider_id,action_key,target_hint,method,host,path_template,query_class,oauth_scope_labels,side_effect,privilege_class decision_fields=normalized_event,policy_decision,approval_request,redaction_status stages=normalize->policy->approval_projection",
+  "generic_rest_record": "providers=gws,github input_fields=normalized_event,policy_decision,approval_request,redaction_status record_fields=normalized_event,policy_decision,approval_request,redaction_status stages=persist->publish sinks=structured_log,audit_store,approval_store",
+  "generic_rest_normalized_require_approval": {
+    "event_id": "evt_rest_gmail_send_require_approval",
+    "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "policy_bundle_version": "bundle-bootstrap",
+      "environment": "dev"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd"
+    },
+    "action": {
+      "class": "gws",
+      "verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "attributes": {
+        "action_key": "gmail.users.messages.send",
+        "host": "gmail.googleapis.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/gmail.send",
+          "documented": [
+            "https://www.googleapis.com/auth/gmail.send"
+          ]
+        },
+        "path_template": "/gmail/v1/users/{userId}/messages/send",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "gws:gmail.users.messages.send",
+        "provider_id": "gws",
+        "query_class": "action_arguments",
+        "semantic_surface": "gws.gmail",
+        "side_effect": "sends a Gmail message to one or more recipients",
+        "target_hint": "gmail.users/me"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd generic REST smoke preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc"
+    }
+  },
+  "generic_rest_policy_decision_require_approval": {
+    "decision": "require_approval",
+    "rule_id": "generic_rest.outbound_send.requires_approval",
+    "severity": "high",
+    "reason": "Outbound REST actions require approval",
+    "approval": {
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "tags": [
+      "generic_rest",
+      "outbound_send",
+      "approval"
+    ]
+  },
+  "generic_rest_enriched_require_approval": {
+    "event_id": "evt_rest_gmail_send_require_approval",
+    "event_type": "gws_action",
+    "action": {
+      "class": "gws",
+      "verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "attributes": {
+        "action_key": "gmail.users.messages.send",
+        "host": "gmail.googleapis.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/gmail.send",
+          "documented": [
+            "https://www.googleapis.com/auth/gmail.send"
+          ]
+        },
+        "path_template": "/gmail/v1/users/{userId}/messages/send",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "gws:gmail.users.messages.send",
+        "provider_id": "gws",
+        "query_class": "action_arguments",
+        "semantic_surface": "gws.gmail",
+        "side_effect": "sends a Gmail message to one or more recipients",
+        "target_hint": "gmail.users/me"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "Outbound REST actions require approval"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "generic_rest.outbound_send.requires_approval",
+      "severity": "high",
+      "explanation": "Outbound REST actions require approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Outbound REST actions require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_rest_gmail_send_require_approval"
+    }
+  },
+  "generic_rest_approval_request_require_approval": {
+    "approval_id": "apr_evt_rest_gmail_send_require_approval",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "evt_rest_gmail_send_require_approval",
+    "request": {
+      "action_class": "gws",
+      "action_verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "summary": "Outbound REST actions require approval",
+      "attributes": {
+        "action_key": "gmail.users.messages.send",
+        "host": "gmail.googleapis.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/gmail.send",
+          "documented": [
+            "https://www.googleapis.com/auth/gmail.send"
+          ]
+        },
+        "path_template": "/gmail/v1/users/{userId}/messages/send",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "gws:gmail.users.messages.send",
+        "provider_id": "gws",
+        "query_class": "action_arguments",
+        "semantic_surface": "gws.gmail",
+        "side_effect": "sends a Gmail message to one or more recipients",
+        "target_hint": "gmail.users/me"
+      }
+    },
+    "policy": {
+      "rule_id": "generic_rest.outbound_send.requires_approval",
+      "severity": "high",
+      "reason": "Outbound REST actions require approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "Outbound REST actions require approval",
+      "human_request": null
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Outbound REST actions require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_rest_gmail_send_require_approval"
+    }
+  },
+  "generic_rest_normalized_allow": {
+    "event_id": "evt_rest_admin_reports_allow",
+    "event_type": "gws_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "policy_bundle_version": "bundle-bootstrap",
+      "environment": "dev"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd"
+    },
+    "action": {
+      "class": "gws",
+      "verb": "admin.reports.activities.list",
+      "target": "admin.reports/users/all/applications/drive",
+      "attributes": {
+        "action_key": "admin.reports.activities.list",
+        "host": "admin.googleapis.com",
+        "method": "GET",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/admin.reports.audit.readonly",
+          "documented": [
+            "https://www.googleapis.com/auth/admin.reports.audit.readonly"
+          ]
+        },
+        "path_template": "/admin/reports/v1/activity/users/all/applications/{applicationName}",
+        "privilege_class": "admin_read",
+        "provider_action_id": "gws:admin.reports.activities.list",
+        "provider_id": "gws",
+        "query_class": "filter",
+        "semantic_surface": "gws.admin",
+        "side_effect": "lists admin activity reports without mutating tenant state",
+        "target_hint": "admin.reports/users/all/applications/drive"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd generic REST smoke preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc"
+    }
+  },
+  "generic_rest_policy_decision_allow": {
+    "decision": "allow",
+    "rule_id": "generic_rest.read_only.allow",
+    "severity": "low",
+    "reason": "Read-only generic REST audit retrieval is allowed",
+    "approval": null,
+    "tags": [
+      "generic_rest",
+      "read_only",
+      "allow"
+    ]
+  },
+  "generic_rest_enriched_allow": {
+    "event_id": "evt_rest_admin_reports_allow",
+    "event_type": "gws_action",
+    "action": {
+      "class": "gws",
+      "verb": "admin.reports.activities.list",
+      "target": "admin.reports/users/all/applications/drive",
+      "attributes": {
+        "action_key": "admin.reports.activities.list",
+        "host": "admin.googleapis.com",
+        "method": "GET",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/admin.reports.audit.readonly",
+          "documented": [
+            "https://www.googleapis.com/auth/admin.reports.audit.readonly"
+          ]
+        },
+        "path_template": "/admin/reports/v1/activity/users/all/applications/{applicationName}",
+        "privilege_class": "admin_read",
+        "provider_action_id": "gws:admin.reports.activities.list",
+        "provider_id": "gws",
+        "query_class": "filter",
+        "semantic_surface": "gws.admin",
+        "side_effect": "lists admin activity reports without mutating tenant state",
+        "target_hint": "admin.reports/users/all/applications/drive"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "Read-only generic REST audit retrieval is allowed"
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "generic_rest.read_only.allow",
+      "severity": "low",
+      "explanation": "Read-only generic REST audit retrieval is allowed"
+    }
+  },
+  "generic_rest_normalized_deny": {
+    "event_id": "evt_rest_github_secret_deny",
+    "event_type": "github_action",
+    "session": {
+      "session_id": "sess_bootstrap_hostd",
+      "agent_id": "openclaw-main",
+      "policy_bundle_version": "bundle-bootstrap",
+      "environment": "dev"
+    },
+    "actor": {
+      "kind": "system",
+      "id": "agent-auditor-hostd"
+    },
+    "action": {
+      "class": "github",
+      "verb": "actions.secrets.create_or_update",
+      "target": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+      "attributes": {
+        "action_key": "actions.secrets.create_or_update",
+        "host": "api.github.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "github.permission:secrets:write",
+          "documented": [
+            "github.permission:secrets:write",
+            "github.oauth:repo"
+          ]
+        },
+        "path_template": "/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+        "privilege_class": "admin_write",
+        "provider_action_id": "github:actions.secrets.create_or_update",
+        "provider_id": "github",
+        "query_class": "none",
+        "semantic_surface": "github.actions",
+        "side_effect": "creates or updates an encrypted repository Actions secret",
+        "target_hint": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN"
+      }
+    },
+    "result": {
+      "status": "observed",
+      "reason": "observed by hostd generic REST smoke preview"
+    },
+    "source": {
+      "collector": "runtime_hint",
+      "host_id": "hostd-poc"
+    }
+  },
+  "generic_rest_policy_decision_deny": {
+    "decision": "deny",
+    "rule_id": "generic_rest.secret_write.denied",
+    "severity": "critical",
+    "reason": "Generic REST secret write is denied",
+    "approval": null,
+    "tags": [
+      "generic_rest",
+      "secret",
+      "deny"
+    ]
+  },
+  "generic_rest_enriched_deny": {
+    "event_id": "evt_rest_github_secret_deny",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "actions.secrets.create_or_update",
+      "target": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+      "attributes": {
+        "action_key": "actions.secrets.create_or_update",
+        "host": "api.github.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "github.permission:secrets:write",
+          "documented": [
+            "github.permission:secrets:write",
+            "github.oauth:repo"
+          ]
+        },
+        "path_template": "/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+        "privilege_class": "admin_write",
+        "provider_action_id": "github:actions.secrets.create_or_update",
+        "provider_id": "github",
+        "query_class": "none",
+        "semantic_surface": "github.actions",
+        "side_effect": "creates or updates an encrypted repository Actions secret",
+        "target_hint": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "Generic REST secret write is denied"
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "generic_rest.secret_write.denied",
+      "severity": "critical",
+      "explanation": "Generic REST secret write is denied"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "Generic REST secret write is denied",
+      "enforced": true,
+      "approval_id": null
+    }
+  },
+  "persisted_generic_rest_audit_record_require_approval": {
+    "event_id": "evt_rest_gmail_send_require_approval",
+    "event_type": "gws_action",
+    "action": {
+      "class": "gws",
+      "verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "attributes": {
+        "action_key": "gmail.users.messages.send",
+        "host": "gmail.googleapis.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/gmail.send",
+          "documented": [
+            "https://www.googleapis.com/auth/gmail.send"
+          ]
+        },
+        "path_template": "/gmail/v1/users/{userId}/messages/send",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "gws:gmail.users.messages.send",
+        "provider_id": "gws",
+        "query_class": "action_arguments",
+        "semantic_surface": "gws.gmail",
+        "side_effect": "sends a Gmail message to one or more recipients",
+        "target_hint": "gmail.users/me"
+      }
+    },
+    "result": {
+      "status": "approval_required",
+      "reason": "Outbound REST actions require approval"
+    },
+    "policy": {
+      "decision": "require_approval",
+      "rule_id": "generic_rest.outbound_send.requires_approval",
+      "severity": "high",
+      "explanation": "Outbound REST actions require approval"
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Outbound REST actions require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_rest_gmail_send_require_approval"
+    }
+  },
+  "persisted_generic_rest_approval_request": {
+    "approval_id": "apr_evt_rest_gmail_send_require_approval",
+    "status": "pending",
+    "session_id": "sess_bootstrap_hostd",
+    "event_id": "evt_rest_gmail_send_require_approval",
+    "request": {
+      "action_class": "gws",
+      "action_verb": "gmail.users.messages.send",
+      "target": "gmail.users/me",
+      "summary": "Outbound REST actions require approval",
+      "attributes": {
+        "action_key": "gmail.users.messages.send",
+        "host": "gmail.googleapis.com",
+        "method": "POST",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/gmail.send",
+          "documented": [
+            "https://www.googleapis.com/auth/gmail.send"
+          ]
+        },
+        "path_template": "/gmail/v1/users/{userId}/messages/send",
+        "privilege_class": "outbound_send",
+        "provider_action_id": "gws:gmail.users.messages.send",
+        "provider_id": "gws",
+        "query_class": "action_arguments",
+        "semantic_surface": "gws.gmail",
+        "side_effect": "sends a Gmail message to one or more recipients",
+        "target_hint": "gmail.users/me"
+      }
+    },
+    "policy": {
+      "rule_id": "generic_rest.outbound_send.requires_approval",
+      "severity": "high",
+      "reason": "Outbound REST actions require approval",
+      "scope": "single_action",
+      "ttl_seconds": 1800,
+      "reviewer_hint": "security-oncall"
+    },
+    "requester_context": {
+      "agent_reason": "Outbound REST actions require approval",
+      "human_request": null
+    },
+    "enforcement": {
+      "directive": "hold",
+      "status": "held",
+      "status_reason": "Outbound REST actions require approval",
+      "enforced": true,
+      "approval_id": "apr_evt_rest_gmail_send_require_approval"
+    }
+  },
+  "persisted_generic_rest_audit_record_allow": {
+    "event_id": "evt_rest_admin_reports_allow",
+    "event_type": "gws_action",
+    "action": {
+      "class": "gws",
+      "verb": "admin.reports.activities.list",
+      "target": "admin.reports/users/all/applications/drive",
+      "attributes": {
+        "action_key": "admin.reports.activities.list",
+        "host": "admin.googleapis.com",
+        "method": "GET",
+        "oauth_scope_labels": {
+          "primary": "https://www.googleapis.com/auth/admin.reports.audit.readonly",
+          "documented": [
+            "https://www.googleapis.com/auth/admin.reports.audit.readonly"
+          ]
+        },
+        "path_template": "/admin/reports/v1/activity/users/all/applications/{applicationName}",
+        "privilege_class": "admin_read",
+        "provider_action_id": "gws:admin.reports.activities.list",
+        "provider_id": "gws",
+        "query_class": "filter",
+        "semantic_surface": "gws.admin",
+        "side_effect": "lists admin activity reports without mutating tenant state",
+        "target_hint": "admin.reports/users/all/applications/drive"
+      }
+    },
+    "result": {
+      "status": "allowed",
+      "reason": "Read-only generic REST audit retrieval is allowed"
+    },
+    "policy": {
+      "decision": "allow",
+      "rule_id": "generic_rest.read_only.allow",
+      "severity": "low",
+      "explanation": "Read-only generic REST audit retrieval is allowed"
+    }
+  },
+  "persisted_generic_rest_audit_record_deny": {
+    "event_id": "evt_rest_github_secret_deny",
+    "event_type": "github_action",
+    "action": {
+      "class": "github",
+      "verb": "actions.secrets.create_or_update",
+      "target": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+      "attributes": {
+        "action_key": "actions.secrets.create_or_update",
+        "host": "api.github.com",
+        "method": "PUT",
+        "oauth_scope_labels": {
+          "primary": "github.permission:secrets:write",
+          "documented": [
+            "github.permission:secrets:write",
+            "github.oauth:repo"
+          ]
+        },
+        "path_template": "/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+        "privilege_class": "admin_write",
+        "provider_action_id": "github:actions.secrets.create_or_update",
+        "provider_id": "github",
+        "query_class": "none",
+        "semantic_surface": "github.actions",
+        "side_effect": "creates or updates an encrypted repository Actions secret",
+        "target_hint": "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN"
+      }
+    },
+    "result": {
+      "status": "denied",
+      "reason": "Generic REST secret write is denied"
+    },
+    "policy": {
+      "decision": "deny",
+      "rule_id": "generic_rest.secret_write.denied",
+      "severity": "critical",
+      "explanation": "Generic REST secret write is denied"
+    },
+    "enforcement": {
+      "directive": "deny",
+      "status": "denied",
+      "status_reason": "Generic REST secret write is denied",
+      "enforced": true,
+      "approval_id": null
+    }
+  }
+}
