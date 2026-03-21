@@ -22,6 +22,8 @@ const NETWORK_DESTINATION_POLICY_MODULE: &str =
 const SECRET_ACCESS_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/secret_access.rego");
 const GWS_ACTION_POLICY_MODULE: &str = include_str!("../../../examples/policies/gws_action.rego");
+const GITHUB_ACTION_POLICY_MODULE: &str =
+    include_str!("../../../examples/policies/github_action.rego");
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCoverageContext {
@@ -251,6 +253,16 @@ impl RegoPolicyEvaluator {
             vec![(
                 "examples/policies/gws_action.rego".to_owned(),
                 GWS_ACTION_POLICY_MODULE.to_owned(),
+            )],
+        )
+    }
+
+    pub fn github_action_example() -> Self {
+        Self::new(
+            POLICY_ENTRYPOINT,
+            vec![(
+                "examples/policies/github_action.rego".to_owned(),
+                GITHUB_ACTION_POLICY_MODULE.to_owned(),
             )],
         )
     }
@@ -1252,6 +1264,186 @@ mod tests {
         );
     }
 
+    #[test]
+    fn github_action_rego_requires_approval_for_repository_visibility_changes() {
+        let input = PolicyInput::from_event(&github_event(
+            "evt_github_update_visibility",
+            "repos.update_visibility",
+            "repos/n01e0/agent-auditor/visibility",
+            "api_observation",
+            "github.repos",
+        ));
+
+        let decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&input)
+            .expect("github rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("github.repos.update_visibility.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Repository visibility changes require approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(
+            decision.tags,
+            vec![
+                "github".to_owned(),
+                "repos".to_owned(),
+                "approval".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn github_action_rego_requires_approval_for_branch_protection_and_merge() {
+        let branch_decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&PolicyInput::from_event(&github_event(
+                "evt_github_branch_protection",
+                "branches.update_protection",
+                "repos/n01e0/agent-auditor/branches/main/protection",
+                "api_observation",
+                "github.branches",
+            )))
+            .expect("github branch protection rego should evaluate");
+        let merge_decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&PolicyInput::from_event(&github_event(
+                "evt_github_merge",
+                "pulls.merge",
+                "repos/n01e0/agent-auditor/pulls/72",
+                "browser_observation",
+                "github.pulls",
+            )))
+            .expect("github merge rego should evaluate");
+
+        assert_eq!(
+            branch_decision.decision,
+            PolicyDecisionKind::RequireApproval
+        );
+        assert_eq!(
+            branch_decision.rule_id.as_deref(),
+            Some("github.branches.update_protection.requires_approval")
+        );
+        assert_eq!(branch_decision.severity, Some(Severity::High));
+        assert_eq!(merge_decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            merge_decision.rule_id.as_deref(),
+            Some("github.pulls.merge.requires_approval")
+        );
+        assert_eq!(merge_decision.severity, Some(Severity::High));
+    }
+
+    #[test]
+    fn github_action_rego_requires_approval_for_workflow_dispatch() {
+        let input = PolicyInput::from_event(&github_event(
+            "evt_github_dispatch",
+            "actions.workflow_dispatch",
+            "repos/n01e0/agent-auditor/actions/workflows/ci.yml",
+            "api_observation",
+            "github.actions",
+        ));
+
+        let decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&input)
+            .expect("github workflow dispatch rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("github.actions.workflow_dispatch.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::Medium));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Workflow dispatch requires approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(900),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+    }
+
+    #[test]
+    fn github_action_rego_allows_workflow_reruns() {
+        let input = PolicyInput::from_event(&github_event(
+            "evt_github_rerun",
+            "actions.runs.rerun",
+            "repos/n01e0/agent-auditor/actions/runs/123456",
+            "api_observation",
+            "github.actions",
+        ));
+
+        let decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&input)
+            .expect("github rerun rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("github.actions.runs_rerun.allow")
+        );
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Workflow rerun is allowed by the GitHub preview policy")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(
+            decision.tags,
+            vec![
+                "github".to_owned(),
+                "actions".to_owned(),
+                "allow".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn github_action_rego_denies_actions_secret_writes() {
+        let input = PolicyInput::from_event(&github_event(
+            "evt_github_secret_write",
+            "actions.secrets.create_or_update",
+            "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+            "api_observation",
+            "github.actions",
+        ));
+
+        let decision = RegoPolicyEvaluator::github_action_example()
+            .evaluate(&input)
+            .expect("github secret write rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("github.actions.secrets_create_or_update.denied")
+        );
+        assert_eq!(decision.severity, Some(Severity::Critical));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Repository Actions secret writes are denied by the GitHub preview policy")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(
+            decision.tags,
+            vec!["github".to_owned(), "actions".to_owned(), "deny".to_owned()]
+        );
+    }
+
     fn require_approval_decision() -> PolicyDecision {
         PolicyDecision {
             decision: PolicyDecisionKind::RequireApproval,
@@ -1414,6 +1606,82 @@ mod tests {
                 container_id: None,
                 pod_uid: None,
                 pid: Some(4242),
+                ppid: None,
+            },
+        )
+    }
+
+    fn github_event(
+        event_id: &str,
+        action_key: &str,
+        target: &str,
+        source_kind: &str,
+        semantic_surface: &str,
+    ) -> EventEnvelope {
+        let mut attributes = JsonMap::new();
+        attributes.insert("source_kind".to_owned(), json!(source_kind));
+        attributes.insert("request_id".to_owned(), json!(format!("req_{event_id}")));
+        attributes.insert(
+            "transport".to_owned(),
+            json!(if source_kind == "browser_observation" {
+                "browser"
+            } else {
+                "https"
+            }),
+        );
+        attributes.insert("semantic_surface".to_owned(), json!(semantic_surface));
+        attributes.insert("provider_id".to_owned(), json!("github"));
+        attributes.insert("action_key".to_owned(), json!(action_key));
+        attributes.insert(
+            "provider_action_id".to_owned(),
+            json!(format!("github:{action_key}")),
+        );
+        attributes.insert("semantic_action_label".to_owned(), json!(action_key));
+        attributes.insert("target_hint".to_owned(), json!(target));
+        attributes.insert(
+            "classifier_labels".to_owned(),
+            json!([semantic_surface, action_key]),
+        );
+        attributes.insert(
+            "classifier_reasons".to_owned(),
+            json!(["classified for GitHub policy test"]),
+        );
+        attributes.insert("content_retained".to_owned(), json!(false));
+
+        EventEnvelope::new(
+            event_id,
+            EventType::GithubAction,
+            SessionRef {
+                session_id: "sess_bootstrap_hostd".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: None,
+                policy_bundle_version: Some("bundle-bootstrap".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("agent-auditor-hostd PoC".to_owned()),
+            },
+            Action {
+                class: ActionClass::Github,
+                verb: Some(action_key.to_owned()),
+                target: Some(target.to_owned()),
+                attributes,
+            },
+            ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd GitHub semantic-governance PoC".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            SourceInfo {
+                collector: CollectorKind::RuntimeHint,
+                host_id: Some("hostd-poc".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: None,
                 ppid: None,
             },
         )

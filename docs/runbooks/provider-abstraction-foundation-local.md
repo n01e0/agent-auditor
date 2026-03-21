@@ -123,7 +123,7 @@ Use these rules when reading the current output:
 - `provider_abstraction_catalog` is a checked-in preview catalog for the currently wired GWS actions, not a generic live provider registry
 - `provider_abstraction_policy_input` proves that the shared provider contract can be derived from a normalized event and exposed to policy without depending on the legacy GWS-only label
 - `provider_abstraction_metadata_entry` proves that the shared action identity can join against docs-backed metadata without re-running provider-specific classification
-- the GitHub catalog now fixes docs-backed method / resource / required permission / side effect metadata for six high-risk GitHub governance actions, and the repository has checked-in PoC taxonomy plus `agenta-core` normalization for those actions, but there is still **no** live GitHub runtime adapter or interception path yet
+- the GitHub catalog now fixes docs-backed method / resource / required permission / side effect metadata for six high-risk GitHub governance actions, and the repository has checked-in PoC taxonomy plus `agenta-core` normalization and a GitHub preview policy example for those actions, but there is still **no** live GitHub runtime adapter or interception path yet
 - the `oauth_scopes` field is the current stable metadata field name across providers; for GitHub it currently carries docs-backed auth labels rather than runtime-verified grants
 
 ## What to validate before trusting the preview outputs
@@ -132,8 +132,10 @@ If you change this slice locally, the quickest honest confidence check is:
 
 1. run `cargo test -p agenta-core provider:: --lib` to verify the shared provider contract and metadata types still round-trip cleanly
 2. run `cargo test -p agenta-policy provider_action --lib` to verify provider-action derivation and provider-based policy input still hold
-3. run `cargo test -p agent-auditor-hostd gws_provider_metadata_catalog_covers_all_preview_actions_for_policy_input --lib` to verify the current GWS-backed preview actions still join against the shared metadata catalog
-4. run `cargo test -p agent-auditor-hostd --test provider_abstraction_smoke` to verify the bootstrap provider-abstraction output still matches the checked-in fixture contract
+3. run `cargo test -p agenta-policy github_action --lib` to verify the checked-in GitHub preview policy still evaluates the normalized GitHub governance actions
+4. run `cargo test -p agent-auditor-hostd gws_provider_metadata_catalog_covers_all_preview_actions_for_policy_input --lib` to verify the current GWS-backed preview actions still join against the shared metadata catalog
+5. run `cargo test -p agent-auditor-hostd github_pipeline_can_require_approval_for_visibility_dispatch_and_merge --lib` to verify the GitHub PoC still bridges normalized actions into `agenta-policy`
+6. run `cargo test -p agent-auditor-hostd --test provider_abstraction_smoke` to verify the bootstrap provider-abstraction output still matches the checked-in fixture contract
 
 Passing these tests means the repository still agrees on the shared provider contract, metadata shape, and bootstrap preview. It does **not** prove a production-ready multi-provider runtime.
 
