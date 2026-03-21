@@ -11,13 +11,16 @@ use agent_auditor_hostd::poc::{
         contract::{ClassifiedNetworkConnect, DestinationScope},
         persist::NetworkPocStore,
     },
+    rest::persist::GenericRestPocStore,
     secret::{
         contract::{BrokeredSecretRequest, ClassifiedSecretAccess, SecretPathAccess},
         persist::SecretPocStore,
     },
 };
 use agenta_core::{
-    PolicyDecision, PolicyDecisionKind, SessionRecord, Severity,
+    Action, ActionClass, Actor, ActorKind, CollectorKind, EventEnvelope, EventType, JsonMap,
+    PolicyDecision, PolicyDecisionKind, ResultInfo, ResultStatus, SessionRecord, SessionRef,
+    Severity, SourceInfo,
     provider::{ProviderAbstractionPlan, ProviderMetadataCatalog},
 };
 use agenta_policy::{
@@ -702,6 +705,295 @@ fn main() {
         }
     }
     println!("github_record={}", plan.github.record.summary());
+
+    let preview_generic_rest_policy = |normalized: &EventEnvelope| {
+        let input = PolicyInput::from_event(normalized);
+        RegoPolicyEvaluator::generic_rest_action_example()
+            .evaluate(&input)
+            .map(|decision| {
+                let decision_applied = apply_decision_to_event(normalized, &decision);
+                let approval_request = approval_request_from_decision(&decision_applied, &decision);
+                (decision_applied, decision, approval_request)
+            })
+    };
+
+    let generic_rest_normalized_require_approval = generic_rest_preview_event(
+        "evt_rest_gmail_send_require_approval",
+        "gws",
+        "gmail.users.messages.send",
+        "gmail.users/me",
+        EventType::GwsAction,
+        ActionClass::Gws,
+        "gws.gmail",
+        "POST",
+        "gmail.googleapis.com",
+        "/gmail/v1/users/{userId}/messages/send",
+        "action_arguments",
+        "https://www.googleapis.com/auth/gmail.send",
+        &["https://www.googleapis.com/auth/gmail.send"],
+        "sends a Gmail message to one or more recipients",
+        "outbound_send",
+    );
+    println!(
+        "generic_rest_normalized_require_approval={}",
+        serde_json::to_string(&generic_rest_normalized_require_approval)
+            .expect("generic REST require approval preview should serialize")
+    );
+    let (
+        _generic_rest_decision_applied_require_approval,
+        generic_rest_policy_decision_require_approval,
+        generic_rest_approval_request_require_approval,
+    ) = match preview_generic_rest_policy(&generic_rest_normalized_require_approval) {
+        Ok(parts) => parts,
+        Err(error) => {
+            eprintln!("generic_rest_policy_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let generic_rest_approval_request_require_approval =
+        match &generic_rest_approval_request_require_approval {
+            Some(approval_request) => approval_request,
+            None => {
+                eprintln!(
+                    "generic_rest_approval_request_require_approval_error=missing approval request"
+                );
+                std::process::exit(1);
+            }
+        };
+    let (generic_rest_enriched_require_approval, generic_rest_approval_request_require_approval) =
+        match plan.generic_rest.record.reflect_hold(
+            &generic_rest_normalized_require_approval,
+            &generic_rest_policy_decision_require_approval,
+            generic_rest_approval_request_require_approval,
+        ) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("generic_rest_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        };
+    println!(
+        "generic_rest_policy_decision_require_approval={}",
+        serde_json::to_string(&generic_rest_policy_decision_require_approval)
+            .expect("generic REST require approval policy decision should serialize")
+    );
+    println!(
+        "generic_rest_enriched_require_approval={}",
+        serde_json::to_string(&generic_rest_enriched_require_approval)
+            .expect("generic REST require approval enriched event should serialize")
+    );
+    println!(
+        "generic_rest_approval_request_require_approval={}",
+        serde_json::to_string(&generic_rest_approval_request_require_approval)
+            .expect("generic REST require approval request should serialize")
+    );
+
+    let generic_rest_normalized_allow = generic_rest_preview_event(
+        "evt_rest_admin_reports_allow",
+        "gws",
+        "admin.reports.activities.list",
+        "admin.reports/users/all/applications/drive",
+        EventType::GwsAction,
+        ActionClass::Gws,
+        "gws.admin",
+        "GET",
+        "admin.googleapis.com",
+        "/admin/reports/v1/activity/users/all/applications/{applicationName}",
+        "filter",
+        "https://www.googleapis.com/auth/admin.reports.audit.readonly",
+        &["https://www.googleapis.com/auth/admin.reports.audit.readonly"],
+        "lists admin activity reports without mutating tenant state",
+        "admin_read",
+    );
+    println!(
+        "generic_rest_normalized_allow={}",
+        serde_json::to_string(&generic_rest_normalized_allow)
+            .expect("generic REST allow preview should serialize")
+    );
+    let (_, generic_rest_policy_decision_allow, _) =
+        match preview_generic_rest_policy(&generic_rest_normalized_allow) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("generic_rest_policy_allow_error={error}");
+                std::process::exit(1);
+            }
+        };
+    let generic_rest_enriched_allow = match plan.generic_rest.record.reflect_allow(
+        &generic_rest_normalized_allow,
+        &generic_rest_policy_decision_allow,
+    ) {
+        Ok(enriched) => enriched,
+        Err(error) => {
+            eprintln!("generic_rest_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "generic_rest_policy_decision_allow={}",
+        serde_json::to_string(&generic_rest_policy_decision_allow)
+            .expect("generic REST allow policy decision should serialize")
+    );
+    println!(
+        "generic_rest_enriched_allow={}",
+        serde_json::to_string(&generic_rest_enriched_allow)
+            .expect("generic REST allow enriched event should serialize")
+    );
+
+    let generic_rest_normalized_deny = generic_rest_preview_event(
+        "evt_rest_github_secret_deny",
+        "github",
+        "actions.secrets.create_or_update",
+        "repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+        EventType::GithubAction,
+        ActionClass::Github,
+        "github.actions",
+        "PUT",
+        "api.github.com",
+        "/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+        "none",
+        "github.permission:secrets:write",
+        &["github.permission:secrets:write", "github.oauth:repo"],
+        "creates or updates an encrypted repository Actions secret",
+        "admin_write",
+    );
+    println!(
+        "generic_rest_normalized_deny={}",
+        serde_json::to_string(&generic_rest_normalized_deny)
+            .expect("generic REST deny preview should serialize")
+    );
+    let (_, generic_rest_policy_decision_deny, _) =
+        match preview_generic_rest_policy(&generic_rest_normalized_deny) {
+            Ok(parts) => parts,
+            Err(error) => {
+                eprintln!("generic_rest_policy_deny_error={error}");
+                std::process::exit(1);
+            }
+        };
+    let generic_rest_enriched_deny = match plan.generic_rest.record.reflect_deny(
+        &generic_rest_normalized_deny,
+        &generic_rest_policy_decision_deny,
+    ) {
+        Ok(enriched) => enriched,
+        Err(error) => {
+            eprintln!("generic_rest_record_deny_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "generic_rest_policy_decision_deny={}",
+        serde_json::to_string(&generic_rest_policy_decision_deny)
+            .expect("generic REST deny policy decision should serialize")
+    );
+    println!(
+        "generic_rest_enriched_deny={}",
+        serde_json::to_string(&generic_rest_enriched_deny)
+            .expect("generic REST deny enriched event should serialize")
+    );
+
+    let generic_rest_store = match GenericRestPocStore::bootstrap() {
+        Ok(store) => store,
+        Err(error) => {
+            eprintln!("generic_rest_store_error={error}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(error) =
+        generic_rest_store.append_audit_record(&generic_rest_enriched_require_approval)
+    {
+        eprintln!("persisted_generic_rest_audit_record_require_approval_error={error}");
+        std::process::exit(1);
+    }
+    match generic_rest_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_generic_rest_audit_record_require_approval={json}"),
+            Err(error) => {
+                eprintln!("persisted_generic_rest_audit_record_require_approval_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_generic_rest_audit_record_require_approval_error=missing persisted generic REST audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_generic_rest_audit_record_require_approval_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) =
+        generic_rest_store.append_approval_request(&generic_rest_approval_request_require_approval)
+    {
+        eprintln!("persisted_generic_rest_approval_request_error={error}");
+        std::process::exit(1);
+    }
+    match generic_rest_store.latest_approval_request() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_generic_rest_approval_request={json}"),
+            Err(error) => {
+                eprintln!("persisted_generic_rest_approval_request_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_generic_rest_approval_request_error=missing persisted generic REST approval request"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_generic_rest_approval_request_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = generic_rest_store.append_audit_record(&generic_rest_enriched_allow) {
+        eprintln!("persisted_generic_rest_audit_record_allow_error={error}");
+        std::process::exit(1);
+    }
+    match generic_rest_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_generic_rest_audit_record_allow={json}"),
+            Err(error) => {
+                eprintln!("persisted_generic_rest_audit_record_allow_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_generic_rest_audit_record_allow_error=missing persisted generic REST audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_generic_rest_audit_record_allow_error={error}");
+            std::process::exit(1);
+        }
+    }
+    if let Err(error) = generic_rest_store.append_audit_record(&generic_rest_enriched_deny) {
+        eprintln!("persisted_generic_rest_audit_record_deny_error={error}");
+        std::process::exit(1);
+    }
+    match generic_rest_store.latest_audit_record() {
+        Ok(Some(record)) => match serde_json::to_string(&record) {
+            Ok(json) => println!("persisted_generic_rest_audit_record_deny={json}"),
+            Err(error) => {
+                eprintln!("persisted_generic_rest_audit_record_deny_error={error}");
+                std::process::exit(1);
+            }
+        },
+        Ok(None) => {
+            eprintln!(
+                "persisted_generic_rest_audit_record_deny_error=missing persisted generic REST audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_generic_rest_audit_record_deny_error={error}");
+            std::process::exit(1);
+        }
+    }
+
     println!(
         "enforcement_decision={}",
         plan.enforcement.decision.summary()
@@ -1711,6 +2003,102 @@ fn main() {
             std::process::exit(1);
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn generic_rest_preview_event(
+    event_id: &str,
+    provider_id: &str,
+    action_key: &str,
+    target: &str,
+    event_type: EventType,
+    action_class: ActionClass,
+    semantic_surface: &str,
+    method: &str,
+    host: &str,
+    path_template: &str,
+    query_class: &str,
+    primary_scope: &str,
+    documented_scopes: &[&str],
+    side_effect: &str,
+    privilege_class: &str,
+) -> EventEnvelope {
+    let mut attributes = JsonMap::new();
+    attributes.insert(
+        "source_kind".to_owned(),
+        serde_json::json!("api_observation"),
+    );
+    attributes.insert(
+        "request_id".to_owned(),
+        serde_json::json!(format!("req_{event_id}")),
+    );
+    attributes.insert("transport".to_owned(), serde_json::json!("https"));
+    attributes.insert(
+        "semantic_surface".to_owned(),
+        serde_json::json!(semantic_surface),
+    );
+    attributes.insert("provider_id".to_owned(), serde_json::json!(provider_id));
+    attributes.insert("action_key".to_owned(), serde_json::json!(action_key));
+    attributes.insert(
+        "provider_action_id".to_owned(),
+        serde_json::json!(format!("{provider_id}:{action_key}")),
+    );
+    attributes.insert("target_hint".to_owned(), serde_json::json!(target));
+    attributes.insert("method".to_owned(), serde_json::json!(method));
+    attributes.insert("host".to_owned(), serde_json::json!(host));
+    attributes.insert("path_template".to_owned(), serde_json::json!(path_template));
+    attributes.insert("query_class".to_owned(), serde_json::json!(query_class));
+    attributes.insert(
+        "oauth_scope_labels".to_owned(),
+        serde_json::json!({
+            "primary": primary_scope,
+            "documented": documented_scopes,
+        }),
+    );
+    attributes.insert("side_effect".to_owned(), serde_json::json!(side_effect));
+    attributes.insert(
+        "privilege_class".to_owned(),
+        serde_json::json!(privilege_class),
+    );
+    attributes.insert("content_retained".to_owned(), serde_json::json!(false));
+
+    EventEnvelope::new(
+        event_id,
+        event_type,
+        SessionRef {
+            session_id: "sess_bootstrap_hostd".to_owned(),
+            agent_id: Some("openclaw-main".to_owned()),
+            initiator_id: None,
+            workspace_id: None,
+            policy_bundle_version: Some("bundle-bootstrap".to_owned()),
+            environment: Some("dev".to_owned()),
+        },
+        Actor {
+            kind: ActorKind::System,
+            id: Some("agent-auditor-hostd".to_owned()),
+            display_name: Some("agent-auditor-hostd PoC".to_owned()),
+        },
+        Action {
+            class: action_class,
+            verb: Some(action_key.to_owned()),
+            target: Some(target.to_owned()),
+            attributes,
+        },
+        ResultInfo {
+            status: ResultStatus::Observed,
+            reason: Some("observed by hostd generic REST smoke preview".to_owned()),
+            exit_code: None,
+            error: None,
+        },
+        SourceInfo {
+            collector: CollectorKind::RuntimeHint,
+            host_id: Some("hostd-poc".to_owned()),
+            container_id: None,
+            pod_uid: None,
+            pid: None,
+            ppid: None,
+        },
+    )
 }
 
 fn provider_abstraction_plan_summary(plan: &ProviderAbstractionPlan) -> String {
