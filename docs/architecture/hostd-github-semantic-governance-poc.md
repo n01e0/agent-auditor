@@ -36,7 +36,7 @@ The redaction rule for this phase is explicit from the start: raw GitHub request
   - checked-in home for `agenta-core` GitHub governance event shaping and GitHub `agenta-policy` evaluation tests
 - `record.rs`
   - audit / approval record plan after policy evaluation
-  - future home for append-only storage and publish fanout
+  - checked-in home for append-only GitHub audit / approval record reflection, with later control-plane fanout still deferred
 - `mod.rs`
   - assembles the GitHub semantic-governance boundary plan and tests the split
 
@@ -97,6 +97,7 @@ Owns:
 
 - appending redaction-safe GitHub governance audit records
 - appending approval requests created by approval-gated GitHub governance actions
+- reflecting `allow`, `hold`, and `deny` outcomes into append-only GitHub audit / approval records without replaying taxonomy or policy
 - publishing recorded artifacts to structured logs and later control-plane sinks
 
 Does **not** own:
@@ -143,13 +144,12 @@ This keeps the next tasks cleaner:
 - **P9-2** can implement high-risk GitHub action taxonomy against a stable upstream seam
 - **P9-3** fixes the first docs-backed GitHub metadata catalog without owning request matching or audit persistence
 - **P9-4 / P9-5** normalize GitHub governance actions into `agenta-core` and evaluate them through a checked-in GitHub preview policy against stable taxonomy and metadata seams
-- **P9-6** can reflect decisions into durable records without reaching back into taxonomy or metadata curation
+- **P9-6** now reflects decisions into durable preview records without reaching back into taxonomy or metadata curation
 
 ## Explicitly out of scope for P9-1
 
 - concrete GitHub API interception or browser instrumentation details
 - the high-risk GitHub action taxonomy implementation itself
-- durable audit / approval persistence implementation
 - runtime proof that a live token carried the documented auth labels
 - operator runbook / known-constraints docs for this GitHub slice
 
