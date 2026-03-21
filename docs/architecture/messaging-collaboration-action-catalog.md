@@ -164,6 +164,8 @@ The PoC candidate set is represented by:
 ## Related docs
 
 - phase boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
+- local runbook: [`../runbooks/messaging-collaboration-governance-local.md`](../runbooks/messaging-collaboration-governance-local.md)
+- known constraints: [`messaging-collaboration-governance-known-constraints.md`](messaging-collaboration-governance-known-constraints.md)
 - generic REST boundary below this layer: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - architecture overview: [`overview.md`](overview.md)
 - provider abstraction boundary: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)
