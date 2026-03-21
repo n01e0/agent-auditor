@@ -1,7 +1,7 @@
 use agenta_core::{
-    Action, ActionClass, Actor, ActorKind, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction,
-    ApprovalScope, ApprovalStatus, RequesterContext, SessionRef, Severity,
-    controlplane::ApprovalQueueItem,
+    Action, ActionClass, Actor, ActorKind, ApprovalDecisionRecord, ApprovalPolicy, ApprovalRequest,
+    ApprovalRequestAction, ApprovalScope, ApprovalStatus, RequesterContext, SessionRef, Severity,
+    controlplane::{ApprovalOpsHardeningStatus, ApprovalOpsSignals, ApprovalQueueItem},
 };
 use agenta_policy::PolicyInput;
 use chrono::TimeZone;
@@ -82,6 +82,35 @@ fn main() {
     };
 
     let queue_item = ApprovalQueueItem::from_request(&approval_request);
+    let stale_status = ApprovalOpsHardeningStatus::derive(
+        &queue_item,
+        &ApprovalOpsSignals {
+            stale: true,
+            audit_record_present: false,
+            decision_record_present: false,
+            downstream_completion_recorded: false,
+            requires_merge_follow_up: false,
+        },
+    );
+
+    let mut approved_request = approval_request.clone();
+    approved_request.status = ApprovalStatus::Approved;
+    approved_request.decision = Some(ApprovalDecisionRecord {
+        reviewer_id: Some("user:security-oncall".to_owned()),
+        reviewer_note: Some("approved while the incident response continues".to_owned()),
+        outcome: Some(ApprovalStatus::Approved),
+    });
+    let approved_queue_item = ApprovalQueueItem::from_request(&approved_request);
+    let waiting_merge_status = ApprovalOpsHardeningStatus::derive(
+        &approved_queue_item,
+        &ApprovalOpsSignals {
+            stale: false,
+            audit_record_present: true,
+            decision_record_present: true,
+            downstream_completion_recorded: false,
+            requires_merge_follow_up: true,
+        },
+    );
 
     println!("agent-auditor-controld bootstrap");
     println!(
@@ -104,5 +133,18 @@ fn main() {
         "approval_rationale_capture={}",
         serde_json::to_string(&queue_item.rationale_capture)
             .expect("approval rationale capture should serialize")
+    );
+    println!(
+        "approval_ops_hardening_model=components=approval_ops_signals,approval_ops_hardening_status facets=freshness,drift,recovery,waiting states=stale,missing_audit_record,missing_decision_record,missing_downstream_completion,waiting_merge"
+    );
+    println!(
+        "approval_ops_hardening_status_stale={}",
+        serde_json::to_string(&stale_status)
+            .expect("approval ops hardening stale status should serialize")
+    );
+    println!(
+        "approval_ops_hardening_status_waiting_merge={}",
+        serde_json::to_string(&waiting_merge_status)
+            .expect("approval ops hardening waiting-merge status should serialize")
     );
 }

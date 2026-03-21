@@ -104,6 +104,126 @@ impl ApprovalQueueItem {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalOpsSignals {
+    pub stale: bool,
+    pub audit_record_present: bool,
+    pub decision_record_present: bool,
+    pub downstream_completion_recorded: bool,
+    pub requires_merge_follow_up: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalQueueFreshness {
+    Fresh,
+    Stale,
+    Expired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalQueueDrift {
+    InSync,
+    MissingAuditRecord,
+    MissingDecisionRecord,
+    MissingDownstreamCompletion,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalRecoveryAction {
+    NoneNeeded,
+    RefreshQueueProjection,
+    ReplayFromAudit,
+    AwaitDownstreamCompletion,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalWaitingState {
+    ReviewerDecision,
+    DownstreamCompletion,
+    WaitingMerge,
+    Resolved,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalOpsHardeningStatus {
+    pub freshness: ApprovalQueueFreshness,
+    pub drift: ApprovalQueueDrift,
+    pub recovery: ApprovalRecoveryAction,
+    pub waiting: ApprovalWaitingState,
+}
+
+impl ApprovalOpsHardeningStatus {
+    pub fn derive(queue_item: &ApprovalQueueItem, signals: &ApprovalOpsSignals) -> Self {
+        let freshness = if queue_item.status == ApprovalStatus::Expired {
+            ApprovalQueueFreshness::Expired
+        } else if signals.stale {
+            ApprovalQueueFreshness::Stale
+        } else {
+            ApprovalQueueFreshness::Fresh
+        };
+
+        let drift = if !signals.audit_record_present {
+            ApprovalQueueDrift::MissingAuditRecord
+        } else if queue_item.rationale_capture.outcome.is_some() && !signals.decision_record_present
+        {
+            ApprovalQueueDrift::MissingDecisionRecord
+        } else if queue_item.status == ApprovalStatus::Approved
+            && !signals.downstream_completion_recorded
+        {
+            ApprovalQueueDrift::MissingDownstreamCompletion
+        } else {
+            ApprovalQueueDrift::InSync
+        };
+
+        let waiting = match queue_item.status {
+            ApprovalStatus::Pending => ApprovalWaitingState::ReviewerDecision,
+            ApprovalStatus::Approved if signals.requires_merge_follow_up => {
+                ApprovalWaitingState::WaitingMerge
+            }
+            ApprovalStatus::Approved if !signals.downstream_completion_recorded => {
+                ApprovalWaitingState::DownstreamCompletion
+            }
+            ApprovalStatus::Approved
+            | ApprovalStatus::Rejected
+            | ApprovalStatus::Expired
+            | ApprovalStatus::Cancelled => ApprovalWaitingState::Resolved,
+        };
+
+        let recovery = match drift {
+            ApprovalQueueDrift::MissingAuditRecord | ApprovalQueueDrift::MissingDecisionRecord => {
+                ApprovalRecoveryAction::ReplayFromAudit
+            }
+            ApprovalQueueDrift::MissingDownstreamCompletion => {
+                ApprovalRecoveryAction::AwaitDownstreamCompletion
+            }
+            ApprovalQueueDrift::InSync => match waiting {
+                ApprovalWaitingState::WaitingMerge | ApprovalWaitingState::DownstreamCompletion => {
+                    ApprovalRecoveryAction::AwaitDownstreamCompletion
+                }
+                ApprovalWaitingState::ReviewerDecision
+                    if freshness == ApprovalQueueFreshness::Stale =>
+                {
+                    ApprovalRecoveryAction::RefreshQueueProjection
+                }
+                ApprovalWaitingState::ReviewerDecision | ApprovalWaitingState::Resolved => {
+                    ApprovalRecoveryAction::NoneNeeded
+                }
+            },
+        };
+
+        Self {
+            freshness,
+            drift,
+            recovery,
+            waiting,
+        }
+    }
+}
+
 fn action_summary_for_request(request: &ApprovalRequest) -> String {
     request
         .request
@@ -270,5 +390,108 @@ mod tests {
         );
         assert!(queue_item.rationale_capture.reviewer_note.is_none());
         assert!(queue_item.rationale_capture.outcome.is_none());
+    }
+
+    #[test]
+    fn ops_status_marks_stale_pending_queue_items_for_projection_refresh() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Pending;
+        request.decision = None;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: true,
+                audit_record_present: true,
+                decision_record_present: false,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+
+        assert_eq!(status.freshness, ApprovalQueueFreshness::Stale);
+        assert_eq!(status.drift, ApprovalQueueDrift::InSync);
+        assert_eq!(
+            status.recovery,
+            ApprovalRecoveryAction::RefreshQueueProjection
+        );
+        assert_eq!(status.waiting, ApprovalWaitingState::ReviewerDecision);
+    }
+
+    #[test]
+    fn ops_status_marks_drift_when_audit_record_is_missing() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Pending;
+        request.decision = None;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: false,
+                decision_record_present: false,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+
+        assert_eq!(status.freshness, ApprovalQueueFreshness::Fresh);
+        assert_eq!(status.drift, ApprovalQueueDrift::MissingAuditRecord);
+        assert_eq!(status.recovery, ApprovalRecoveryAction::ReplayFromAudit);
+        assert_eq!(status.waiting, ApprovalWaitingState::ReviewerDecision);
+    }
+
+    #[test]
+    fn ops_status_treats_merge_follow_up_as_waiting_merge() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+
+        assert_eq!(status.freshness, ApprovalQueueFreshness::Fresh);
+        assert_eq!(
+            status.drift,
+            ApprovalQueueDrift::MissingDownstreamCompletion
+        );
+        assert_eq!(
+            status.recovery,
+            ApprovalRecoveryAction::AwaitDownstreamCompletion
+        );
+        assert_eq!(status.waiting, ApprovalWaitingState::WaitingMerge);
+    }
+
+    #[test]
+    fn ops_status_marks_resolved_items_as_in_sync_when_completion_is_recorded() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Rejected;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: true,
+                requires_merge_follow_up: false,
+            },
+        );
+
+        assert_eq!(status.freshness, ApprovalQueueFreshness::Fresh);
+        assert_eq!(status.drift, ApprovalQueueDrift::InSync);
+        assert_eq!(status.recovery, ApprovalRecoveryAction::NoneNeeded);
+        assert_eq!(status.waiting, ApprovalWaitingState::Resolved);
     }
 }
