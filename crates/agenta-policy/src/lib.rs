@@ -4,6 +4,10 @@ use agenta_core::{
     Action, Actor, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction, ApprovalStatus,
     CollectorKind, EnforcementInfo, EventEnvelope, PolicyDecision, PolicyDecisionKind,
     PolicyMetadata, RequesterContext, ResultStatus, SessionRef,
+    messaging::{
+        DeliveryScope, FileTargetKind, MembershipTargetKind, MessagingAction,
+        MessagingActionFamily, PermissionTargetKind,
+    },
     provider::{
         ActionKey, OAuthScope, OAuthScopeSet, PrivilegeClass, ProviderActionId, ProviderId,
         ProviderSemanticAction, SideEffect,
@@ -28,6 +32,8 @@ const SECRET_ACCESS_POLICY_MODULE: &str =
 const GWS_ACTION_POLICY_MODULE: &str = include_str!("../../../examples/policies/gws_action.rego");
 const GENERIC_REST_ACTION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/generic_rest_action.rego");
+const MESSAGING_ACTION_POLICY_MODULE: &str =
+    include_str!("../../../examples/policies/messaging_action.rego");
 const GITHUB_ACTION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/github_action.rego");
 
@@ -58,6 +64,8 @@ pub struct PolicyInput {
     pub provider_action: Option<ProviderSemanticAction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generic_rest_action: Option<GenericRestAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub messaging_action: Option<MessagingAction>,
     pub context: PolicyContext,
 }
 
@@ -70,6 +78,7 @@ impl PolicyInput {
     ) -> Self {
         let provider_action = provider_action_from_action(&action);
         let generic_rest_action = generic_rest_action_from_action(&action);
+        let messaging_action = messaging_action_from_action(&action);
         Self {
             request_id: request_id.into(),
             timestamp: Utc::now(),
@@ -78,6 +87,7 @@ impl PolicyInput {
             action,
             provider_action,
             generic_rest_action,
+            messaging_action,
             context: PolicyContext {
                 recent_denies: 0,
                 labels: Vec::new(),
@@ -90,6 +100,7 @@ impl PolicyInput {
     pub fn from_event(event: &EventEnvelope) -> Self {
         let provider_action = provider_action_from_action(&event.action);
         let generic_rest_action = generic_rest_action_from_action(&event.action);
+        let messaging_action = messaging_action_from_action(&event.action);
         let mut input = Self {
             request_id: format!("req_{}", event.event_id),
             timestamp: event.timestamp,
@@ -98,6 +109,7 @@ impl PolicyInput {
             action: event.action.clone(),
             provider_action,
             generic_rest_action,
+            messaging_action,
             context: PolicyContext {
                 recent_denies: 0,
                 labels: vec![format!("event_type:{}", event_type_label(event))],
@@ -236,6 +248,47 @@ fn oauth_scope_set_from_value(value: &Value) -> Option<OAuthScopeSet> {
     Some(OAuthScopeSet::new(primary, documented))
 }
 
+fn messaging_action_from_action(action: &Action) -> Option<MessagingAction> {
+    let generic_rest_action = generic_rest_action_from_action(action)?;
+    let action_family = action_attribute(action, "action_family")?
+        .parse::<MessagingActionFamily>()
+        .ok()?;
+    let channel_hint = action_attribute(action, "channel_hint").map(str::to_owned);
+    let conversation_hint = action_attribute(action, "conversation_hint").map(str::to_owned);
+    let delivery_scope = match action_attribute(action, "delivery_scope") {
+        Some(value) => Some(value.parse::<DeliveryScope>().ok()?),
+        None => None,
+    };
+    let membership_target_kind = match action_attribute(action, "membership_target_kind") {
+        Some(value) => Some(value.parse::<MembershipTargetKind>().ok()?),
+        None => None,
+    };
+    let permission_target_kind = match action_attribute(action, "permission_target_kind") {
+        Some(value) => Some(value.parse::<PermissionTargetKind>().ok()?),
+        None => None,
+    };
+    let file_target_kind = match action_attribute(action, "file_target_kind") {
+        Some(value) => Some(value.parse::<FileTargetKind>().ok()?),
+        None => None,
+    };
+    let attachment_count_hint = match action.attributes.get("attachment_count_hint") {
+        Some(value) => Some(u16::try_from(value.as_u64()?).ok()?),
+        None => None,
+    };
+
+    Some(MessagingAction::from_generic_rest_action(
+        generic_rest_action,
+        action_family,
+        channel_hint,
+        conversation_hint,
+        delivery_scope,
+        membership_target_kind,
+        permission_target_kind,
+        file_target_kind,
+        attachment_count_hint,
+    ))
+}
+
 #[derive(Debug, Error)]
 pub enum PolicyError {
     #[error("failed to serialize policy input: {0}")]
@@ -334,6 +387,16 @@ impl RegoPolicyEvaluator {
             vec![(
                 "examples/policies/generic_rest_action.rego".to_owned(),
                 GENERIC_REST_ACTION_POLICY_MODULE.to_owned(),
+            )],
+        )
+    }
+
+    pub fn messaging_action_example() -> Self {
+        Self::new(
+            POLICY_ENTRYPOINT,
+            vec![(
+                "examples/policies/messaging_action.rego".to_owned(),
+                MESSAGING_ACTION_POLICY_MODULE.to_owned(),
             )],
         )
     }
@@ -528,6 +591,7 @@ mod tests {
         assert_eq!(input.context.recent_denies, 0);
         assert!(input.provider_action.is_none());
         assert!(input.generic_rest_action.is_none());
+        assert!(input.messaging_action.is_none());
         assert!(input.context.labels.is_empty());
         assert!(input.context.coverage.is_none());
         assert!(input.context.attributes.is_empty());
@@ -587,6 +651,7 @@ mod tests {
         assert_eq!(input.action.verb.as_deref(), Some("read"));
         assert!(input.provider_action.is_none());
         assert!(input.generic_rest_action.is_none());
+        assert!(input.messaging_action.is_none());
         assert_eq!(input.context.labels, vec!["event_type:filesystem_access"]);
         assert_eq!(
             input.context.coverage,
@@ -605,6 +670,7 @@ mod tests {
         );
         assert!(value.get("provider_action").is_none());
         assert!(value.get("generic_rest_action").is_none());
+        assert!(value.get("messaging_action").is_none());
     }
 
     #[test]
@@ -696,6 +762,67 @@ mod tests {
         assert_eq!(
             value["generic_rest_action"]["privilege_class"],
             json!("outbound_send")
+        );
+    }
+
+    #[test]
+    fn policy_input_from_event_derives_messaging_action_from_flat_contract_fields() {
+        let input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_slack_send",
+            provider_id: "slack",
+            action_key: "chat.post_message",
+            target: "slack.channels/C12345678",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "api_observation",
+            semantic_surface: "slack.chat",
+            method: "POST",
+            host: "slack.com",
+            path_template: "/api/chat.postMessage",
+            query_class: "action_arguments",
+            primary_scope: "slack.scope:chat:write",
+            documented_scopes: &["slack.scope:chat:write"],
+            side_effect: "sends a message into a Slack conversation",
+            privilege_class: "outbound_send",
+            action_family: "message.send",
+            channel_hint: Some("slack.channels/C12345678"),
+            conversation_hint: None,
+            delivery_scope: Some("public_channel"),
+            membership_target_kind: None,
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        }));
+        let value = serde_json::to_value(&input).expect("policy input should serialize");
+
+        assert_eq!(
+            input
+                .messaging_action
+                .as_ref()
+                .map(|item| item.action_family.as_str()),
+            Some("message.send")
+        );
+        assert_eq!(
+            input
+                .messaging_action
+                .as_ref()
+                .and_then(|item| item.channel_hint.as_deref()),
+            Some("slack.channels/C12345678")
+        );
+        assert_eq!(
+            input
+                .messaging_action
+                .as_ref()
+                .and_then(|item| item.delivery_scope),
+            Some(DeliveryScope::PublicChannel)
+        );
+        assert_eq!(
+            value["messaging_action"]["action_family"],
+            json!("message.send")
+        );
+        assert_eq!(
+            value["messaging_action"]["delivery_scope"],
+            json!("public_channel")
         );
     }
 
@@ -1724,6 +1851,239 @@ mod tests {
         );
     }
 
+    #[test]
+    fn messaging_action_rego_allows_public_channel_message_send() {
+        let input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_slack_send_allow",
+            provider_id: "slack",
+            action_key: "chat.post_message",
+            target: "slack.channels/C12345678",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "api_observation",
+            semantic_surface: "slack.chat",
+            method: "POST",
+            host: "slack.com",
+            path_template: "/api/chat.postMessage",
+            query_class: "action_arguments",
+            primary_scope: "slack.scope:chat:write",
+            documented_scopes: &["slack.scope:chat:write"],
+            side_effect: "sends a message into a Slack conversation",
+            privilege_class: "outbound_send",
+            action_family: "message.send",
+            channel_hint: Some("slack.channels/C12345678"),
+            conversation_hint: None,
+            delivery_scope: Some("public_channel"),
+            membership_target_kind: None,
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        }));
+
+        let decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&input)
+            .expect("messaging send rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("messaging.message_send.allow")
+        );
+        assert_eq!(decision.severity, Some(Severity::Low));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Public-channel messaging sends are allowed by the preview policy")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(
+            decision.tags,
+            vec![
+                "messaging".to_owned(),
+                "message_send".to_owned(),
+                "allow".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn messaging_action_rego_requires_approval_for_channel_invites() {
+        let input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_discord_thread_invite",
+            provider_id: "discord",
+            action_key: "channels.thread_members.put",
+            target: "discord.threads/123456789012345678/members/234567890123456789",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "browser_observation",
+            semantic_surface: "discord.threads",
+            method: "PUT",
+            host: "discord.com",
+            path_template: "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+            query_class: "none",
+            primary_scope: "discord.permission:create_public_threads",
+            documented_scopes: &[
+                "discord.permission:create_public_threads",
+                "discord.permission:send_messages_in_threads",
+            ],
+            side_effect: "adds a member into a Discord thread",
+            privilege_class: "sharing_write",
+            action_family: "channel.invite",
+            channel_hint: None,
+            conversation_hint: Some("discord.threads/123456789012345678"),
+            delivery_scope: Some("thread"),
+            membership_target_kind: Some("thread_member"),
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        }));
+
+        let decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&input)
+            .expect("messaging invite rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("messaging.channel_invite.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Messaging membership expansion requires approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(
+            decision.tags,
+            vec![
+                "messaging".to_owned(),
+                "channel_invite".to_owned(),
+                "approval".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn messaging_action_rego_denies_permission_updates() {
+        let input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_discord_permission_update",
+            provider_id: "discord",
+            action_key: "channels.permissions.put",
+            target: "discord.channels/123456789012345678/permissions/role:345678901234567890",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "api_observation",
+            semantic_surface: "discord.permissions",
+            method: "PUT",
+            host: "discord.com",
+            path_template: "/api/v10/channels/{channel_id}/permissions/{overwrite_id}",
+            query_class: "none",
+            primary_scope: "discord.permission:manage_roles",
+            documented_scopes: &["discord.permission:manage_channels"],
+            side_effect: "updates a Discord channel permission overwrite",
+            privilege_class: "sharing_write",
+            action_family: "permission.update",
+            channel_hint: Some("discord.channels/123456789012345678"),
+            conversation_hint: None,
+            delivery_scope: None,
+            membership_target_kind: None,
+            permission_target_kind: Some("channel_permission_overwrite"),
+            file_target_kind: None,
+            attachment_count_hint: None,
+        }));
+
+        let decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&input)
+            .expect("messaging permission rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::Deny);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("messaging.permission_update.denied")
+        );
+        assert_eq!(decision.severity, Some(Severity::Critical));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Messaging permission updates are denied by the preview policy")
+        );
+        assert!(decision.approval.is_none());
+        assert_eq!(
+            decision.tags,
+            vec![
+                "messaging".to_owned(),
+                "permission_update".to_owned(),
+                "deny".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn messaging_action_rego_requires_approval_for_file_uploads() {
+        let input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_slack_file_upload",
+            provider_id: "slack",
+            action_key: "files.upload_v2",
+            target: "slack.channels/C12345678/files/F12345678",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "api_observation",
+            semantic_surface: "slack.files",
+            method: "POST",
+            host: "slack.com",
+            path_template: "/api/files.uploadV2",
+            query_class: "action_arguments",
+            primary_scope: "slack.scope:files:write",
+            documented_scopes: &["slack.scope:files:write"],
+            side_effect: "uploads a file into a Slack conversation",
+            privilege_class: "content_write",
+            action_family: "file.upload",
+            channel_hint: Some("slack.channels/C12345678"),
+            conversation_hint: None,
+            delivery_scope: Some("public_channel"),
+            membership_target_kind: None,
+            permission_target_kind: None,
+            file_target_kind: Some("channel_attachment"),
+            attachment_count_hint: Some(1),
+        }));
+
+        let decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&input)
+            .expect("messaging file upload rego should evaluate");
+
+        assert_eq!(decision.decision, PolicyDecisionKind::RequireApproval);
+        assert_eq!(
+            decision.rule_id.as_deref(),
+            Some("messaging.file_upload.requires_approval")
+        );
+        assert_eq!(decision.severity, Some(Severity::High));
+        assert_eq!(
+            decision.reason.as_deref(),
+            Some("Messaging file uploads require approval")
+        );
+        assert_eq!(
+            decision.approval,
+            Some(ApprovalConstraint {
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            })
+        );
+        assert_eq!(
+            decision.tags,
+            vec![
+                "messaging".to_owned(),
+                "file_upload".to_owned(),
+                "approval".to_owned()
+            ]
+        );
+    }
+
     fn require_approval_decision() -> PolicyDecision {
         PolicyDecision {
             decision: PolicyDecisionKind::RequireApproval,
@@ -2076,6 +2436,128 @@ mod tests {
                 ppid: None,
             },
         )
+    }
+
+    struct MessagingEventFixture<'a> {
+        event_id: &'a str,
+        provider_id: &'a str,
+        action_key: &'a str,
+        target: &'a str,
+        event_type: EventType,
+        action_class: ActionClass,
+        source_kind: &'a str,
+        semantic_surface: &'a str,
+        method: &'a str,
+        host: &'a str,
+        path_template: &'a str,
+        query_class: &'a str,
+        primary_scope: &'a str,
+        documented_scopes: &'a [&'a str],
+        side_effect: &'a str,
+        privilege_class: &'a str,
+        action_family: &'a str,
+        channel_hint: Option<&'a str>,
+        conversation_hint: Option<&'a str>,
+        delivery_scope: Option<&'a str>,
+        membership_target_kind: Option<&'a str>,
+        permission_target_kind: Option<&'a str>,
+        file_target_kind: Option<&'a str>,
+        attachment_count_hint: Option<u16>,
+    }
+
+    fn messaging_event(fixture: MessagingEventFixture<'_>) -> EventEnvelope {
+        let MessagingEventFixture {
+            event_id,
+            provider_id,
+            action_key,
+            target,
+            event_type,
+            action_class,
+            source_kind,
+            semantic_surface,
+            method,
+            host,
+            path_template,
+            query_class,
+            primary_scope,
+            documented_scopes,
+            side_effect,
+            privilege_class,
+            action_family,
+            channel_hint,
+            conversation_hint,
+            delivery_scope,
+            membership_target_kind,
+            permission_target_kind,
+            file_target_kind,
+            attachment_count_hint,
+        } = fixture;
+
+        let mut event = generic_rest_event(GenericRestEventFixture {
+            event_id,
+            provider_id,
+            action_key,
+            target,
+            event_type,
+            action_class,
+            source_kind,
+            semantic_surface,
+            method,
+            host,
+            path_template,
+            query_class,
+            primary_scope,
+            documented_scopes,
+            side_effect,
+            privilege_class,
+        });
+        event
+            .action
+            .attributes
+            .insert("action_family".to_owned(), json!(action_family));
+        if let Some(channel_hint) = channel_hint {
+            event
+                .action
+                .attributes
+                .insert("channel_hint".to_owned(), json!(channel_hint));
+        }
+        if let Some(conversation_hint) = conversation_hint {
+            event
+                .action
+                .attributes
+                .insert("conversation_hint".to_owned(), json!(conversation_hint));
+        }
+        if let Some(delivery_scope) = delivery_scope {
+            event
+                .action
+                .attributes
+                .insert("delivery_scope".to_owned(), json!(delivery_scope));
+        }
+        if let Some(membership_target_kind) = membership_target_kind {
+            event.action.attributes.insert(
+                "membership_target_kind".to_owned(),
+                json!(membership_target_kind),
+            );
+        }
+        if let Some(permission_target_kind) = permission_target_kind {
+            event.action.attributes.insert(
+                "permission_target_kind".to_owned(),
+                json!(permission_target_kind),
+            );
+        }
+        if let Some(file_target_kind) = file_target_kind {
+            event
+                .action
+                .attributes
+                .insert("file_target_kind".to_owned(), json!(file_target_kind));
+        }
+        if let Some(attachment_count_hint) = attachment_count_hint {
+            event.action.attributes.insert(
+                "attachment_count_hint".to_owned(),
+                json!(attachment_count_hint),
+            );
+        }
+        event
     }
 
     fn gws_event(
