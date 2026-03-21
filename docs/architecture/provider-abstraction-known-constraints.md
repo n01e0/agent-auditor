@@ -12,9 +12,10 @@ This note records the current constraints of the repository-wide provider-abstra
    - the current end-to-end preview that populates shared provider fields comes from `cmd/agent-auditor-hostd/src/poc/gws/`
    - the provider-abstraction smoke output is therefore proof that the shared contract works with the current GWS slice, not proof of a generalized multi-provider runtime
 
-3. **GitHub is docs-fixed, not runtime-implemented**
+3. **GitHub is taxonomy-implemented, not runtime-implemented**
    - `provider-abstraction-github-candidate-catalog.md` fixes candidate action keys and metadata shape for the next provider slice
-   - there is still no checked-in GitHub classifier, normalized event path, policy example, or hostd preview flow for those actions
+   - `cmd/agent-auditor-hostd/src/poc/github/taxonomy.rs` now classifies six high-risk GitHub governance actions in a redaction-safe PoC taxonomy seam
+   - there is still no checked-in normalized GitHub event path, policy example, or hostd preview flow for those actions
 
 4. **Provider-specific taxonomy still lives in provider modules**
    - the abstraction boundary deliberately leaves provider-native matching heuristics in provider adapters and PoC modules
