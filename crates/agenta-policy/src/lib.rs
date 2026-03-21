@@ -4,6 +4,7 @@ use agenta_core::{
     Action, Actor, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction, ApprovalStatus,
     CollectorKind, EnforcementInfo, EventEnvelope, PolicyDecision, PolicyDecisionKind,
     PolicyMetadata, RequesterContext, ResultStatus, SessionRef,
+    provider::{ActionKey, ProviderActionId, ProviderId, ProviderSemanticAction},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -45,6 +46,8 @@ pub struct PolicyInput {
     pub session: SessionRef,
     pub actor: Actor,
     pub action: Action,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_action: Option<ProviderSemanticAction>,
     pub context: PolicyContext,
 }
 
@@ -55,12 +58,14 @@ impl PolicyInput {
         actor: Actor,
         action: Action,
     ) -> Self {
+        let provider_action = provider_action_from_action(&action);
         Self {
             request_id: request_id.into(),
             timestamp: Utc::now(),
             session,
             actor,
             action,
+            provider_action,
             context: PolicyContext {
                 recent_denies: 0,
                 labels: Vec::new(),
@@ -71,12 +76,14 @@ impl PolicyInput {
     }
 
     pub fn from_event(event: &EventEnvelope) -> Self {
+        let provider_action = provider_action_from_action(&event.action);
         let mut input = Self {
             request_id: format!("req_{}", event.event_id),
             timestamp: event.timestamp,
             session: event.session.clone(),
             actor: event.actor.clone(),
             action: event.action.clone(),
+            provider_action,
             context: PolicyContext {
                 recent_denies: 0,
                 labels: vec![format!("event_type:{}", event_type_label(event))],
@@ -125,6 +132,45 @@ impl PolicyInput {
 
         input
     }
+}
+
+fn provider_action_from_action(action: &Action) -> Option<ProviderSemanticAction> {
+    let provider_action_id = action_attribute(action, "provider_action_id")
+        .and_then(|value| value.parse::<ProviderActionId>().ok());
+    let provider_id = action_attribute(action, "provider_id")
+        .and_then(|value| ProviderId::new(value).ok())
+        .or_else(|| {
+            provider_action_id
+                .as_ref()
+                .map(|value| value.provider_id.clone())
+        })?;
+    let action_key = action_attribute(action, "action_key")
+        .and_then(|value| ActionKey::new(value).ok())
+        .or_else(|| {
+            provider_action_id
+                .as_ref()
+                .map(|value| value.action_key.clone())
+        })
+        .or_else(|| {
+            action
+                .verb
+                .as_deref()
+                .and_then(|value| ActionKey::new(value).ok())
+        })?;
+    let target_hint = action_attribute(action, "target_hint")
+        .map(str::to_owned)
+        .or_else(|| action.target.clone())
+        .unwrap_or_default();
+
+    Some(ProviderSemanticAction::new(
+        provider_id,
+        action_key,
+        target_hint,
+    ))
+}
+
+fn action_attribute<'a>(action: &'a Action, key: &str) -> Option<&'a str> {
+    action.attributes.get(key).and_then(Value::as_str)
 }
 
 #[derive(Debug, Error)]
@@ -365,6 +411,7 @@ mod tests {
         ActionClass, ActorKind, ApprovalConstraint, ApprovalScope, EnforcementDirective,
         EnforcementInfo, EnforcementStatus, EventEnvelope, EventType, PolicyDecisionKind,
         ResultInfo, ResultStatus, Severity, SourceInfo,
+        provider::{ProviderActionId, ProviderSemanticAction},
     };
     use serde_json::json;
 
@@ -447,10 +494,12 @@ mod tests {
         let event = filesystem_event("/home/agent/.ssh/id_ed25519", "read");
 
         let input = PolicyInput::from_event(&event);
+        let value = serde_json::to_value(&input).expect("policy input should serialize");
 
         assert_eq!(input.request_id, "req_evt_fs_1");
         assert_eq!(input.action.class, ActionClass::Filesystem);
         assert_eq!(input.action.verb.as_deref(), Some("read"));
+        assert!(input.provider_action.is_none());
         assert_eq!(input.context.labels, vec!["event_type:filesystem_access"]);
         assert_eq!(
             input.context.coverage,
@@ -466,6 +515,39 @@ mod tests {
         assert_eq!(
             input.context.attributes.get("source_pid"),
             Some(&json!(4242))
+        );
+        assert!(value.get("provider_action").is_none());
+    }
+
+    #[test]
+    fn policy_input_from_event_derives_provider_action_from_shared_contract_fields() {
+        let mut event = gws_event(
+            "evt_gws_drive_permissions_update",
+            "drive.permissions.update",
+            "drive.files/abc123/permissions/perm456",
+            "api_observation",
+            "gws.drive",
+        );
+        event.action.attributes.remove("semantic_action_label");
+
+        let input = PolicyInput::from_event(&event);
+        let value = serde_json::to_value(&input).expect("policy input should serialize");
+
+        assert_eq!(
+            input.provider_action,
+            Some(ProviderSemanticAction::from_id(
+                ProviderActionId::from_parts("gws", "drive.permissions.update").unwrap(),
+                "drive.files/abc123/permissions/perm456",
+            ))
+        );
+        assert_eq!(value["provider_action"]["provider_id"], json!("gws"));
+        assert_eq!(
+            value["provider_action"]["action_key"],
+            json!("drive.permissions.update")
+        );
+        assert_eq!(
+            value["provider_action"]["target_hint"],
+            json!("drive.files/abc123/permissions/perm456")
         );
     }
 
@@ -1040,13 +1122,15 @@ mod tests {
 
     #[test]
     fn gws_action_rego_requires_approval_for_drive_permissions_updates() {
-        let input = PolicyInput::from_event(&gws_event(
+        let mut event = gws_event(
             "evt_gws_drive_permissions_update",
             "drive.permissions.update",
             "drive.files/abc123/permissions/perm456",
             "api_observation",
             "gws.drive",
-        ));
+        );
+        event.action.attributes.remove("semantic_action_label");
+        let input = PolicyInput::from_event(&event);
 
         let decision = RegoPolicyEvaluator::gws_action_example()
             .evaluate(&input)
@@ -1336,7 +1420,7 @@ mod tests {
 
     fn gws_event(
         event_id: &str,
-        semantic_action_label: &str,
+        action_key: &str,
         target: &str,
         source_kind: &str,
         semantic_surface: &str,
@@ -1347,19 +1431,16 @@ mod tests {
         attributes.insert("transport".to_owned(), json!("https"));
         attributes.insert("semantic_surface".to_owned(), json!(semantic_surface));
         attributes.insert("provider_id".to_owned(), json!("gws"));
-        attributes.insert("action_key".to_owned(), json!(semantic_action_label));
+        attributes.insert("action_key".to_owned(), json!(action_key));
         attributes.insert(
             "provider_action_id".to_owned(),
-            json!(format!("gws:{semantic_action_label}")),
+            json!(format!("gws:{action_key}")),
         );
-        attributes.insert(
-            "semantic_action_label".to_owned(),
-            json!(semantic_action_label),
-        );
+        attributes.insert("semantic_action_label".to_owned(), json!(action_key));
         attributes.insert("target_hint".to_owned(), json!(target));
         attributes.insert(
             "classifier_labels".to_owned(),
-            json!([semantic_surface, semantic_action_label]),
+            json!([semantic_surface, action_key]),
         );
         attributes.insert(
             "classifier_reasons".to_owned(),
@@ -1385,7 +1466,7 @@ mod tests {
             },
             Action {
                 class: ActionClass::Gws,
-                verb: Some(semantic_action_label.to_owned()),
+                verb: Some(action_key.to_owned()),
                 target: Some(target.to_owned()),
                 attributes,
             },
