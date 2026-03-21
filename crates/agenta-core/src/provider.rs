@@ -427,7 +427,7 @@ mod tests {
         assert_eq!("gws".parse::<ProviderId>().unwrap(), gws);
         assert_eq!("github".parse::<ProviderId>().unwrap(), github);
         assert_eq!(
-            serde_json::to_value(&ProviderId::gws()).unwrap(),
+            serde_json::to_value(ProviderId::gws()).unwrap(),
             json!("gws")
         );
         assert_eq!(
