@@ -55,9 +55,9 @@ The redaction rule for this phase is explicit from the start: live proxy seams s
 - `mod.rs`
   - bootstrap assembly and tests for the live proxy / interception split
 
-The next checked-in live-mode work remains outside this P13-1 boundary:
+The inline runtime work still remains outside this P13-1 boundary even after the checked-in live mode semantics landed:
 
-- **P13-8** will formalize the live mode semantics that sit on top of the now-connected preview policy / approval / audit reflection path
+- production-grade pause / resume / deny mechanics still sit beyond the current preview-only mode projection and record reflection path
 
 ## Responsibility split
 
@@ -228,7 +228,7 @@ The live interception phase is expected to preserve a stable downstream surface 
 
 This keeps the next tasks cleaner:
 
-- **P13-8** can formalize `shadow`, `enforce_preview`, and `unsupported` semantics without rewriting upstream ownership rules or the now-connected preview policy / approval / audit reflection path
+- future runtime work can build on fixed `shadow`, `enforce_preview`, and `unsupported` semantics without rewriting upstream ownership rules or the now-connected preview policy / approval / audit reflection path
 
 ## Explicitly out of scope for P13-1
 
@@ -244,6 +244,7 @@ This keeps the next tasks cleaner:
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - generic REST live preview path: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - provider live preview adapter boundaries: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
+- live preview mode semantics: [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md)
 - live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
 - live proxy semantic coverage matrix: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
