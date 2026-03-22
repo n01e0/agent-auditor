@@ -111,7 +111,7 @@ For the first live proxy / interception slice, the seam is:
 - `approval` owns live hold feasibility and approval wait-state boundaries after `require_approval`
 - `audit` owns append-only reflection of realized live mode, coverage gap, and approval linkage
 
-See [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md) for the concrete P13-1 boundary, [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md) for the concrete P13-2 request model, [`generic-live-action-envelope.md`](generic-live-action-envelope.md) for the concrete P13-3 `agenta-core` live envelope, and [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md) for the checked-in P13-5 generic REST live preview adapter.
+See [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md) for the concrete P13-1 boundary, [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md) for the concrete P13-2 request model, [`generic-live-action-envelope.md`](generic-live-action-envelope.md) for the concrete P13-3 `agenta-core` live envelope, [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md) for the checked-in P13-5 generic REST live preview adapter, and [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md) for the checked-in P13-6 provider semantic live preview adapters.
 
 ### `agent-auditor-controld`
 

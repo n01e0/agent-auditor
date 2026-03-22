@@ -2,6 +2,9 @@ pub mod approval;
 pub mod audit;
 pub mod contract;
 pub mod generic_rest;
+pub mod github;
+pub mod gws;
+pub mod messaging;
 pub mod policy;
 pub mod proxy_seam;
 pub mod semantic_conversion;
@@ -50,7 +53,11 @@ impl LiveProxyInterceptionPlan {
 mod tests {
     use agenta_core::live::GenericLiveActionEnvelope;
 
-    use super::{LiveProxyInterceptionPlan, generic_rest::GenericRestLivePreviewPlan};
+    use super::{
+        LiveProxyInterceptionPlan, generic_rest::GenericRestLivePreviewPlan,
+        github::GitHubLivePreviewAdapterPlan, gws::GwsLivePreviewAdapterPlan,
+        messaging::MessagingLivePreviewAdapterPlan,
+    };
     use crate::poc::live_proxy::contract::{
         LIVE_PROXY_INTERCEPTION_REDACTION_RULE, LiveHttpRequestContract,
     };
@@ -297,5 +304,68 @@ mod tests {
         assert!(generic_rest.summary().contains(
             "stages=match_preview_route->join_provider_metadata->normalize_generic_rest_event"
         ));
+    }
+
+    #[test]
+    fn provider_specific_live_preview_plans_consume_the_shared_live_envelope_contract() {
+        let live_proxy = LiveProxyInterceptionPlan::bootstrap();
+        let gws = GwsLivePreviewAdapterPlan::default();
+        let github = GitHubLivePreviewAdapterPlan::default();
+        let messaging = MessagingLivePreviewAdapterPlan::default();
+
+        assert_eq!(
+            live_proxy.semantic_conversion.semantic_fields,
+            gws.upstream_fields
+        );
+        assert_eq!(
+            live_proxy.semantic_conversion.semantic_fields,
+            github.upstream_fields
+        );
+        assert_eq!(
+            live_proxy.semantic_conversion.semantic_fields,
+            messaging.upstream_fields
+        );
+        assert!(
+            gws.summary()
+                .contains("stages=route_match->target_projection->provider_handoff")
+        );
+        assert!(
+            github
+                .summary()
+                .contains("stages=observation_projection->taxonomy->provider_handoff")
+        );
+        assert!(
+            messaging
+                .summary()
+                .contains("stages=route_match->provider_candidate->messaging_taxonomy")
+        );
+    }
+
+    #[test]
+    fn provider_specific_live_preview_plans_classify_checked_in_preview_actions() {
+        let gws = GwsLivePreviewAdapterPlan::default();
+        let github = GitHubLivePreviewAdapterPlan::default();
+        let messaging = MessagingLivePreviewAdapterPlan::default();
+
+        assert_eq!(
+            gws.preview_gmail_users_messages_send()
+                .semantic_action
+                .to_string(),
+            "gmail.users.messages.send"
+        );
+        assert_eq!(
+            github
+                .preview_actions_workflow_dispatch()
+                .semantic_action
+                .to_string(),
+            "actions.workflow_dispatch"
+        );
+        assert_eq!(
+            messaging
+                .preview_discord_channels_permissions_put()
+                .action_family
+                .to_string(),
+            "permission.update"
+        );
     }
 }
