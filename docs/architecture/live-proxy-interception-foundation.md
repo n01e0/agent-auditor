@@ -4,13 +4,13 @@ This note fixes the first internal split for the repository-wide live proxy / in
 
 ## Goal of P13-1
 
-Keep the upcoming live interception work honest before a generic live action envelope lands in `agenta-core`, and before generic REST / GWS / GitHub / messaging live preview adapters start claiming real pause / deny coverage.
+Keep the upcoming live interception work honest around the newly checked-in `agenta-core` generic live action envelope and before generic REST / GWS / GitHub / messaging live preview adapters start claiming real pause / deny coverage.
 
 The immediate rule is:
 
 - **proxy seam** owns accepting redaction-safe live HTTP request metadata from a forward proxy, browser relay, or sidecar proxy and stripping it down to a stable request handoff
 - **session correlation** owns binding that live request handoff to the same `session_id` model already used by runtime hostd events, approval requests, and audit records
-- **semantic conversion** owns turning a correlated live request into one generic live action seam plus the minimum provider / family hints that downstream generic REST / GWS / GitHub / messaging adapters can consume
+- **semantic conversion** owns turning a correlated live request into one generic live action seam plus the minimum provider / surface / target hints that downstream generic REST / GWS / GitHub / messaging adapters can consume before provider-local taxonomy runs
 - **policy** owns bridging that generic live seam into existing policy surfaces and projecting `allow` / `deny` / `require_approval` plus live coverage posture / mode status
 - **approval** owns live approval-hold feasibility, request wait-state materialization, and release / cancel linkage for actions that policy marks `require_approval`
 - **audit** owns append-only reflection of the realized live mode, coverage gap, policy result, and approval linkage without replaying upstream capture, correlation, or taxonomy work
@@ -24,7 +24,7 @@ Unlike the earlier preview-only semantic-governance slices, this phase is explic
 
 If those three questions collapse into one blob, the repository will overfit to one adapter, leak raw payloads into policy, and blur the line between shadow-mode previews and validated hold / deny capability.
 
-The redaction rule for this phase is explicit from the start: live proxy seams should carry method, authority, path, header classes, body classes, auth hints, request / correlation ids, session lineage, provider / surface hints, semantic family hints, mode labels, and approval / audit linkage only. Raw header values, cookies, bearer tokens, request bodies, response bodies, message text, file bytes, rendered HTML, and provider-specific opaque payloads do not cross the boundary. The concrete minimal request contract fixed by P13-2 is documented in [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md).
+The redaction rule for this phase is explicit from the start: live proxy seams should carry method, authority, path, header classes, body classes, auth hints, request / correlation ids, session lineage, provider / surface hints, target hints, mode labels, and approval / audit linkage only. Raw header values, cookies, bearer tokens, request bodies, response bodies, message text, file bytes, rendered HTML, and provider-specific opaque payloads do not cross the boundary. The concrete minimal request contract fixed by P13-2 is documented in [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md), and the shared `agenta-core` live envelope fixed by P13-3 is documented in [`generic-live-action-envelope.md`](generic-live-action-envelope.md).
 
 ## Code layout
 
@@ -47,9 +47,8 @@ The redaction rule for this phase is explicit from the start: live proxy seams s
 - `mod.rs`
   - bootstrap assembly and tests for the live proxy / interception split
 
-The next checked-in type and adapter work remains outside this P13-1 boundary:
+The next checked-in adapter work remains outside this P13-1 boundary:
 
-- **P13-3** will add the generic live action envelope in `agenta-core`
 - **P13-5 / P13-6** will connect generic REST and provider-specific semantic adapters to the live seam
 - **P13-7 / P13-8** will connect live approval / audit reflection and mode semantics
 
@@ -94,7 +93,7 @@ Does **not** own:
 Owns:
 
 - converting a correlated live proxy request into one generic live action seam before generic REST / GWS / GitHub / messaging adapters consume it
-- deriving redaction-safe live surface, target, and semantic-family hints without reopening raw payload access
+- deriving redaction-safe live surface, provider, and target hints without reopening raw payload access or pre-committing to provider-local action labels
 - separating shared live-request facts from provider-specific taxonomy so multiple downstream adapters can reuse one upstream envelope
 - surfacing unsupported or degraded semantic conversion as explicit status instead of silently skipping downstream policy
 
@@ -190,12 +189,13 @@ The correlation stage is expected to add:
 
 ### Downstream outputs from semantic conversion
 
-The semantic-conversion stage is expected to define a stable live policy / audit surface around:
+The semantic-conversion stage now defines a stable `agenta-core` live envelope around:
 
 - `live_surface`
+- `transport`
 - `target_hint`
-- `semantic_family_hint`
-- correlated request lineage (`request_id`, `correlation_id`, `session_id`)
+- correlated request lineage (`request_id`, `correlation_id`, `session_id`, `agent_id`, `workspace_id`)
+- routing hints (`provider_hint`, `correlation_status`)
 - redaction-safe request descriptors (`method`, `authority`, `path`, `headers`, `body_class`, `auth_hint`)
 - `mode`
 - `content_retained=false`
@@ -221,8 +221,7 @@ The live interception phase is expected to preserve a stable downstream surface 
 
 This keeps the next tasks cleaner:
 
-- **P13-3** can add a generic live action envelope in `agenta-core` against the now-fixed proxy request contract and stable upstream ownership boundary
-- **P13-4** can document coverage, fail-open / fail-closed posture, and approval-hold feasibility for each semantic slice without conflating them with raw proxy capture
+- **P13-4** can document coverage, fail-open / fail-closed posture, and approval-hold feasibility for each semantic slice against the now-fixed proxy request contract and shared `agenta-core` live envelope without conflating them with raw proxy capture
 - **P13-5** can implement generic REST live preview conversion on top of a stable shared live seam
 - **P13-6** can add GWS / GitHub / messaging live adapters without re-deciding proxy or session boundaries
 - **P13-7** can connect live policy / audit / approval reflection against stable handoffs
@@ -230,7 +229,6 @@ This keeps the next tasks cleaner:
 
 ## Explicitly out of scope for P13-1
 
-- the concrete `agenta-core` generic live action envelope
 - real proxy deployment, certificate handling, browser installation, or traffic steering
 - production-grade inline pause / resume / deny mechanics
 - finalized coverage-matrix rows for generic REST / GWS / GitHub / messaging live interception
@@ -241,6 +239,7 @@ This keeps the next tasks cleaner:
 - architecture overview: [`overview.md`](overview.md)
 - Rust implementation direction: [`rust-implementation.md`](rust-implementation.md)
 - live proxy request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
+- generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - messaging / collaboration boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)

@@ -47,6 +47,8 @@ impl LiveProxyInterceptionPlan {
 
 #[cfg(test)]
 mod tests {
+    use agenta_core::live::GenericLiveActionEnvelope;
+
     use super::LiveProxyInterceptionPlan;
     use crate::poc::live_proxy::contract::{
         LIVE_PROXY_INTERCEPTION_REDACTION_RULE, LiveHttpRequestContract,
@@ -154,6 +156,10 @@ mod tests {
         );
         assert_eq!(
             plan.semantic_conversion.semantic_fields,
+            GenericLiveActionEnvelope::field_names().to_vec()
+        );
+        assert_eq!(
+            plan.semantic_conversion.semantic_fields,
             plan.policy.input_fields
         );
         assert_eq!(plan.policy.decision_fields, plan.approval.input_fields);
@@ -227,7 +233,7 @@ mod tests {
                 .contains("stages=lookup->bind_session->lineage_hint->handoff")
         );
         assert!(plan.semantic_conversion.summary().contains(
-            "stages=provider_hint->generic_live_envelope->semantic_family_hint->handoff"
+            "stages=provider_hint->generic_live_envelope->provider_taxonomy_input->handoff"
         ));
         assert!(
             plan.policy
@@ -244,5 +250,29 @@ mod tests {
                 .summary()
                 .contains("stages=reflect->annotate_mode->append->publish")
         );
+    }
+
+    #[test]
+    fn semantic_conversion_preview_enters_agenta_core_before_provider_taxonomy() {
+        let plan = LiveProxyInterceptionPlan::bootstrap();
+        let envelope = plan
+            .semantic_conversion
+            .preview_generic_live_action_envelope();
+
+        assert_eq!(
+            envelope.request_id.as_str(),
+            "req_live_proxy_github_repos_update_visibility_preview"
+        );
+        assert_eq!(envelope.live_surface.as_str(), "http.request");
+        assert_eq!(envelope.transport.as_str(), "https");
+        assert_eq!(
+            envelope.provider_hint.map(|provider| provider.to_string()),
+            Some("github".to_owned())
+        );
+        assert_eq!(
+            envelope.target_hint,
+            Some("repos/n01e0/agent-auditor/visibility".to_owned())
+        );
+        assert!(!envelope.content_retained);
     }
 }

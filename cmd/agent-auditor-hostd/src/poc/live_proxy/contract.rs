@@ -1,6 +1,6 @@
 use std::fmt;
 
-pub const LIVE_PROXY_INTERCEPTION_REDACTION_RULE: &str = "live proxy seams carry only redaction-safe method, authority, path, header classes, body classes, auth hints, correlation ids, session lineage, semantic family hints, mode labels, and approval/audit linkage; raw header values, cookies, bearer tokens, request bodies, response bodies, message content, file bytes, and provider-opaque payloads must not cross the seam";
+pub const LIVE_PROXY_INTERCEPTION_REDACTION_RULE: &str = "live proxy seams carry only redaction-safe method, authority, path, header classes, body classes, auth hints, correlation ids, session lineage, provider and surface and target hints, mode labels, and approval/audit linkage; raw header values, cookies, bearer tokens, request bodies, response bodies, message content, file bytes, and provider-opaque payloads must not cross the seam";
 
 pub const LIVE_PROXY_SOURCE_LABELS: [&str; 3] = ["forward_proxy", "browser_relay", "sidecar_proxy"];
 pub const LIVE_INTERCEPTION_MODE_LABELS: [&str; 3] = ["shadow", "enforce_preview", "unsupported"];
