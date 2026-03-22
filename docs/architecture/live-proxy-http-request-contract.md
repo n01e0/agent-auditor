@@ -169,5 +169,6 @@ Those belong to the later live-proxy tasks.
 ## Relationship to neighboring docs
 
 - phase boundary and responsibility split: [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md)
+- shared `agenta-core` live envelope above this request model: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - overall architecture position: [`overview.md`](overview.md)
 - Rust module split: [`rust-implementation.md`](rust-implementation.md)
