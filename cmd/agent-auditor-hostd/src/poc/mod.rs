@@ -4,6 +4,7 @@ pub mod event_path;
 pub mod filesystem;
 pub mod github;
 pub mod gws;
+pub mod live_proxy;
 pub mod loader;
 pub mod messaging;
 pub mod network;
@@ -12,7 +13,8 @@ pub mod secret;
 
 use self::{
     enforcement::EnforcementPocPlan, event_path::EventPathPlan, filesystem::FilesystemPocPlan,
-    github::GitHubSemanticGovernancePocPlan, gws::ApiNetworkGwsPocPlan, loader::LoaderPlan,
+    github::GitHubSemanticGovernancePocPlan, gws::ApiNetworkGwsPocPlan,
+    live_proxy::LiveProxyInterceptionPlan, loader::LoaderPlan,
     messaging::MessagingCollaborationGovernancePlan, network::NetworkPocPlan,
     rest::GenericRestOAuthGovernancePlan, secret::SecretAccessPocPlan,
 };
@@ -28,6 +30,7 @@ pub struct HostdPocPlan {
     pub github: GitHubSemanticGovernancePocPlan,
     pub generic_rest: GenericRestOAuthGovernancePlan,
     pub messaging: MessagingCollaborationGovernancePlan,
+    pub live_proxy: LiveProxyInterceptionPlan,
     pub enforcement: EnforcementPocPlan,
 }
 
@@ -42,6 +45,7 @@ impl HostdPocPlan {
         let github = GitHubSemanticGovernancePocPlan::bootstrap();
         let generic_rest = GenericRestOAuthGovernancePlan::bootstrap();
         let messaging = MessagingCollaborationGovernancePlan::bootstrap();
+        let live_proxy = LiveProxyInterceptionPlan::bootstrap();
         let enforcement = EnforcementPocPlan::bootstrap();
 
         Self {
@@ -54,6 +58,7 @@ impl HostdPocPlan {
             github,
             generic_rest,
             messaging,
+            live_proxy,
             enforcement,
         }
     }
@@ -258,6 +263,37 @@ mod tests {
                 "normalized_event",
                 "policy_decision",
                 "approval_request",
+                "redaction_status",
+            ]
+        );
+    }
+
+    #[test]
+    fn bootstrap_plan_includes_live_proxy_interception_pipeline() {
+        let plan = HostdPocPlan::bootstrap();
+
+        assert_eq!(
+            plan.live_proxy.proxy_seam.sources,
+            vec!["forward_proxy", "browser_relay", "sidecar_proxy"]
+        );
+        assert_eq!(
+            plan.live_proxy.semantic_conversion.consumers,
+            vec!["generic_rest", "gws", "github", "messaging"]
+        );
+        assert_eq!(
+            plan.live_proxy.approval.modes,
+            vec!["shadow", "enforce_preview", "unsupported"]
+        );
+        assert_eq!(
+            plan.live_proxy.audit.record_fields,
+            vec![
+                "live_request_summary",
+                "normalized_event",
+                "policy_decision",
+                "approval_request",
+                "mode_status",
+                "coverage_gap",
+                "realized_enforcement",
                 "redaction_status",
             ]
         );
