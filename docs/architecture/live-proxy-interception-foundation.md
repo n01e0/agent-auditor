@@ -57,7 +57,7 @@ The redaction rule for this phase is explicit from the start: live proxy seams s
 
 The next checked-in live-mode work remains outside this P13-1 boundary:
 
-- **P13-7 / P13-8** will connect live approval / audit reflection and mode semantics
+- **P13-8** will formalize the live mode semantics that sit on top of the now-connected preview policy / approval / audit reflection path
 
 ## Responsibility split
 
@@ -228,14 +228,12 @@ The live interception phase is expected to preserve a stable downstream surface 
 
 This keeps the next tasks cleaner:
 
-- **P13-7** can connect live policy / audit / approval reflection against the now-fixed generic REST and provider-specific preview adapters
-- **P13-8** can formalize `shadow`, `enforce_preview`, and `unsupported` semantics without rewriting upstream ownership rules
+- **P13-8** can formalize `shadow`, `enforce_preview`, and `unsupported` semantics without rewriting upstream ownership rules or the now-connected preview policy / approval / audit reflection path
 
 ## Explicitly out of scope for P13-1
 
 - real proxy deployment, certificate handling, browser installation, or traffic steering
 - production-grade inline pause / resume / deny mechanics
-- live policy / audit / approval reflection on top of the now-checked-in generic REST and provider-specific preview adapters
 - control-plane reviewer UX or reconciliation flows beyond the ownership boundary
 
 ## Related docs
@@ -246,6 +244,7 @@ This keeps the next tasks cleaner:
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - generic REST live preview path: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - provider live preview adapter boundaries: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
+- live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
 - live proxy semantic coverage matrix: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - messaging / collaboration boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
