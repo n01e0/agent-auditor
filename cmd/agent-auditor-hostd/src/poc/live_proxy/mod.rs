@@ -5,6 +5,7 @@ pub mod generic_rest;
 pub mod github;
 pub mod gws;
 pub mod messaging;
+pub mod mode;
 pub mod policy;
 pub mod proxy_seam;
 pub mod semantic_conversion;
@@ -188,7 +189,9 @@ mod tests {
                 "normalized_event",
                 "policy_decision",
                 "approval_request",
+                "mode_behavior",
                 "mode_status",
+                "record_status",
                 "coverage_gap",
                 "realized_enforcement",
                 "redaction_status",

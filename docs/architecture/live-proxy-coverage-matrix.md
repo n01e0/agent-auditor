@@ -114,6 +114,22 @@ The messaging row is the most layered one.
 | Slack `files.upload_v2` / `file.upload` | `require_approval` | approval-hold preview only; fail open live |
 | Discord `channels.permissions.put` / `permission.update` | `deny` | deny preview only; fail open live |
 
+## Mode interpretation
+
+The current repository now fixes three distinct live preview mode behaviors:
+
+- `shadow`
+  - `coverage_posture=observe_only_preview`
+  - records policy signals without creating approval queue state
+- `enforce_preview`
+  - `coverage_posture=record_only_preview`
+  - can create preview-only approval records for `require_approval`
+- `unsupported`
+  - `coverage_posture=unsupported_preview`
+  - records diagnostic signals and coverage gaps without claiming a supported live preview contract
+
+Those mode semantics are documented in [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md) and reflected in the append-only records described in [`live-preview-record-reflection.md`](live-preview-record-reflection.md).
+
 ## Approval-hold interpretation
 
 Across all four rows, the current repository now proves this narrower statement:
@@ -149,6 +165,7 @@ That is exactly why the next task now focuses on final live-mode semantics (`P13
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - generic REST live preview adapter: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - provider semantic live preview adapters: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
+- live preview mode semantics: [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md)
 - live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
 - generic REST constraints: [`generic-rest-oauth-governance-known-constraints.md`](generic-rest-oauth-governance-known-constraints.md)
 - GWS constraints: [`hostd-api-network-gws-known-constraints.md`](hostd-api-network-gws-known-constraints.md)

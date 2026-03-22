@@ -1,6 +1,5 @@
 use agenta_core::{
     ApprovalRequest, EnforcementDirective, EnforcementInfo, EnforcementStatus, EventEnvelope,
-    PolicyDecisionKind,
 };
 use agenta_policy::{apply_decision_to_event, apply_enforcement_to_event};
 use serde_json::json;
@@ -19,7 +18,6 @@ use super::{
     policy::LivePreviewPolicyEvaluation,
 };
 
-const LIVE_PREVIEW_COVERAGE_GAP: &str = "live_preview_path_has_no_inline_hold_deny_or_resume";
 const LIVE_PREVIEW_REDACTION_STATUS: &str = "redaction_safe_preview_only";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,7 +40,9 @@ impl AuditPlan {
             "normalized_event",
             "policy_decision",
             "coverage_posture",
+            "mode_behavior",
             "mode_status",
+            "record_status",
             "approval_eligibility",
             "approval_request",
             "approval_hold_allowed",
@@ -56,7 +56,9 @@ impl AuditPlan {
             "normalized_event",
             "policy_decision",
             "approval_request",
+            "mode_behavior",
             "mode_status",
+            "record_status",
             "coverage_gap",
             "realized_enforcement",
             "redaction_status",
@@ -75,7 +77,7 @@ impl AuditPlan {
             record_fields: record_fields.clone(),
             responsibilities: vec![
                 "append live preview, enforce-preview, or unsupported audit records without replaying proxy capture, session correlation, semantic conversion, or policy evaluation",
-                "record the exact realized interception status, coverage gap, and approval linkage so operators can tell modeled intent from real runtime effect",
+                "record the exact realized interception status, mode behavior, and coverage gap so operators can tell modeled intent from real runtime effect",
                 "preserve correlation ids and redaction-safe live request summaries for later control-plane reconciliation",
                 "stay append-only and avoid becoming the owner of approval queue state, policy decisions, or provider-specific taxonomy",
             ],
@@ -96,6 +98,9 @@ impl AuditPlan {
     ) -> LivePreviewAuditReflection {
         let decision_applied =
             apply_decision_to_event(&evaluation.normalized_event, &evaluation.policy_decision);
+        let mode_projection = evaluation
+            .live_mode
+            .project(evaluation.policy_decision.decision);
         let enforcement = preview_enforcement_info(evaluation, approval);
         let mut audit_record = apply_enforcement_to_event(&decision_applied, &enforcement);
         let live_request_summary = live_request_summary(&audit_record);
@@ -105,8 +110,16 @@ impl AuditPlan {
             json!(evaluation.coverage_posture.label()),
         );
         audit_record.action.attributes.insert(
+            "mode_behavior".to_owned(),
+            json!(evaluation.mode_behavior.label()),
+        );
+        audit_record.action.attributes.insert(
             "mode_status".to_owned(),
             json!(evaluation.mode_status.clone()),
+        );
+        audit_record.action.attributes.insert(
+            "record_status".to_owned(),
+            json!(evaluation.record_status.clone()),
         );
         audit_record.action.attributes.insert(
             "approval_eligibility".to_owned(),
@@ -128,10 +141,10 @@ impl AuditPlan {
             "live_request_summary".to_owned(),
             json!(live_request_summary.clone()),
         );
-        audit_record
-            .action
-            .attributes
-            .insert("coverage_gap".to_owned(), json!(LIVE_PREVIEW_COVERAGE_GAP));
+        audit_record.action.attributes.insert(
+            "coverage_gap".to_owned(),
+            json!(mode_projection.coverage_gap),
+        );
         audit_record.action.attributes.insert(
             "redaction_status".to_owned(),
             json!(LIVE_PREVIEW_REDACTION_STATUS),
@@ -141,8 +154,10 @@ impl AuditPlan {
             live_request_summary,
             audit_record,
             approval_request: approval.approval_request.clone(),
+            mode_behavior: evaluation.mode_behavior.label().to_owned(),
             mode_status: evaluation.mode_status.clone(),
-            coverage_gap: LIVE_PREVIEW_COVERAGE_GAP.to_owned(),
+            record_status: evaluation.record_status.clone(),
+            coverage_gap: mode_projection.coverage_gap.to_owned(),
             realized_enforcement: enforcement,
             redaction_status: LIVE_PREVIEW_REDACTION_STATUS,
         }
@@ -191,7 +206,9 @@ pub struct LivePreviewAuditReflection {
     pub live_request_summary: String,
     pub audit_record: EventEnvelope,
     pub approval_request: Option<ApprovalRequest>,
+    pub mode_behavior: String,
     pub mode_status: String,
+    pub record_status: String,
     pub coverage_gap: String,
     pub realized_enforcement: EnforcementInfo,
     pub redaction_status: &'static str,
@@ -200,13 +217,15 @@ pub struct LivePreviewAuditReflection {
 impl LivePreviewAuditReflection {
     pub fn summary(&self) -> String {
         format!(
-            "event_id={} approval_request={} mode_status={} coverage_gap={} redaction_status={}",
+            "event_id={} approval_request={} mode_behavior={} mode_status={} record_status={} coverage_gap={} redaction_status={}",
             self.audit_record.event_id,
             self.approval_request
                 .as_ref()
                 .map(|request| request.approval_id.as_str())
                 .unwrap_or("none"),
+            self.mode_behavior,
             self.mode_status,
+            self.record_status,
             self.coverage_gap,
             self.redaction_status
         )
@@ -281,12 +300,16 @@ fn preview_enforcement_info(
     evaluation: &LivePreviewPolicyEvaluation,
     approval: &LivePreviewApprovalProjection,
 ) -> EnforcementInfo {
+    let mode_projection = evaluation
+        .live_mode
+        .project(evaluation.policy_decision.decision);
+
     EnforcementInfo {
         directive: directive_for_decision(evaluation.policy_decision.decision),
         status: EnforcementStatus::ObserveOnlyFallback,
-        status_reason: Some(preview_status_reason(evaluation.policy_decision.decision)),
+        status_reason: Some(mode_projection.status_reason.to_owned()),
         enforced: false,
-        coverage_gap: Some(LIVE_PREVIEW_COVERAGE_GAP.to_owned()),
+        coverage_gap: Some(mode_projection.coverage_gap.to_owned()),
         approval_id: approval
             .approval_request
             .as_ref()
@@ -295,28 +318,11 @@ fn preview_enforcement_info(
     }
 }
 
-fn directive_for_decision(decision: PolicyDecisionKind) -> EnforcementDirective {
+fn directive_for_decision(decision: agenta_core::PolicyDecisionKind) -> EnforcementDirective {
     match decision {
-        PolicyDecisionKind::Allow => EnforcementDirective::Allow,
-        PolicyDecisionKind::RequireApproval => EnforcementDirective::Hold,
-        PolicyDecisionKind::Deny => EnforcementDirective::Deny,
-    }
-}
-
-fn preview_status_reason(decision: PolicyDecisionKind) -> String {
-    match decision {
-        PolicyDecisionKind::Allow => {
-            "live preview path observed an allow decision without requiring inline runtime intervention"
-                .to_owned()
-        }
-        PolicyDecisionKind::RequireApproval => {
-            "live preview path recorded approval intent but cannot pause the in-flight provider request yet"
-                .to_owned()
-        }
-        PolicyDecisionKind::Deny => {
-            "live preview path recorded a deny result but cannot block the in-flight provider request yet"
-                .to_owned()
-        }
+        agenta_core::PolicyDecisionKind::Allow => EnforcementDirective::Allow,
+        agenta_core::PolicyDecisionKind::RequireApproval => EnforcementDirective::Hold,
+        agenta_core::PolicyDecisionKind::Deny => EnforcementDirective::Deny,
     }
 }
 
@@ -343,7 +349,7 @@ mod tests {
         EnforcementDirective, EnforcementStatus, ResultStatus, SessionRecord, SessionWorkspace,
     };
 
-    use super::{LIVE_PREVIEW_COVERAGE_GAP, LIVE_PREVIEW_REDACTION_STATUS};
+    use super::LIVE_PREVIEW_REDACTION_STATUS;
     use crate::poc::{
         github::{GitHubSemanticGovernancePocPlan, persist::GitHubPocStore},
         gws::{ApiNetworkGwsPocPlan, persist::GwsPocStore},
@@ -357,8 +363,9 @@ mod tests {
     };
 
     #[test]
-    fn audit_plan_reflects_preview_only_hold_records_for_generic_rest_and_persists_them() {
+    fn audit_plan_reflects_record_only_hold_records_for_enforce_preview_generic_rest() {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
+        reset_store_dir("agent-auditor-hostd-generic-rest-poc-store");
         let store = GenericRestPocStore::bootstrap().expect("generic REST store should init");
         let event = GenericRestLivePreviewPlan::default().preview_hold_gmail_users_messages_send();
         let evaluation = live_proxy
@@ -396,31 +403,93 @@ mod tests {
             Some(EnforcementDirective::Hold)
         );
         assert_eq!(
-            persisted_audit.enforcement.as_ref().map(|info| info.status),
-            Some(EnforcementStatus::ObserveOnlyFallback)
+            persisted_audit
+                .action
+                .attributes
+                .get("mode_status")
+                .and_then(|value| value.as_str()),
+            Some("enforce_preview_record_only")
         );
         assert_eq!(
             persisted_audit
                 .action
                 .attributes
-                .get("coverage_gap")
+                .get("record_status")
                 .and_then(|value| value.as_str()),
-            Some(LIVE_PREVIEW_COVERAGE_GAP)
+            Some("enforce_preview_approval_request_recorded")
         );
         assert_eq!(
             persisted_request
                 .enforcement
                 .as_ref()
                 .and_then(|info| info.coverage_gap.as_deref()),
-            Some(LIVE_PREVIEW_COVERAGE_GAP)
+            Some("enforce_preview_has_no_inline_hold_deny_or_resume")
         );
     }
 
     #[test]
-    fn audit_plan_reflects_preview_only_allow_records_for_gws() {
+    fn audit_plan_reflects_shadow_mode_as_observe_only_without_approval_records() {
+        let live_proxy = LiveProxyInterceptionPlan::bootstrap();
+        reset_store_dir("agent-auditor-hostd-generic-rest-poc-store");
+        let store = GenericRestPocStore::bootstrap().expect("generic REST store should init");
+        let event = live_proxy.policy.annotate_preview_event(
+            LivePreviewConsumer::GenericRest,
+            &GenericRestLivePreviewPlan::default().preview_hold_gmail_users_messages_send(),
+            "shadow",
+            "consumer=generic_rest provider=gws action=gmail.users.messages.send target=gmail.users/me",
+        );
+        let evaluation = live_proxy
+            .policy
+            .evaluate_preview_event(LivePreviewConsumer::GenericRest, &event)
+            .expect("shadow live preview should evaluate");
+        let approval = live_proxy
+            .approval
+            .project_preview_approval(&evaluation)
+            .expect("shadow approval projection should succeed");
+        let reflection = live_proxy
+            .audit
+            .reflect_preview_records(&evaluation, &approval);
+
+        live_proxy
+            .audit
+            .persist_reflection(&store, &reflection)
+            .expect("shadow reflection should persist");
+
+        let persisted_audit = store
+            .latest_audit_record()
+            .expect("audit record should load")
+            .expect("audit record should exist");
+        assert_eq!(persisted_audit.result.status, ResultStatus::Observed);
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("mode_behavior")
+                .and_then(|value| value.as_str()),
+            Some("observe_only")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("record_status")
+                .and_then(|value| value.as_str()),
+            Some("shadow_require_approval_recorded")
+        );
+        assert!(
+            store
+                .latest_approval_request()
+                .expect("approval log should load")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn audit_plan_reflects_gws_allow_preview_and_preserves_redaction_status() {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
         let gws_live = GwsLivePreviewAdapterPlan::default();
         let gws_plan = ApiNetworkGwsPocPlan::bootstrap();
+        reset_store_dir("agent-auditor-hostd-gws-poc-store");
         let store = GwsPocStore::bootstrap().expect("GWS store should init");
         let normalized = live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::Gws,
@@ -471,19 +540,14 @@ mod tests {
                 .and_then(|value| value.as_str()),
             Some(LIVE_PREVIEW_REDACTION_STATUS)
         );
-        assert!(
-            store
-                .latest_approval_request()
-                .expect("approval log should load")
-                .is_none()
-        );
     }
 
     #[test]
-    fn audit_plan_reflects_preview_only_deny_records_for_github() {
+    fn audit_plan_reflects_unsupported_mode_for_github_deny_records() {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
         let github_live = GitHubLivePreviewAdapterPlan::default();
         let github_plan = GitHubSemanticGovernancePocPlan::bootstrap();
+        reset_store_dir("agent-auditor-hostd-github-poc-store");
         let store = GitHubPocStore::bootstrap().expect("GitHub store should init");
         let normalized = live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::GitHub,
@@ -494,7 +558,7 @@ mod tests {
                     "sess_live_proxy_github_actions_secrets_create_or_update_preview",
                 ),
             ),
-            "enforce_preview",
+            "unsupported",
             "consumer=github action=actions.secrets.create_or_update target=repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
         );
         let evaluation = live_proxy
@@ -528,18 +592,28 @@ mod tests {
         );
         assert_eq!(
             persisted_audit
-                .enforcement
-                .as_ref()
-                .map(|info| info.enforced),
-            Some(false)
+                .action
+                .attributes
+                .get("mode_status")
+                .and_then(|value| value.as_str()),
+            Some("unsupported_preview_only")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_gap")
+                .and_then(|value| value.as_str()),
+            Some("unsupported_mode_has_no_supported_live_preview_contract")
         );
     }
 
     #[test]
-    fn audit_plan_reflects_preview_only_hold_records_for_messaging() {
+    fn audit_plan_reflects_record_only_hold_records_for_messaging() {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
         let messaging_live = MessagingLivePreviewAdapterPlan::default();
         let messaging_plan = MessagingCollaborationGovernancePlan::bootstrap();
+        reset_store_dir("agent-auditor-hostd-messaging-poc-store");
         let store = MessagingPocStore::bootstrap().expect("messaging store should init");
         let normalized = live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::Messaging,
@@ -570,22 +644,15 @@ mod tests {
             .persist_reflection(&store, &reflection)
             .expect("messaging reflection should persist");
 
-        let persisted_audit = store
-            .latest_audit_record()
-            .expect("audit record should load")
-            .expect("audit record should exist");
         let persisted_request = store
             .latest_approval_request()
             .expect("approval request should load")
             .expect("approval request should exist");
 
-        assert_eq!(persisted_audit.result.status, ResultStatus::Observed);
+        assert_eq!(reflection.mode_status, "enforce_preview_record_only");
         assert_eq!(
-            persisted_audit
-                .enforcement
-                .as_ref()
-                .map(|info| info.directive),
-            Some(EnforcementDirective::Hold)
+            reflection.record_status,
+            "enforce_preview_approval_request_recorded"
         );
         assert_eq!(
             persisted_request
@@ -594,7 +661,15 @@ mod tests {
                 .map(|info| info.status),
             Some(EnforcementStatus::ObserveOnlyFallback)
         );
-        assert_eq!(reflection.mode_status, "enforce_preview_record_only");
+    }
+
+    fn reset_store_dir(name: &str) {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target")
+            .join(name);
+        if path.exists() {
+            std::fs::remove_dir_all(path).expect("test store directory should be removable");
+        }
     }
 
     fn placeholder_session(agent_id: &str, session_id: &str) -> SessionRecord {
