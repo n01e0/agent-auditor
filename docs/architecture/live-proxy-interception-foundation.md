@@ -246,6 +246,7 @@ This keeps the next tasks cleaner:
 - provider live preview adapter boundaries: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
 - live preview mode semantics: [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md)
 - live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
+- live proxy test fixtures: [`live-proxy-test-fixtures.md`](live-proxy-test-fixtures.md)
 - live proxy semantic coverage matrix: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - messaging / collaboration boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
