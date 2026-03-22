@@ -116,11 +116,11 @@ The messaging row is the most layered one.
 
 ## Approval-hold interpretation
 
-Across all four rows, the current repository proves only this narrower statement:
+Across all four rows, the current repository now proves this narrower statement:
 
-- the policy layer can mark an action `require_approval`
-- event metadata can reflect a hold-like projection
-- a pending `ApprovalRequest` can be recorded locally
+- the policy layer can mark an action `allow`, `deny`, or `require_approval`
+- live preview records can reflect the realized runtime posture as `observe_only_fallback`
+- a pending `ApprovalRequest` can be recorded locally for preview approval candidates
 
 It does **not** yet prove:
 
@@ -139,7 +139,7 @@ If someone asks "what does the live proxy path actually cover today?", the hones
 - it proves checked-in **generic REST** and **provider-specific semantic** live preview adapters plus **preview policy / approval / audit shapes** for generic REST, GWS, GitHub, and messaging slices
 - it does **not yet** prove an end-to-end live proxy adapter that can safely hold or deny traffic inline for any of those slices
 
-That is exactly why the next tasks now focus on record / mode integration work (`P13-7` / `P13-8`) rather than broader coverage claims.
+That is exactly why the next task now focuses on final live-mode semantics (`P13-8`) rather than broader coverage claims.
 
 ## Related docs
 
@@ -149,6 +149,7 @@ That is exactly why the next tasks now focus on record / mode integration work (
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - generic REST live preview adapter: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - provider semantic live preview adapters: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
+- live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
 - generic REST constraints: [`generic-rest-oauth-governance-known-constraints.md`](generic-rest-oauth-governance-known-constraints.md)
 - GWS constraints: [`hostd-api-network-gws-known-constraints.md`](hostd-api-network-gws-known-constraints.md)
 - GitHub constraints: [`hostd-github-semantic-governance-known-constraints.md`](hostd-github-semantic-governance-known-constraints.md)
