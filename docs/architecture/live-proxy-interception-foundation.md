@@ -221,8 +221,7 @@ The live interception phase is expected to preserve a stable downstream surface 
 
 This keeps the next tasks cleaner:
 
-- **P13-4** can document coverage, fail-open / fail-closed posture, and approval-hold feasibility for each semantic slice against the now-fixed proxy request contract and shared `agenta-core` live envelope without conflating them with raw proxy capture
-- **P13-5** can implement generic REST live preview conversion on top of a stable shared live seam
+- **P13-5** can implement generic REST live preview conversion on top of the now-documented stable shared live seam
 - **P13-6** can add GWS / GitHub / messaging live adapters without re-deciding proxy or session boundaries
 - **P13-7** can connect live policy / audit / approval reflection against stable handoffs
 - **P13-8** can formalize `shadow`, `enforce_preview`, and `unsupported` semantics without rewriting upstream ownership rules
@@ -231,7 +230,7 @@ This keeps the next tasks cleaner:
 
 - real proxy deployment, certificate handling, browser installation, or traffic steering
 - production-grade inline pause / resume / deny mechanics
-- finalized coverage-matrix rows for generic REST / GWS / GitHub / messaging live interception
+- implementation of the now-documented coverage rows for generic REST / GWS / GitHub / messaging live interception
 - control-plane reviewer UX or reconciliation flows beyond the ownership boundary
 
 ## Related docs
@@ -240,6 +239,7 @@ This keeps the next tasks cleaner:
 - Rust implementation direction: [`rust-implementation.md`](rust-implementation.md)
 - live proxy request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
+- live proxy semantic coverage matrix: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - messaging / collaboration boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)

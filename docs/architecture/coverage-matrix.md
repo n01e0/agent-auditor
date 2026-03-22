@@ -70,7 +70,22 @@ Coverage states used throughout the product:
 | sharing-permission gating | browser + policy | phase 2 | high-value target |
 | outbound email / message gating | browser + policy | phase 2 | high-value target |
 
-## 7. Coverage principles
+## 7. Live proxy semantic-governance coverage
+
+The repository now fixes a dedicated live proxy semantic-governance coverage matrix for the downstream generic REST, GWS, GitHub, and messaging slices:
+
+- [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
+
+That note is the authoritative place for:
+
+- the shared live proxy input consumed by each slice
+- the expected session-correlation method on the live path
+- the currently checked-in semantic-action sample for each slice
+- current fail-open / fail-closed posture
+- current approval-hold feasibility
+- the explicit difference between preview record projection and real inline interception
+
+## 8. Coverage principles
 
 1. `observe` is not equivalent to `enforce`.
 2. The UI must show effective coverage per session and host.
