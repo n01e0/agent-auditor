@@ -17,16 +17,17 @@ impl SessionCorrelationPlan {
         let sources = boundary.sources.clone();
         let input_fields = boundary.handoff_fields;
         let correlation_fields = vec![
+            "source",
             "request_id",
             "correlation_id",
             "transport",
             "method",
             "authority",
-            "path_hint",
-            "header_classes",
+            "path",
+            "headers",
             "body_class",
             "auth_hint",
-            "mode_hint",
+            "mode",
             "session_id",
             "agent_id",
             "workspace_id",
