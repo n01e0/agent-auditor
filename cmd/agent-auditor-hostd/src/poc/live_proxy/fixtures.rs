@@ -55,7 +55,12 @@ pub fn seam_fixture_catalog() -> Vec<LiveProxyFixtureCase> {
             name: "generic_rest_enforce_preview_hold",
             consumer: LivePreviewConsumer::GenericRest,
             mode: LiveMode::EnforcePreview,
-            event: generic_rest.preview_hold_gmail_users_messages_send(),
+            event: live_proxy.policy.annotate_preview_event(
+                LivePreviewConsumer::GenericRest,
+                &generic_rest.preview_hold_gmail_users_messages_send(),
+                LiveMode::EnforcePreview.label(),
+                "consumer=generic_rest provider=gws action=gmail.users.messages.send target=gmail.users/me",
+            ),
             expected_decision: PolicyDecisionKind::RequireApproval,
             expected_coverage_posture: "record_only_preview",
             expected_mode_behavior: "record_only",
