@@ -365,8 +365,8 @@ mod tests {
     #[test]
     fn audit_plan_reflects_record_only_hold_records_for_enforce_preview_generic_rest() {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
-        reset_store_dir("agent-auditor-hostd-generic-rest-poc-store");
-        let store = GenericRestPocStore::bootstrap().expect("generic REST store should init");
+        let store = GenericRestPocStore::fresh(unique_store_dir("generic-rest-enforce-preview"))
+            .expect("generic REST store should init");
         let event = GenericRestLivePreviewPlan::default().preview_hold_gmail_users_messages_send();
         let evaluation = live_proxy
             .policy
@@ -430,8 +430,8 @@ mod tests {
     #[test]
     fn audit_plan_reflects_shadow_mode_as_observe_only_without_approval_records() {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
-        reset_store_dir("agent-auditor-hostd-generic-rest-poc-store");
-        let store = GenericRestPocStore::bootstrap().expect("generic REST store should init");
+        let store = GenericRestPocStore::fresh(unique_store_dir("generic-rest-shadow"))
+            .expect("generic REST store should init");
         let event = live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::GenericRest,
             &GenericRestLivePreviewPlan::default().preview_hold_gmail_users_messages_send(),
@@ -489,8 +489,8 @@ mod tests {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
         let gws_live = GwsLivePreviewAdapterPlan::default();
         let gws_plan = ApiNetworkGwsPocPlan::bootstrap();
-        reset_store_dir("agent-auditor-hostd-gws-poc-store");
-        let store = GwsPocStore::bootstrap().expect("GWS store should init");
+        let store = GwsPocStore::fresh(unique_store_dir("gws-shadow-allow"))
+            .expect("GWS store should init");
         let normalized = live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::Gws,
             &gws_plan.evaluate.normalize_classified_action(
@@ -547,8 +547,8 @@ mod tests {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
         let github_live = GitHubLivePreviewAdapterPlan::default();
         let github_plan = GitHubSemanticGovernancePocPlan::bootstrap();
-        reset_store_dir("agent-auditor-hostd-github-poc-store");
-        let store = GitHubPocStore::bootstrap().expect("GitHub store should init");
+        let store = GitHubPocStore::fresh(unique_store_dir("github-unsupported-deny"))
+            .expect("GitHub store should init");
         let normalized = live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::GitHub,
             &github_plan.policy.normalize_classified_action(
@@ -613,8 +613,8 @@ mod tests {
         let live_proxy = LiveProxyInterceptionPlan::bootstrap();
         let messaging_live = MessagingLivePreviewAdapterPlan::default();
         let messaging_plan = MessagingCollaborationGovernancePlan::bootstrap();
-        reset_store_dir("agent-auditor-hostd-messaging-poc-store");
-        let store = MessagingPocStore::bootstrap().expect("messaging store should init");
+        let store = MessagingPocStore::fresh(unique_store_dir("messaging-enforce-preview"))
+            .expect("messaging store should init");
         let normalized = live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::Messaging,
             &messaging_plan.policy.normalize_classified_action(
@@ -663,13 +663,14 @@ mod tests {
         );
     }
 
-    fn reset_store_dir(name: &str) {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    fn unique_store_dir(name: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../target")
-            .join(name);
-        if path.exists() {
-            std::fs::remove_dir_all(path).expect("test store directory should be removable");
-        }
+            .join(format!(
+                "agent-auditor-hostd-live-preview-{}-{}",
+                name,
+                std::process::id()
+            ))
     }
 
     fn placeholder_session(agent_id: &str, session_id: &str) -> SessionRecord {
