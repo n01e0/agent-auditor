@@ -17,6 +17,7 @@ impl SemanticConversionPlan {
         let consumers = vec!["generic_rest", "gws", "github", "messaging"];
         let input_fields = boundary.correlation_fields;
         let semantic_fields = vec![
+            "source",
             "request_id",
             "correlation_id",
             "session_id",
@@ -27,13 +28,13 @@ impl SemanticConversionPlan {
             "live_surface",
             "method",
             "authority",
-            "path_hint",
-            "header_classes",
+            "path",
+            "headers",
             "body_class",
             "auth_hint",
             "target_hint",
             "semantic_family_hint",
-            "mode_hint",
+            "mode",
             "content_retained",
         ];
 

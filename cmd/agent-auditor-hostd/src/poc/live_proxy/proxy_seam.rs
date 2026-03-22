@@ -1,4 +1,7 @@
-use super::contract::{LIVE_PROXY_INTERCEPTION_REDACTION_RULE, ProxySeamBoundary};
+use super::contract::{
+    LIVE_PROXY_INTERCEPTION_REDACTION_RULE, LIVE_PROXY_SOURCE_LABELS, LiveHttpRequestContract,
+    ProxySeamBoundary,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProxySeamPlan {
@@ -11,19 +14,8 @@ pub struct ProxySeamPlan {
 
 impl Default for ProxySeamPlan {
     fn default() -> Self {
-        let sources = vec!["forward_proxy", "browser_relay", "sidecar_proxy"];
-        let request_fields = vec![
-            "request_id",
-            "correlation_id",
-            "transport",
-            "method",
-            "authority",
-            "path_hint",
-            "header_classes",
-            "body_class",
-            "auth_hint",
-            "mode_hint",
-        ];
+        let sources = LIVE_PROXY_SOURCE_LABELS.to_vec();
+        let request_fields = LiveHttpRequestContract::field_names().to_vec();
 
         Self {
             sources: sources.clone(),

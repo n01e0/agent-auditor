@@ -4,7 +4,7 @@ This note fixes the first internal split for the repository-wide live proxy / in
 
 ## Goal of P13-1
 
-Keep the upcoming live interception work honest before a concrete proxy request contract lands, before a generic live action envelope lands in `agenta-core`, and before generic REST / GWS / GitHub / messaging live preview adapters start claiming real pause / deny coverage.
+Keep the upcoming live interception work honest before a generic live action envelope lands in `agenta-core`, and before generic REST / GWS / GitHub / messaging live preview adapters start claiming real pause / deny coverage.
 
 The immediate rule is:
 
@@ -24,14 +24,14 @@ Unlike the earlier preview-only semantic-governance slices, this phase is explic
 
 If those three questions collapse into one blob, the repository will overfit to one adapter, leak raw payloads into policy, and blur the line between shadow-mode previews and validated hold / deny capability.
 
-The redaction rule for this phase is explicit from the start: live proxy seams should carry method, authority, path hints, header classes, body classes, auth hints, request / correlation ids, session lineage, provider / surface hints, semantic family hints, mode labels, and approval / audit linkage only. Raw header values, cookies, bearer tokens, request bodies, response bodies, message text, file bytes, rendered HTML, and provider-specific opaque payloads do not cross the boundary.
+The redaction rule for this phase is explicit from the start: live proxy seams should carry method, authority, path, header classes, body classes, auth hints, request / correlation ids, session lineage, provider / surface hints, semantic family hints, mode labels, and approval / audit linkage only. Raw header values, cookies, bearer tokens, request bodies, response bodies, message text, file bytes, rendered HTML, and provider-specific opaque payloads do not cross the boundary. The concrete minimal request contract fixed by P13-2 is documented in [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md).
 
 ## Code layout
 
 `cmd/agent-auditor-hostd/src/poc/live_proxy/`
 
 - `contract.rs`
-  - checked-in shared seams and the repository-owned redaction rule for live proxy interception
+  - checked-in shared seams, the repository-owned redaction rule, and the minimal live HTTP request contract for live proxy interception
 - `proxy_seam.rs`
   - checked-in home for proxy ingress ownership and the redaction-safe live request handoff plan
 - `session_correlation.rs`
@@ -49,7 +49,6 @@ The redaction rule for this phase is explicit from the start: live proxy seams s
 
 The next checked-in type and adapter work remains outside this P13-1 boundary:
 
-- **P13-2** will fix the minimal live HTTP request contract
 - **P13-3** will add the generic live action envelope in `agenta-core`
 - **P13-5 / P13-6** will connect generic REST and provider-specific semantic adapters to the live seam
 - **P13-7 / P13-8** will connect live approval / audit reflection and mode semantics
@@ -160,22 +159,23 @@ Does **not** own:
 
 ## Boundary inputs and outputs fixed by P13-1
 
-P13-1 does **not** fix the final Rust structs yet, but it does fix the ownership of the fields that later tasks may introduce.
+P13-1 fixed the ownership boundaries and P13-2 fixed the first concrete Rust request contract at the proxy seam.
 
 ### Upstream inputs into the live proxy seam
 
-The proxy seam may rely on redaction-safe request facts such as:
+The proxy seam now relies on the concrete redaction-safe request facts fixed by [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md):
 
+- `source`
 - `request_id`
 - `correlation_id`
 - `transport`
 - `method`
 - `authority`
-- `path_hint`
-- `header_classes`
+- `path`
+- `headers`
 - `body_class`
 - `auth_hint`
-- `mode_hint`
+- `mode`
 
 ### Downstream outputs from session correlation
 
@@ -196,8 +196,8 @@ The semantic-conversion stage is expected to define a stable live policy / audit
 - `target_hint`
 - `semantic_family_hint`
 - correlated request lineage (`request_id`, `correlation_id`, `session_id`)
-- redaction-safe request descriptors (`method`, `authority`, `path_hint`, `header_classes`, `body_class`, `auth_hint`)
-- `mode_hint`
+- redaction-safe request descriptors (`method`, `authority`, `path`, `headers`, `body_class`, `auth_hint`)
+- `mode`
 - `content_retained=false`
 
 ### Downstream outputs from policy / approval / audit
@@ -221,8 +221,7 @@ The live interception phase is expected to preserve a stable downstream surface 
 
 This keeps the next tasks cleaner:
 
-- **P13-2** can define the minimal live proxy request contract without deciding session ownership or downstream policy wiring
-- **P13-3** can add a generic live action envelope in `agenta-core` against a stable upstream ownership boundary
+- **P13-3** can add a generic live action envelope in `agenta-core` against the now-fixed proxy request contract and stable upstream ownership boundary
 - **P13-4** can document coverage, fail-open / fail-closed posture, and approval-hold feasibility for each semantic slice without conflating them with raw proxy capture
 - **P13-5** can implement generic REST live preview conversion on top of a stable shared live seam
 - **P13-6** can add GWS / GitHub / messaging live adapters without re-deciding proxy or session boundaries
@@ -231,7 +230,6 @@ This keeps the next tasks cleaner:
 
 ## Explicitly out of scope for P13-1
 
-- the concrete live HTTP request struct itself
 - the concrete `agenta-core` generic live action envelope
 - real proxy deployment, certificate handling, browser installation, or traffic steering
 - production-grade inline pause / resume / deny mechanics
@@ -242,6 +240,7 @@ This keeps the next tasks cleaner:
 
 - architecture overview: [`overview.md`](overview.md)
 - Rust implementation direction: [`rust-implementation.md`](rust-implementation.md)
+- live proxy request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - messaging / collaboration boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
 - provider abstraction foundation: [`provider-abstraction-foundation.md`](provider-abstraction-foundation.md)

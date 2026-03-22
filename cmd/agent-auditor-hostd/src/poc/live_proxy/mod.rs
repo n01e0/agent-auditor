@@ -48,7 +48,9 @@ impl LiveProxyInterceptionPlan {
 #[cfg(test)]
 mod tests {
     use super::LiveProxyInterceptionPlan;
-    use crate::poc::live_proxy::contract::LIVE_PROXY_INTERCEPTION_REDACTION_RULE;
+    use crate::poc::live_proxy::contract::{
+        LIVE_PROXY_INTERCEPTION_REDACTION_RULE, LiveHttpRequestContract,
+    };
 
     #[test]
     fn bootstrap_plan_keeps_live_proxy_phase_responsibilities_separate() {
@@ -140,18 +142,7 @@ mod tests {
         );
         assert_eq!(
             plan.proxy_seam.request_fields,
-            vec![
-                "request_id",
-                "correlation_id",
-                "transport",
-                "method",
-                "authority",
-                "path_hint",
-                "header_classes",
-                "body_class",
-                "auth_hint",
-                "mode_hint",
-            ]
+            LiveHttpRequestContract::field_names().to_vec()
         );
         assert_eq!(
             plan.proxy_seam.request_fields,

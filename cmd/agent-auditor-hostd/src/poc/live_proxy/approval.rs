@@ -1,4 +1,7 @@
-use super::contract::{ApprovalBoundary, LIVE_PROXY_INTERCEPTION_REDACTION_RULE, PolicyBoundary};
+use super::contract::{
+    ApprovalBoundary, LIVE_INTERCEPTION_MODE_LABELS, LIVE_PROXY_INTERCEPTION_REDACTION_RULE,
+    PolicyBoundary,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApprovalPlan {
@@ -12,7 +15,7 @@ pub struct ApprovalPlan {
 
 impl ApprovalPlan {
     pub fn from_policy_boundary(boundary: PolicyBoundary) -> Self {
-        let modes = vec!["shadow", "enforce_preview", "unsupported"];
+        let modes = LIVE_INTERCEPTION_MODE_LABELS.to_vec();
         let input_fields = boundary.decision_fields;
         let approval_fields = vec![
             "approval_request",
