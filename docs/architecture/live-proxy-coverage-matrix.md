@@ -1,0 +1,154 @@
+# live proxy semantic coverage matrix
+
+This note fixes the current coverage matrix for the planned live proxy path from the shared proxy seam into generic REST, GWS, GitHub, and messaging semantic layers.
+
+## Goal of P13-4
+
+Document what is currently true for each downstream slice once the live proxy seam exists:
+
+- which shared live input reaches the slice
+- how session ownership is expected to be established
+- which semantic-action sample is currently checked in
+- what constraints still block a production live claim
+- whether the slice is fail-open or may claim fail-closed
+- whether approval hold is only modeled in preview records or is actually feasible inline
+
+The matrix is intentionally conservative. A checked-in contract, taxonomy, policy rule, approval request, or audit record does **not** by itself prove that a live request can be paused or blocked before completion.
+
+## Shared live path fixed before slice-specific adapters
+
+The live proxy work now fixes two shared upstream contracts:
+
+1. [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
+   - redaction-safe request facts captured at the proxy seam
+2. [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
+   - shared `agenta-core` envelope after session correlation and before provider-specific taxonomy
+
+Every row below assumes the same upstream live ownership rule:
+
+- the **proxy seam** captures redaction-safe request metadata only
+- the **session correlation** stage owns `session_id`, `agent_id`, `workspace_id`, and `correlation_status`
+- downstream generic REST / GWS / GitHub / messaging slices should **consume** that ownership, not re-decide raw proxy capture
+
+## End-to-end slice matrix
+
+| Slice | Live proxy input consumed from the shared seam | Checked-in semantic sample today | Session correlation method for the live path | Current constraints that still block a production live claim | Failure posture for live execution today | Approval hold feasibility today | Adapter status |
+|---|---|---|---|---|---|---|---|
+| generic REST | `GenericLiveActionEnvelope` with shared lineage plus `method`, `authority`, `path`, `headers`, `body_class`, `auth_hint`, `provider_hint`, `target_hint`, and `mode` | Tiny generic REST preview sample only: GWS admin activity listing, GWS Gmail send, GitHub Actions secret create/update | Reuse the shared live proxy session-correlation stage (`request_id` / `correlation_id` / runtime lineage -> `session_id`). The generic REST layer should preserve that lineage rather than introduce a second linker. | No live generic REST interception seam yet; the generic layer still depends on upstream provider taxonomy and metadata; auth labels are docs-backed, not runtime-verified; no live adapter has been checked in yet. | **Fail-open**. The repository can model `allow` / `deny` / `require_approval` outcomes in preview records, but no live generic REST request can yet be paused or blocked inline. | **Preview-only** for approval-gated actions. Pending `ApprovalRequest` creation is proven, but no live hold / resume path exists yet. | Planned next in **P13-5**. |
+| GWS | The shared live envelope plus GWS routing hints (`provider_hint=gws` or GWS `authority` / `path` / target clues) feeding the existing GWS semantic-action slice | Four checked-in semantic actions: `drive.permissions.update`, `drive.files.get_media`, `gmail.users.messages.send`, `admin.reports.activities.list` | For the live proxy path, use the shared proxy session-correlation stage and carry its `session_id` downstream. The older GWS `session_linkage` stage still matters for non-proxy API/network observers, but a proxy-correlated live request should not need a second ownership pass. | No live Google API/browser/proxy capture yet; current GWS linkage remains provisional; classification uses redaction-safe request hints only; OAuth scope handling is docs-fixed, not runtime-verified. | **Fail-open** for live execution. `drive.permissions.update`, `drive.files.get_media`, and `gmail.users.messages.send` are documented as `approval_hold_preview`; `admin.reports.activities.list` is `observe_only_allow_preview`. None are a validated fail-closed subset yet. | **Preview-only** for the three approval-gated actions above. Hold metadata and pending approval requests are proven, but there is no live in-flight hold or resume path. | Planned in **P13-6** once the GWS live adapter is added. |
+| GitHub | The shared live envelope plus GitHub routing hints (`provider_hint=github`, GitHub `authority` / `path`, and redaction-safe `target_hint`) feeding the existing GitHub semantic-governance slice | Six checked-in semantic actions: `repos.update_visibility`, `branches.update_protection`, `actions.workflow_dispatch`, `actions.runs.rerun`, `pulls.merge`, `actions.secrets.create_or_update` | GitHub already assumes upstream session attribution before taxonomy begins. The live proxy path should satisfy that assumption directly by handing the GitHub slice a correlated live envelope with `session_id`, `agent_id`, and `workspace_id` already attached. | No live GitHub API/browser/proxy capture yet; current GitHub preview does not prove real browser relay or proxy ownership binding; classification depends on redaction-safe route hints only; permission labels are docs-backed, not runtime-verified. | **Fail-open** for all live execution. `repos.update_visibility`, `branches.update_protection`, `actions.workflow_dispatch`, and `pulls.merge` have reflected hold metadata only; `actions.secrets.create_or_update` has reflected deny metadata only; `actions.runs.rerun` is observe/allow only. None are validated fail-closed. | **Preview-only** for the four approval-gated actions above. Approval records can be created, but there is no live GitHub pause / review / resume mechanism yet. | Planned in **P13-6** once the GitHub live adapter is added. |
+| messaging | The shared live envelope first feeds upstream provider taxonomy and generic REST lineage, then the messaging family layer derives collaboration semantics such as `message.send` or `channel.invite` | Six checked-in provider actions spanning four shared families: `message.send`, `channel.invite`, `permission.update`, `file.upload` across Slack and Discord preview samples | Reuse the shared live proxy session-correlation stage, then preserve that lineage through provider taxonomy and generic REST lineage into the messaging family layer. The messaging slice should not add a separate live-session linker of its own. | No live Slack/Discord interception seam yet; the messaging layer still depends on upstream provider taxonomy and generic REST lineage; permissions/scopes are docs-backed, not runtime-verified; no live messaging adapter has been checked in yet. | **Fail-open** for live execution. Public-channel send is allow/observe preview; membership expansion and file upload are approval-hold preview; permission overwrite update is deny preview only. No validated fail-closed subset exists yet. | **Preview-only** for `channel.invite` and `file.upload`. Approval records can be created, but there is no inline live messaging hold/resume path yet. | Planned in **P13-6** once the messaging live adapter is added. |
+
+## What each row means in practice
+
+### generic REST
+
+The generic REST layer is the earliest downstream consumer of the shared live envelope, but it is still not a standalone traffic classifier.
+
+- It should consume the shared live envelope after proxy correlation.
+- It still depends on upstream provider taxonomy and metadata for `provider_id`, `action_key`, `target_hint`, and docs-backed descriptors.
+- Because no live generic REST adapter exists yet, the row is a **contract and posture commitment**, not a claim that real REST traffic is already being gated.
+
+### GWS
+
+The live proxy path and the older API/network GWS path must not be conflated.
+
+- The existing GWS PoC already has its own `session_linkage -> classify -> evaluate -> record` split for API/network observers.
+- For the live proxy path, the shared proxy session-correlation stage should satisfy the ownership requirement before the GWS classifier runs.
+- That means the live adapter should reuse the GWS semantic taxonomy, but it should **not** duplicate raw request correlation logic unless the request arrived from a non-proxy source.
+
+### GitHub
+
+The GitHub slice is already documented as requiring upstream attribution.
+
+- The live proxy work gives GitHub a clear upstream ownership source: the correlated live envelope.
+- The GitHub taxonomy should still stay redaction-safe and route-hint-driven.
+- Visibility updates remain a good example of why `target_hint` matters: `PATCH /repos/{owner}/{repo}` alone is not specific enough.
+
+### messaging
+
+The messaging row is the most layered one.
+
+- A live messaging path still has to flow through shared live correlation, provider taxonomy, and generic REST lineage before collaboration-family policy makes sense.
+- That is why the current messaging row is the most obviously **preview-only** despite already having a checked-in messaging contract and policy sample.
+- The shared live seam should stop at safe request and lineage facts; it should not smuggle raw message bodies or file content into the messaging layer.
+
+## Checked-in semantic sample and current preview policy outcomes
+
+### generic REST preview sample
+
+| Checked-in preview action | Current preview policy outcome | Live interpretation today |
+|---|---|---|
+| GWS admin activity listing | `allow` | observe / allow preview only |
+| GWS Gmail send | `require_approval` | preview-only approval candidate; live request would still fail open |
+| GitHub Actions secret create/update | `deny` | preview-only deny reflection; live request would still fail open |
+
+### GWS preview sample
+
+| Checked-in semantic action | Current preview policy outcome | Live interpretation today |
+|---|---|---|
+| `drive.permissions.update` | `require_approval` | approval-hold preview only; fail open live |
+| `drive.files.get_media` | `require_approval` | approval-hold preview only; fail open live |
+| `gmail.users.messages.send` | `require_approval` | approval-hold preview only; fail open live |
+| `admin.reports.activities.list` | `allow` | observe / allow preview only |
+
+### GitHub preview sample
+
+| Checked-in semantic action | Current preview policy outcome | Live interpretation today |
+|---|---|---|
+| `repos.update_visibility` | `require_approval` | approval-hold preview only; fail open live |
+| `branches.update_protection` | `require_approval` | approval-hold preview only; fail open live |
+| `actions.workflow_dispatch` | `require_approval` | approval-hold preview only; fail open live |
+| `pulls.merge` | `require_approval` | approval-hold preview only; fail open live |
+| `actions.secrets.create_or_update` | `deny` | deny preview only; fail open live |
+| `actions.runs.rerun` | `allow` | observe / allow preview only |
+
+### messaging preview sample
+
+| Checked-in provider action / family | Current preview policy outcome | Live interpretation today |
+|---|---|---|
+| Slack `chat.post_message` / `message.send` | `allow` | observe / allow preview only |
+| Discord `channels.messages.create` / `message.send` | `allow` | observe / allow preview only |
+| Slack `conversations.invite` / `channel.invite` | `require_approval` | approval-hold preview only; fail open live |
+| Discord `channels.thread_members.put` / `channel.invite` | `require_approval` | approval-hold preview only; fail open live |
+| Slack `files.upload_v2` / `file.upload` | `require_approval` | approval-hold preview only; fail open live |
+| Discord `channels.permissions.put` / `permission.update` | `deny` | deny preview only; fail open live |
+
+## Approval-hold interpretation
+
+Across all four rows, the current repository proves only this narrower statement:
+
+- the policy layer can mark an action `require_approval`
+- event metadata can reflect a hold-like projection
+- a pending `ApprovalRequest` can be recorded locally
+
+It does **not** yet prove:
+
+- a real in-flight provider request can be paused before completion
+- the pause can survive transport retries or provider timeouts
+- a reviewer can approve and resume the original live request
+- a deny or hold failure is fail-closed on the live request path
+
+Until those conditions are validated for a specific action family, the live posture remains **fail-open with explicit preview metadata**, not fail-closed.
+
+## Operator summary
+
+If someone asks "what does the live proxy path actually cover today?", the honest answer is:
+
+- the repository now fixes the **shared live contracts** and the **per-slice semantic expectations**
+- it proves **preview policy / approval / audit shapes** for generic REST, GWS, GitHub, and messaging slices
+- it does **not yet** prove an end-to-end live proxy adapter that can safely hold or deny traffic inline for any of those slices
+
+That is exactly why the next tasks remain adapter work (`P13-5` / `P13-6`) and record / mode integration work (`P13-7` / `P13-8`) rather than broader coverage claims.
+
+## Related docs
+
+- general architecture coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
+- live proxy phase boundary: [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md)
+- live proxy request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
+- generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
+- generic REST constraints: [`generic-rest-oauth-governance-known-constraints.md`](generic-rest-oauth-governance-known-constraints.md)
+- GWS constraints: [`hostd-api-network-gws-known-constraints.md`](hostd-api-network-gws-known-constraints.md)
+- GitHub constraints: [`hostd-github-semantic-governance-known-constraints.md`](hostd-github-semantic-governance-known-constraints.md)
+- messaging constraints: [`messaging-collaboration-governance-known-constraints.md`](messaging-collaboration-governance-known-constraints.md)
+- failure posture policy: [`failure-behavior.md`](failure-behavior.md)
