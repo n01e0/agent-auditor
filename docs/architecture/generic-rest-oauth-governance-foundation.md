@@ -42,6 +42,8 @@ The redaction rule for this phase is explicit from the start: generic REST / OAu
 - `mod.rs`
   - bootstrap assembly and tests for the generic REST / OAuth governance split
 
+The first checked-in live proxy preview adapter that feeds this generic REST contract from the shared live envelope is documented in [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md).
+
 Provider-specific taxonomy remains outside this phase boundary and stays in provider modules until later migration work lands:
 
 - Google Workspace path: `cmd/agent-auditor-hostd/src/poc/gws/`
@@ -198,3 +200,4 @@ This keeps the next tasks cleaner:
 - GWS action catalog: [`hostd-api-network-gws-action-catalog.md`](hostd-api-network-gws-action-catalog.md)
 - GitHub candidate catalog: [`provider-abstraction-github-candidate-catalog.md`](provider-abstraction-github-candidate-catalog.md)
 - policy contract notes: [`../policies/rego-contract.md`](../policies/rego-contract.md)
+- live proxy preview adapter: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)

@@ -38,6 +38,8 @@ The redaction rule for this phase is explicit from the start: live proxy seams s
   - checked-in home for request-to-session binding responsibilities before semantic conversion
 - `semantic_conversion.rs`
   - checked-in home for the correlated-live-request → generic live seam boundary plan used by generic REST / GWS / GitHub / messaging adapters
+- `generic_rest.rs`
+  - checked-in home for the first live proxy → generic REST preview adapter on top of the shared live envelope
 - `policy.rs`
   - checked-in home for live semantic envelope → `agenta-policy` ownership and live coverage / mode projection responsibilities
 - `approval.rs`
@@ -49,7 +51,7 @@ The redaction rule for this phase is explicit from the start: live proxy seams s
 
 The next checked-in adapter work remains outside this P13-1 boundary:
 
-- **P13-5 / P13-6** will connect generic REST and provider-specific semantic adapters to the live seam
+- **P13-6** will connect GWS / GitHub / messaging provider-specific semantic adapters to the live seam
 - **P13-7 / P13-8** will connect live approval / audit reflection and mode semantics
 
 ## Responsibility split
@@ -221,7 +223,6 @@ The live interception phase is expected to preserve a stable downstream surface 
 
 This keeps the next tasks cleaner:
 
-- **P13-5** can implement generic REST live preview conversion on top of the now-documented stable shared live seam
 - **P13-6** can add GWS / GitHub / messaging live adapters without re-deciding proxy or session boundaries
 - **P13-7** can connect live policy / audit / approval reflection against stable handoffs
 - **P13-8** can formalize `shadow`, `enforce_preview`, and `unsupported` semantics without rewriting upstream ownership rules
@@ -230,7 +231,7 @@ This keeps the next tasks cleaner:
 
 - real proxy deployment, certificate handling, browser installation, or traffic steering
 - production-grade inline pause / resume / deny mechanics
-- implementation of the now-documented coverage rows for generic REST / GWS / GitHub / messaging live interception
+- implementation of the remaining coverage rows for GWS / GitHub / messaging live interception beyond the checked-in generic REST preview adapter
 - control-plane reviewer UX or reconciliation flows beyond the ownership boundary
 
 ## Related docs
@@ -239,6 +240,7 @@ This keeps the next tasks cleaner:
 - Rust implementation direction: [`rust-implementation.md`](rust-implementation.md)
 - live proxy request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
+- generic REST live preview path: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - live proxy semantic coverage matrix: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
 - generic REST / OAuth boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - messaging / collaboration boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
