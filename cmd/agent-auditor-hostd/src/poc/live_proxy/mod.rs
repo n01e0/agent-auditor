@@ -1,6 +1,7 @@
 pub mod approval;
 pub mod audit;
 pub mod contract;
+pub mod generic_rest;
 pub mod policy;
 pub mod proxy_seam;
 pub mod semantic_conversion;
@@ -49,7 +50,7 @@ impl LiveProxyInterceptionPlan {
 mod tests {
     use agenta_core::live::GenericLiveActionEnvelope;
 
-    use super::LiveProxyInterceptionPlan;
+    use super::{LiveProxyInterceptionPlan, generic_rest::GenericRestLivePreviewPlan};
     use crate::poc::live_proxy::contract::{
         LIVE_PROXY_INTERCEPTION_REDACTION_RULE, LiveHttpRequestContract,
     };
@@ -274,5 +275,27 @@ mod tests {
             Some("repos/n01e0/agent-auditor/visibility".to_owned())
         );
         assert!(!envelope.content_retained);
+    }
+
+    #[test]
+    fn generic_rest_live_preview_plan_consumes_the_shared_live_envelope_contract() {
+        let live_proxy = LiveProxyInterceptionPlan::bootstrap();
+        let generic_rest = GenericRestLivePreviewPlan::default();
+
+        assert_eq!(
+            live_proxy.semantic_conversion.semantic_fields,
+            generic_rest.upstream_fields
+        );
+        assert_eq!(
+            generic_rest.preview_actions,
+            vec![
+                "admin.reports.activities.list",
+                "gmail.users.messages.send",
+                "actions.secrets.create_or_update",
+            ]
+        );
+        assert!(generic_rest.summary().contains(
+            "stages=match_preview_route->join_provider_metadata->normalize_generic_rest_event"
+        ));
     }
 }
