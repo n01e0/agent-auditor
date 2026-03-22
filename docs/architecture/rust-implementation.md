@@ -102,6 +102,17 @@ For the first process deny / hold preview slice, the seam is:
 
 See [`hostd-process-enforcement-poc.md`](hostd-process-enforcement-poc.md) for the concrete P5-5 boundary.
 
+For the first live proxy / interception slice, the seam is:
+
+- `proxy_seam` owns redaction-safe live HTTP request ingress from proxies or browser relays
+- `session_correlation` owns binding intercepted requests to the shared runtime `session_id` model
+- `semantic_conversion` owns the generic live action seam used by generic REST / GWS / GitHub / messaging adapters
+- `policy` owns bridging that live semantic seam into `agenta-policy`
+- `approval` owns live hold feasibility and approval wait-state boundaries after `require_approval`
+- `audit` owns append-only reflection of realized live mode, coverage gap, and approval linkage
+
+See [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md) for the concrete P13-1 boundary.
+
 ### `agent-auditor-controld`
 
 Responsibilities:
