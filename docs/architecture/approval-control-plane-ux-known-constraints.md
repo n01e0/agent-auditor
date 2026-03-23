@@ -15,7 +15,7 @@ This note records the current constraints of the repository-wide approval / cont
    - if upstream redaction-safe approval records change, the control-plane slice must follow that contract
 
 3. **Coverage is still driven by one checked-in sample request path**
-   - the bootstrap and smoke path currently centers on a single messaging-style `channel.invite` approval example plus stale and `waiting_merge` projections
+   - the bootstrap and smoke path currently centers on a single messaging-style `channel.invite` approval example plus stale, `waiting_merge`, and stale-follow-up projections
    - this is enough to stabilize the control-plane vocabulary
    - it is not enough to claim comprehensive coverage across all approval-producing domains
 
@@ -29,7 +29,7 @@ This note records the current constraints of the repository-wide approval / cont
    - the repository proves delivery-ready summary shape, not notification transport
 
 6. **Reconciliation support stops at summary derivation**
-   - `ApprovalReconciliationSummary` can describe states like `needs_queue_refresh`, `needs_audit_replay`, and `awaiting_completion`
+   - `ApprovalReconciliationSummary` can describe states like `needs_queue_refresh`, `needs_audit_replay`, `needs_downstream_refresh`, and `awaiting_completion`
    - there is no background reconciliation worker, retry scheduler, durable checkpoint store, or replay engine yet
    - the repository proves reconciliation vocabulary, not a reconciliation subsystem
 
@@ -59,7 +59,7 @@ This note records the current constraints of the repository-wide approval / cont
 
 12. **Smoke coverage is deterministic by design**
     - `cmd/agent-auditor-controld/tests/control_plane_smoke.rs` validates the bootstrap preview contract for queue, ops-hardening, status, notification, and reconciliation lines
-    - `agenta-core` unit tests validate derivation behavior for pending, stale, drifted, and `waiting_merge` cases
+    - `agenta-core` unit tests validate derivation behavior for pending, stale, stale-follow-up, drifted, and `waiting_merge` cases
     - none of this is evidence of a deployed reviewer workflow, notification service, or reconciliation daemon operating against live approval traffic
 
 13. **The slice is still intentionally single-node and single-process in spirit**

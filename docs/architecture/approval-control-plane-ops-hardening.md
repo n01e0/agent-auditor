@@ -1,6 +1,6 @@
 # approval / control-plane ops hardening
 
-This note fixes the first checked-in hardening vocabulary for stale state, drift, recovery, and `waiting_merge` handling in the operator-facing approval / control-plane slice.
+This note fixes the checked-in hardening vocabulary for stale state, stale downstream follow-up, drift, recovery, and `waiting_merge` handling in the operator-facing approval / control-plane slice.
 
 It sits on top of:
 
@@ -99,12 +99,14 @@ Values:
 - `refresh_queue_projection`
 - `replay_from_audit`
 - `await_downstream_completion`
+- `recheck_downstream_state`
 
 Interpretation:
 
 - `refresh_queue_projection` is for stale queue state that should be re-materialized from known append-only inputs
 - `replay_from_audit` is for drift where the queue no longer agrees with durable approval / audit facts
 - `await_downstream_completion` is for cases where the decision is already made, but merge-like or delivery-like follow-up has not finished yet
+- `recheck_downstream_state` is for stale follow-up cases where the control plane should stop passively waiting and actively recheck merge/downstream state before continuing
 
 The recovery action is operational guidance, not a provider-specific retry command.
 
@@ -143,6 +145,21 @@ Do **not** use `waiting_merge` to mean:
 
 This keeps “approved but not yet fully landed” separate from both stale queue data and unresolved reviewer work.
 
+## stale follow-up / stale run semantics
+
+The gap-closing hardening pass also fixes one extra operator rule:
+
+- a fresh `waiting_merge` or `downstream_completion` item can stay in passive wait mode
+- a **stale** follow-up should no longer be treated as simple waiting
+- instead, the control plane should surface it as a stale downstream follow-up and recommend a recheck
+
+In practice, this means the checked-in model now distinguishes:
+
+- **fresh waiting** → `await_downstream_completion`
+- **stale waiting** → `recheck_downstream_state`
+
+This is still generic control-plane vocabulary, not a provider-specific merge or workflow driver.
+
 ## Derivation rules fixed by P12-3
 
 The checked-in helper `ApprovalOpsHardeningStatus::derive(...)` uses the following priority rules:
@@ -166,7 +183,8 @@ The checked-in helper `ApprovalOpsHardeningStatus::derive(...)` uses the followi
 
 4. **Recovery action**
    - replay from audit for durable drift
-   - await downstream completion for merge-like or downstream waiting
+   - recheck downstream state for stale merge/downstream follow-up
+   - await downstream completion for fresh merge-like or downstream waiting
    - refresh queue projection for stale pending items without durable drift
    - otherwise no action is needed
 
@@ -179,6 +197,7 @@ These are intentionally conservative operator semantics, not proof of a full dis
 - `approval_ops_hardening_model=...`
 - `approval_ops_hardening_status_stale=...`
 - `approval_ops_hardening_status_waiting_merge=...`
+- `approval_ops_hardening_status_stale_waiting_merge=...`
 
 Those lines prove the repository-owned vocabulary and example derivation paths. They do **not** yet prove a full production control-plane reconciler.
 
@@ -188,6 +207,7 @@ P12-3 makes these statements stable across code and docs:
 
 - stale queue state is not the same thing as drift
 - drift is not the same thing as waiting for merge-like completion
+- stale downstream follow-up is not the same thing as fresh waiting
 - `waiting_merge` is a first-class control-plane state, not an out-of-band runner convention
 - recovery guidance should be derived from queue + durable-state signals, not from provider-specific heuristics
 - merge-like follow-up and generic downstream completion are both explicit waiting states instead of hidden operator tribal knowledge

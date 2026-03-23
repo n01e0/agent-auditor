@@ -149,6 +149,7 @@ pub enum ApprovalRecoveryAction {
     RefreshQueueProjection,
     ReplayFromAudit,
     AwaitDownstreamCompletion,
+    RecheckDownstreamState,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -209,6 +210,11 @@ impl ApprovalOpsHardeningStatus {
             ApprovalQueueDrift::MissingAuditRecord | ApprovalQueueDrift::MissingDecisionRecord => {
                 ApprovalRecoveryAction::ReplayFromAudit
             }
+            ApprovalQueueDrift::MissingDownstreamCompletion
+                if freshness == ApprovalQueueFreshness::Stale =>
+            {
+                ApprovalRecoveryAction::RecheckDownstreamState
+            }
             ApprovalQueueDrift::MissingDownstreamCompletion => {
                 ApprovalRecoveryAction::AwaitDownstreamCompletion
             }
@@ -241,6 +247,7 @@ impl ApprovalOpsHardeningStatus {
 pub enum ApprovalStatusKind {
     PendingReview,
     StaleQueue,
+    StaleFollowUp,
     Drifted,
     WaitingDownstream,
     WaitingMerge,
@@ -276,6 +283,30 @@ impl ApprovalStatusSummary {
                 ),
                 actionable: false,
             },
+            ApprovalQueueDrift::MissingDownstreamCompletion
+                if ops_status.freshness == ApprovalQueueFreshness::Stale =>
+            {
+                match ops_status.waiting {
+                    ApprovalWaitingState::WaitingMerge => Self {
+                        kind: ApprovalStatusKind::StaleFollowUp,
+                        headline: "Approval merge follow-up appears stale".to_owned(),
+                        detail: format!(
+                            "{} is approved, still waiting for merge-like completion, and should be rechecked before waiting longer",
+                            queue_item.approval_id
+                        ),
+                        actionable: false,
+                    },
+                    _ => Self {
+                        kind: ApprovalStatusKind::StaleFollowUp,
+                        headline: "Approval downstream follow-up appears stale".to_owned(),
+                        detail: format!(
+                            "{} is approved, still waiting for downstream completion, and should be rechecked before waiting longer",
+                            queue_item.approval_id
+                        ),
+                        actionable: false,
+                    },
+                }
+            }
             ApprovalQueueDrift::MissingDownstreamCompletion => match ops_status.waiting {
                 ApprovalWaitingState::WaitingMerge => Self {
                     kind: ApprovalStatusKind::WaitingMerge,
@@ -351,7 +382,9 @@ impl ApprovalStatusSummary {
 pub enum ApprovalNotificationClass {
     ReviewRequired,
     StaleQueueAlert,
+    StaleFollowUpAlert,
     DriftAlert,
+    WaitingDownstreamReminder,
     WaitingMergeReminder,
     ResolutionUpdate,
 }
@@ -390,16 +423,28 @@ impl ApprovalNotificationSummary {
                 headline: "Approval queue item became stale".to_owned(),
                 status_line: status.detail.clone(),
             },
+            ApprovalStatusKind::StaleFollowUp => Self {
+                class: ApprovalNotificationClass::StaleFollowUpAlert,
+                audience: ApprovalNotificationAudience::Ops,
+                headline: "Approval follow-up became stale".to_owned(),
+                status_line: status.detail.clone(),
+            },
             ApprovalStatusKind::Drifted => Self {
                 class: ApprovalNotificationClass::DriftAlert,
                 audience: ApprovalNotificationAudience::Ops,
                 headline: "Approval reconciliation drift detected".to_owned(),
                 status_line: status.detail.clone(),
             },
-            ApprovalStatusKind::WaitingDownstream | ApprovalStatusKind::WaitingMerge => Self {
+            ApprovalStatusKind::WaitingDownstream => Self {
+                class: ApprovalNotificationClass::WaitingDownstreamReminder,
+                audience: ApprovalNotificationAudience::Requester,
+                headline: "Approval is waiting on downstream completion".to_owned(),
+                status_line: status.detail.clone(),
+            },
+            ApprovalStatusKind::WaitingMerge => Self {
                 class: ApprovalNotificationClass::WaitingMergeReminder,
                 audience: ApprovalNotificationAudience::Requester,
-                headline: "Approval is waiting on follow-up completion".to_owned(),
+                headline: "Approval is waiting on merge completion".to_owned(),
                 status_line: status.detail.clone(),
             },
             ApprovalStatusKind::Resolved => Self {
@@ -418,6 +463,7 @@ pub enum ApprovalReconciliationState {
     InSync,
     NeedsQueueRefresh,
     NeedsAuditReplay,
+    NeedsDownstreamRefresh,
     AwaitingCompletion,
 }
 
@@ -448,6 +494,13 @@ impl ApprovalReconciliationSummary {
                 state: ApprovalReconciliationState::AwaitingCompletion,
                 note: format!(
                     "{} is still waiting for downstream or merge-like completion",
+                    queue_item.approval_id
+                ),
+            },
+            ApprovalRecoveryAction::RecheckDownstreamState => Self {
+                state: ApprovalReconciliationState::NeedsDownstreamRefresh,
+                note: format!(
+                    "{} has a stale downstream follow-up and should be rechecked before waiting longer",
                     queue_item.approval_id
                 ),
             },
@@ -718,6 +771,35 @@ mod tests {
     }
 
     #[test]
+    fn ops_status_rechecks_stale_waiting_merge_follow_up() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: true,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+
+        assert_eq!(status.freshness, ApprovalQueueFreshness::Stale);
+        assert_eq!(
+            status.drift,
+            ApprovalQueueDrift::MissingDownstreamCompletion
+        );
+        assert_eq!(
+            status.recovery,
+            ApprovalRecoveryAction::RecheckDownstreamState
+        );
+        assert_eq!(status.waiting, ApprovalWaitingState::WaitingMerge);
+    }
+
+    #[test]
     fn ops_status_marks_resolved_items_as_in_sync_when_completion_is_recorded() {
         let mut request = sample_request();
         request.status = ApprovalStatus::Rejected;
@@ -860,5 +942,68 @@ mod tests {
             reconciliation.state,
             ApprovalReconciliationState::AwaitingCompletion
         );
+    }
+
+    #[test]
+    fn waiting_downstream_status_uses_specific_requester_reminder() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+        let notification = ApprovalNotificationSummary::derive(&queue_item, &status);
+
+        assert_eq!(status.kind, ApprovalStatusKind::WaitingDownstream);
+        assert_eq!(
+            notification.class,
+            ApprovalNotificationClass::WaitingDownstreamReminder
+        );
+        assert_eq!(
+            notification.audience,
+            ApprovalNotificationAudience::Requester
+        );
+    }
+
+    #[test]
+    fn stale_follow_up_routes_ops_alert_and_recheck_guidance() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: true,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+        let notification = ApprovalNotificationSummary::derive(&queue_item, &status);
+        let reconciliation = ApprovalReconciliationSummary::derive(&queue_item, &ops_status);
+
+        assert_eq!(status.kind, ApprovalStatusKind::StaleFollowUp);
+        assert_eq!(
+            notification.class,
+            ApprovalNotificationClass::StaleFollowUpAlert
+        );
+        assert_eq!(notification.audience, ApprovalNotificationAudience::Ops);
+        assert_eq!(
+            reconciliation.state,
+            ApprovalReconciliationState::NeedsDownstreamRefresh
+        );
+        assert!(reconciliation.note.contains("should be rechecked"));
     }
 }
