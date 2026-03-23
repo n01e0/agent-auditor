@@ -93,6 +93,24 @@ pub enum PolicyDecisionKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum PolicyExplanationDisposition {
+    Deny,
+    RequireApproval,
+    Hold,
+}
+
+impl PolicyExplanationDisposition {
+    pub fn decision_kind(self) -> Option<PolicyDecisionKind> {
+        match self {
+            Self::Deny => Some(PolicyDecisionKind::Deny),
+            Self::RequireApproval => Some(PolicyDecisionKind::RequireApproval),
+            Self::Hold => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ApprovalScope {
     SingleAction,
     EquivalentActionTtl,
@@ -222,6 +240,33 @@ pub struct PolicyMetadata {
     pub rule_id: Option<String>,
     pub severity: Option<Severity>,
     pub explanation: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PolicyExplanationMatch {
+    pub provider_id: Option<provider::ProviderId>,
+    pub action_key: Option<provider::ActionKey>,
+    pub target_hint: Option<String>,
+    #[serde(default)]
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PolicyExplanationEvidence {
+    pub code: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PolicyExplanation {
+    pub disposition: PolicyExplanationDisposition,
+    pub summary: String,
+    pub rule_id: Option<String>,
+    pub severity: Option<Severity>,
+    pub scope: Option<PolicyExplanationMatch>,
+    #[serde(default)]
+    pub evidence: Vec<PolicyExplanationEvidence>,
+    pub reviewer_hint: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -522,6 +567,90 @@ mod tests {
         assert_eq!(value["result"]["status"], json!("approval_required"));
         assert!(value["enforcement"].is_null());
         assert_eq!(value["source"]["collector"], json!("fanotify"));
+    }
+
+    #[test]
+    fn policy_explanation_disposition_maps_to_decision_kind() {
+        assert_eq!(
+            PolicyExplanationDisposition::Deny.decision_kind(),
+            Some(PolicyDecisionKind::Deny)
+        );
+        assert_eq!(
+            PolicyExplanationDisposition::RequireApproval.decision_kind(),
+            Some(PolicyDecisionKind::RequireApproval)
+        );
+        assert_eq!(PolicyExplanationDisposition::Hold.decision_kind(), None);
+    }
+
+    #[test]
+    fn policy_explanation_schema_serializes_deny_require_approval_and_hold() {
+        let deny = PolicyExplanation {
+            disposition: PolicyExplanationDisposition::Deny,
+            summary: "Block repository deletion".to_owned(),
+            rule_id: Some("github-repo-delete-deny".to_owned()),
+            severity: Some(Severity::High),
+            scope: Some(PolicyExplanationMatch {
+                provider_id: Some(provider::ProviderId::github()),
+                action_key: Some(provider::ActionKey::new("repository.delete").unwrap()),
+                target_hint: Some("repo:n01e0/demo".to_owned()),
+                labels: vec!["repo-admin".to_owned()],
+            }),
+            evidence: vec![PolicyExplanationEvidence {
+                code: "matched.provider_action".to_owned(),
+                detail: "provider github action repository.delete matched deny rule".to_owned(),
+            }],
+            reviewer_hint: None,
+        };
+
+        let approval = PolicyExplanation {
+            disposition: PolicyExplanationDisposition::RequireApproval,
+            summary: "Require approval before sending Gmail messages".to_owned(),
+            rule_id: Some("gmail-send-approval".to_owned()),
+            severity: Some(Severity::Medium),
+            scope: Some(PolicyExplanationMatch {
+                provider_id: Some(provider::ProviderId::gws()),
+                action_key: Some(provider::ActionKey::new("gmail.users.messages.send").unwrap()),
+                target_hint: Some("external-recipient".to_owned()),
+                labels: vec!["workspace-mail".to_owned()],
+            }),
+            evidence: vec![PolicyExplanationEvidence {
+                code: "matched.posture".to_owned(),
+                detail: "outbound mail posture requires approval".to_owned(),
+            }],
+            reviewer_hint: Some("Check recipient domain and message sensitivity".to_owned()),
+        };
+
+        let hold = PolicyExplanation {
+            disposition: PolicyExplanationDisposition::Hold,
+            summary: "Hold outbound mail until a reviewer resolves the queue item".to_owned(),
+            rule_id: Some("gmail-send-hold".to_owned()),
+            severity: Some(Severity::High),
+            scope: Some(PolicyExplanationMatch {
+                provider_id: Some(provider::ProviderId::gws()),
+                action_key: Some(provider::ActionKey::new("gmail.users.messages.send").unwrap()),
+                target_hint: Some("external-recipient".to_owned()),
+                labels: vec!["hold".to_owned()],
+            }),
+            evidence: vec![PolicyExplanationEvidence {
+                code: "matched.hold_posture".to_owned(),
+                detail: "policy selected hold instead of direct allow/deny".to_owned(),
+            }],
+            reviewer_hint: Some("Review business context before release".to_owned()),
+        };
+
+        let value = serde_json::to_value(vec![deny, approval, hold])
+            .expect("policy explanations should serialize");
+        assert_eq!(value[0]["disposition"], json!("deny"));
+        assert_eq!(value[1]["disposition"], json!("require_approval"));
+        assert_eq!(value[2]["disposition"], json!("hold"));
+        assert_eq!(
+            value[1]["scope"]["action_key"],
+            json!("gmail.users.messages.send")
+        );
+        assert_eq!(
+            value[2]["evidence"][0]["code"],
+            json!("matched.hold_posture")
+        );
     }
 
     #[test]
