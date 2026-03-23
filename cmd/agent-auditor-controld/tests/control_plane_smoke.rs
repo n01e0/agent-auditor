@@ -125,4 +125,53 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     )
     .expect("waiting_merge reconciliation json should parse");
     assert_eq!(waiting_merge_reconciliation["state"], "awaiting_completion");
+
+    let stale_waiting_merge_ops: Value = serde_json::from_str(
+        lines
+            .get("approval_ops_hardening_status_stale_waiting_merge")
+            .expect("stale waiting_merge ops hardening line should exist"),
+    )
+    .expect("stale waiting_merge ops hardening json should parse");
+    assert_eq!(stale_waiting_merge_ops["freshness"], "stale");
+    assert_eq!(
+        stale_waiting_merge_ops["drift"],
+        "missing_downstream_completion"
+    );
+    assert_eq!(
+        stale_waiting_merge_ops["recovery"],
+        "recheck_downstream_state"
+    );
+    assert_eq!(stale_waiting_merge_ops["waiting"], "waiting_merge");
+
+    let stale_waiting_merge_status: Value = serde_json::from_str(
+        lines
+            .get("approval_status_summary_stale_waiting_merge")
+            .expect("stale waiting_merge status summary line should exist"),
+    )
+    .expect("stale waiting_merge status summary json should parse");
+    assert_eq!(stale_waiting_merge_status["kind"], "stale_follow_up");
+    assert_eq!(stale_waiting_merge_status["actionable"], false);
+
+    let stale_waiting_merge_notification: Value = serde_json::from_str(
+        lines
+            .get("approval_notification_summary_stale_waiting_merge")
+            .expect("stale waiting_merge notification line should exist"),
+    )
+    .expect("stale waiting_merge notification json should parse");
+    assert_eq!(
+        stale_waiting_merge_notification["class"],
+        "stale_follow_up_alert"
+    );
+    assert_eq!(stale_waiting_merge_notification["audience"], "ops");
+
+    let stale_waiting_merge_reconciliation: Value = serde_json::from_str(
+        lines
+            .get("approval_reconciliation_summary_stale_waiting_merge")
+            .expect("stale waiting_merge reconciliation line should exist"),
+    )
+    .expect("stale waiting_merge reconciliation json should parse");
+    assert_eq!(
+        stale_waiting_merge_reconciliation["state"],
+        "needs_downstream_refresh"
+    );
 }

@@ -61,16 +61,18 @@ The checked-in `ApprovalStatusKind` values are:
 
 - `pending_review`
 - `stale_queue`
+- `stale_follow_up`
 - `drifted`
 - `waiting_downstream`
 - `waiting_merge`
 - `resolved`
 
-This keeps three important distinctions visible:
+This keeps four important distinctions visible:
 
 - an item can be **pending review** and actionable
 - an item can be **stale** or **drifted**, which should block casual reviewer action even when the queue entry still exists
-- an item can be **approved but still waiting** on downstream completion or merge-like follow-up
+- an item can be **approved and waiting** on downstream completion or merge-like follow-up
+- an item can be **approved but stale in follow-up**, which should route back to ops recheck rather than passive requester waiting
 
 ## Notification improvements fixed here
 
@@ -87,7 +89,9 @@ The checked-in `ApprovalNotificationClass` values are:
 
 - `review_required`
 - `stale_queue_alert`
+- `stale_follow_up_alert`
 - `drift_alert`
+- `waiting_downstream_reminder`
 - `waiting_merge_reminder`
 - `resolution_update`
 
@@ -115,6 +119,7 @@ The checked-in `ApprovalReconciliationState` values are:
 - `in_sync`
 - `needs_queue_refresh`
 - `needs_audit_replay`
+- `needs_downstream_refresh`
 - `awaiting_completion`
 
 This is deliberately smaller than a future reconciler state machine, but it fixes a clear separation:
@@ -135,13 +140,16 @@ The checked-in derivation logic uses these priorities:
    - `waiting_merge` stays separate from generic downstream completion
 4. **notifications follow the derived status**
    - drift -> ops alert
-   - stale -> stale queue alert
+   - stale queue -> stale queue alert
+   - stale follow-up -> ops alert
    - pending review -> reviewer prompt
-   - waiting follow-up -> requester reminder
+   - waiting downstream -> requester reminder
+   - waiting merge -> requester reminder
    - resolved -> requester resolution update
 5. **reconciliation follows recovery semantics**
    - replay from audit -> `needs_audit_replay`
    - refresh queue projection -> `needs_queue_refresh`
+   - recheck downstream state -> `needs_downstream_refresh`
    - await downstream completion -> `awaiting_completion`
    - none needed -> `in_sync`
 
@@ -156,6 +164,9 @@ The checked-in derivation logic uses these priorities:
 - `approval_status_summary_waiting_merge=...`
 - `approval_notification_summary_waiting_merge=...`
 - `approval_reconciliation_summary_waiting_merge=...`
+- `approval_status_summary_stale_waiting_merge=...`
+- `approval_notification_summary_stale_waiting_merge=...`
+- `approval_reconciliation_summary_stale_waiting_merge=...`
 
 These previews prove that the repository has a stable control-plane vocabulary for status, notification, and reconciliation summaries.
 
@@ -171,14 +182,14 @@ They do **not** yet prove:
 P12-4 adds two layers of control-plane tests:
 
 1. **`agenta-core` unit tests**
-   - verify status derivation for pending, drifted, stale, and waiting-merge cases
+   - verify status derivation for pending, drifted, stale, stale-follow-up, and waiting-merge cases
    - verify notification audience/class routing
    - verify reconciliation summaries track recovery semantics
 
 2. **`agent-auditor-controld` smoke test**
    - runs the control-plane bootstrap binary
    - verifies the deterministic preview lines for queue, ops hardening, status, notification, and reconciliation outputs
-   - checks that stale and `waiting_merge` projections remain stable from the control-plane perspective
+   - checks that stale, `waiting_merge`, and stale-follow-up projections remain stable from the control-plane perspective
 
 ## Still out of scope
 

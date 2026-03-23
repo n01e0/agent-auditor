@@ -12,7 +12,7 @@ The checked-in control-plane path is intentionally small but concrete:
   - reviewer-facing summaries via `ApprovalDecisionSummary` and `ApprovalRationaleCapture`
   - ops-hardening state via `ApprovalOpsHardeningStatus`
   - operator-facing status, notification, and reconciliation summaries
-- `agent-auditor-controld` can emit deterministic preview lines that show the current queue, stale-queue projection, and `waiting_merge` projection without re-running upstream taxonomy or policy
+- `agent-auditor-controld` can emit deterministic preview lines that show the current queue, stale-queue projection, `waiting_merge` projection, and stale follow-up / stale run projection without re-running upstream taxonomy or policy
 - the checked-in smoke path proves stale / drift / recovery / waiting-state language plus notification / reconciliation summaries stay stable from the control-plane perspective
 - the slice is covered by focused `agenta-core` tests plus a dedicated `agent-auditor-controld` smoke test
 
@@ -43,6 +43,7 @@ Expected output includes these control-plane categories of lines:
 - `approval_ops_hardening_model=...`
 - `approval_ops_hardening_status_stale=...`
 - `approval_ops_hardening_status_waiting_merge=...`
+- `approval_ops_hardening_status_stale_waiting_merge=...`
 - `approval_control_plane_surface_model=...`
 - `approval_status_summary_stale=...`
 - `approval_notification_summary_stale=...`
@@ -50,6 +51,9 @@ Expected output includes these control-plane categories of lines:
 - `approval_status_summary_waiting_merge=...`
 - `approval_notification_summary_waiting_merge=...`
 - `approval_reconciliation_summary_waiting_merge=...`
+- `approval_status_summary_stale_waiting_merge=...`
+- `approval_notification_summary_stale_waiting_merge=...`
+- `approval_reconciliation_summary_stale_waiting_merge=...`
 
 Example shape:
 
@@ -67,6 +71,9 @@ approval_reconciliation_summary_stale={"state":"needs_queue_refresh",...}
 approval_status_summary_waiting_merge={"kind":"waiting_merge",...}
 approval_notification_summary_waiting_merge={"class":"waiting_merge_reminder","audience":"requester",...}
 approval_reconciliation_summary_waiting_merge={"state":"awaiting_completion",...}
+approval_status_summary_stale_waiting_merge={"kind":"stale_follow_up",...}
+approval_notification_summary_stale_waiting_merge={"class":"stale_follow_up_alert","audience":"ops",...}
+approval_reconciliation_summary_stale_waiting_merge={"state":"needs_downstream_refresh",...}
 ```
 
 ## Validation commands
@@ -114,7 +121,7 @@ The upstream hostd tests still matter because the control-plane slice depends on
   - `docs/architecture/approval-control-plane-ux-foundation.md`
 - minimal queue / summary model:
   - `docs/architecture/approval-control-plane-ux-minimal-model.md`
-- stale / drift / recovery / `waiting_merge` vocabulary:
+- stale / drift / recovery / `waiting_merge` / stale-follow-up vocabulary:
   - `docs/architecture/approval-control-plane-ops-hardening.md`
 - status / notification / reconciliation summaries:
   - `docs/architecture/approval-control-plane-status-notification-reconciliation.md`
@@ -132,9 +139,10 @@ The upstream hostd tests still matter because the control-plane slice depends on
 Use this rule when reading the current control-plane bootstrap output:
 
 - if you see `approval_status_summary_stale={...}`, read it as **"the checked-in control-plane model can render a stale queue projection"**, not **"the repository has a production stale-item refresh loop"**
-- if you see `approval_notification_summary_stale={...}` or `approval_notification_summary_waiting_merge={...}`, read them as delivery-ready summary shapes, not evidence that an email, DM, webhook, or pager notification was actually sent
-- if you see `approval_reconciliation_summary_stale={...}` or `approval_reconciliation_summary_waiting_merge={...}`, read them as reconciliation guidance, not proof of a background reconciliation worker or downstream executor
+- if you see `approval_notification_summary_stale={...}`, `approval_notification_summary_waiting_merge={...}`, or `approval_notification_summary_stale_waiting_merge={...}`, read them as delivery-ready summary shapes, not evidence that an email, DM, webhook, or pager notification was actually sent
+- if you see `approval_reconciliation_summary_stale={...}`, `approval_reconciliation_summary_waiting_merge={...}`, or `approval_reconciliation_summary_stale_waiting_merge={...}`, read them as reconciliation guidance, not proof of a background reconciliation worker or downstream executor
 - if you see `approval_status_summary_waiting_merge={...}`, read it as explicit control-plane waiting-state vocabulary, not proof that a live merge or provider callback was observed
+- if you see `approval_status_summary_stale_waiting_merge={...}`, read it as explicit stale follow-up vocabulary, not proof that the repository can already recheck or resume a live downstream run automatically
 
 In other words: the current control-plane slice proves that the repository agrees on queue, status, notification, and reconciliation summary shapes. It does **not** yet prove an operator-facing product or live workflow orchestration.
 
