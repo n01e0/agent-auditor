@@ -73,6 +73,9 @@ That is the key distinction for this phase: the repository can now distinguish a
 
 Every reflected live preview record now carries:
 
+The operator-facing interpretation of those fields is fixed in [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md).
+
+
 - the policy decision
 - the realized enforcement directive (`allow`, `hold`, or `deny`)
 - `status=observe_only_fallback`
@@ -80,6 +83,9 @@ Every reflected live preview record now carries:
 - `mode_behavior`
 - `mode_status`
 - `record_status`
+- `failure_posture`
+- `coverage_support`
+- `coverage_summary`
 - a mode-specific `coverage_gap`
 - `redaction_status=redaction_safe_preview_only`
 - the redaction-safe live request summary
@@ -88,6 +94,8 @@ That means the audit log now answers the operator question correctly:
 
 - what the policy *wanted* to do
 - whether the mode was shadow, enforce-preview, or unsupported
+- whether the path is still fail-open or allowed to claim fail-closed
+- whether the path is part of the supported preview contract or unsupported
 - what the runtime *actually* did
 - why the result was preview-only instead of real inline enforcement
 
@@ -119,6 +127,7 @@ The new tests prove that the live preview path can now:
 - keep shadow `require_approval` results advisory-only with no approval request
 - create preview-only approval state for enforce-preview `require_approval` results
 - reflect unsupported-mode deny results with an explicit unsupported coverage gap
+- keep `failure_posture`, `coverage_support`, and `coverage_summary` stable in reflected records
 - reflect a GWS allow preview into an audit record with `observe_only_fallback`
 - persist those records through the existing append-only PoC stores
 
@@ -141,4 +150,5 @@ Those remain P13-8 work.
 - generic REST live preview adapter: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - provider live preview adapters: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
 - live preview mode semantics: [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md)
+- live preview coverage visibility: [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md)
 - live coverage posture: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)

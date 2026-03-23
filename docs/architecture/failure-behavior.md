@@ -156,6 +156,7 @@ That preserves conservative behavior for high-risk controls without overclaiming
 
 - architecture overview: [`overview.md`](overview.md)
 - coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
+- live preview coverage visibility: [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md)
 - enforcement foundation: [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md)
 - filesystem known constraints: [`hostd-filesystem-known-constraints.md`](hostd-filesystem-known-constraints.md)
 - network known constraints: [`hostd-network-known-constraints.md`](hostd-network-known-constraints.md)

@@ -13,6 +13,8 @@ Make the mode labels mean something concrete in checked-in Rust code and reflect
 After this task, the live preview path no longer treats mode as just a string. The mode now changes:
 
 - coverage posture
+- fail-open / fail-closed visibility
+- preview-supported vs unsupported visibility
 - mode behavior
 - record status
 - approval materialization behavior
@@ -30,6 +32,8 @@ After this task, the live preview path no longer treats mode as just a string. T
 
 That projection is now used by the live preview policy, approval, and audit stages.
 
+The operator-facing coverage / fail-open / unsupported visibility derived from that same projection is documented in [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md).
+
 ## Mode semantics
 
 ### `shadow`
@@ -45,6 +49,8 @@ That projection is now used by the live preview policy, approval, and audit stag
 Current checked-in values:
 
 - `coverage_posture=observe_only_preview`
+- `failure_posture=fail_open`
+- `coverage_support=preview_supported`
 - `mode_behavior=observe_only`
 - `mode_status=shadow_observe_only`
 - `approval_eligibility=advisory_only` for `require_approval`
@@ -63,6 +69,8 @@ If policy returns `require_approval` in shadow mode, the result is recorded as a
 Current checked-in values:
 
 - `coverage_posture=record_only_preview`
+- `failure_posture=fail_open`
+- `coverage_support=preview_supported`
 - `mode_behavior=record_only`
 - `mode_status=enforce_preview_record_only`
 - `approval_eligibility=record_only` for `require_approval`
@@ -81,6 +89,8 @@ This is the only mode that now creates preview-only `ApprovalRequest` records.
 Current checked-in values:
 
 - `coverage_posture=unsupported_preview`
+- `failure_posture=fail_open`
+- `coverage_support=unsupported`
 - `mode_behavior=unsupported`
 - `mode_status=unsupported_preview_only`
 - `approval_eligibility=unsupported` for `require_approval`
@@ -97,7 +107,13 @@ Examples:
 - `enforce_preview_approval_request_recorded`
 - `unsupported_deny_recorded`
 
-These values appear in reflected records so operators can tell whether an approval request was merely observed, actually materialized as preview-only state, or not supported at all.
+These values appear together with:
+
+- `failure_posture`
+- `coverage_support`
+- `coverage_summary`
+
+so operators can tell whether an approval request was merely observed, actually materialized as preview-only state, or not supported at all, without mistaking any of those states for fail-closed inline enforcement.
 
 ## Coverage-gap examples
 
@@ -143,6 +159,8 @@ onto the normalized live preview event.
 
 into persisted audit records.
 
+That reflected record visibility is documented in more detail in [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md).
+
 ## What the new tests prove
 
 The new tests prove that:
@@ -151,9 +169,11 @@ The new tests prove that:
 - shadow `require_approval` stays advisory-only and does not create an approval request
 - enforce-preview `require_approval` creates a preview-only approval request
 - unsupported mode records the policy signal and coverage gap without claiming a supported live preview path
+- reflected records keep `failure_posture=fail_open` while distinguishing `preview_supported` vs `unsupported`
 
 ## Related docs
 
 - live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
+- live preview coverage visibility: [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md)
 - live proxy phase boundary: [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md)
 - live coverage posture: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)

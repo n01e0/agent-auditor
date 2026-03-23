@@ -47,6 +47,15 @@ fn smoke_test_runs_live_proxy_fixture_catalog_through_policy_approval_and_audit_
         assert_eq!(reflection.mode_behavior, fixture.expected_mode_behavior);
         assert_eq!(reflection.mode_status, fixture.expected_mode_status);
         assert_eq!(reflection.record_status, fixture.expected_record_status);
+        assert_eq!(reflection.failure_posture, fixture.expected_failure_posture);
+        assert_eq!(
+            reflection.coverage_support,
+            fixture.expected_coverage_support
+        );
+        assert_eq!(
+            reflection.coverage_summary,
+            fixture.expected_coverage_summary
+        );
         assert_eq!(reflection.coverage_gap, fixture.expected_coverage_gap);
         assert_eq!(
             reflection
@@ -65,6 +74,33 @@ fn smoke_test_runs_live_proxy_fixture_catalog_through_policy_approval_and_audit_
                 .get("record_status")
                 .and_then(|value| value.as_str()),
             Some(fixture.expected_record_status)
+        );
+        assert_eq!(
+            reflection
+                .audit_record
+                .action
+                .attributes
+                .get("failure_posture")
+                .and_then(|value| value.as_str()),
+            Some(fixture.expected_failure_posture)
+        );
+        assert_eq!(
+            reflection
+                .audit_record
+                .action
+                .attributes
+                .get("coverage_support")
+                .and_then(|value| value.as_str()),
+            Some(fixture.expected_coverage_support)
+        );
+        assert_eq!(
+            reflection
+                .audit_record
+                .action
+                .attributes
+                .get("coverage_summary")
+                .and_then(|value| value.as_str()),
+            Some(fixture.expected_coverage_summary)
         );
         assert_eq!(
             reflection

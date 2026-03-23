@@ -24,7 +24,9 @@ Each fixture captures:
 - one annotated event
 - the expected policy decision
 - expected coverage posture / mode behavior / mode status / record status
-- the expected coverage gap
+- expected fail-open / fail-closed posture visibility
+- expected preview-supported vs unsupported visibility
+- the expected coverage summary and coverage gap
 - whether approval state should be materialized
 - the expected wait state
 
@@ -61,6 +63,9 @@ The smoke test then verifies that the reflected record matches the fixture expec
 - mode behavior
 - mode status
 - record status
+- failure posture
+- coverage support
+- coverage summary
 - approval materialization
 - wait state
 - coverage gap
