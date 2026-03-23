@@ -31,6 +31,7 @@ This repository currently contains the initial product framing and core design c
 - gap-closing gap matrix: [`docs/architecture/gap-closing-gap-matrix.md`](docs/architecture/gap-closing-gap-matrix.md)
 - approval / control-plane status explanation: [`docs/architecture/approval-control-plane-status-explanation.md`](docs/architecture/approval-control-plane-status-explanation.md)
 - approval / control-plane audit export: [`docs/architecture/approval-control-plane-audit-export.md`](docs/architecture/approval-control-plane-audit-export.md)
+- deployment hardening minimums: [`docs/architecture/deployment-hardening-minimums.md`](docs/architecture/deployment-hardening-minimums.md)
 - hostd process deny / hold PoC boundary: [`docs/architecture/hostd-process-enforcement-poc.md`](docs/architecture/hostd-process-enforcement-poc.md)
 - initial fail-open / fail-closed policy: [`docs/architecture/failure-behavior.md`](docs/architecture/failure-behavior.md)
 - live preview coverage / failure visibility: [`docs/architecture/live-preview-coverage-visibility.md`](docs/architecture/live-preview-coverage-visibility.md)

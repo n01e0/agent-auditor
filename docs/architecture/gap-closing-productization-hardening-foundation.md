@@ -160,6 +160,7 @@ A PR may touch adjacent layers, but it should still have one primary ownership b
 ## related docs
 
 - `overview.md`
+- `deployment-hardening-minimums.md`
 - `approval-control-plane-ux-foundation.md`
 - `approval-control-plane-ops-hardening.md`
 - `policy-authoring-explainability-foundation.md`
