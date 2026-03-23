@@ -577,6 +577,36 @@ pub struct ApprovalReconciliationSummary {
     pub note: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalAuditExportRecord {
+    pub approval_id: String,
+    pub session_id: String,
+    pub event_id: Option<String>,
+    pub requested_at: DateTime<Utc>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub status: ApprovalStatus,
+    pub outcome: Option<ApprovalStatus>,
+    pub action_class: ActionClass,
+    pub action_verb: String,
+    pub provider_id: Option<String>,
+    pub action_family: Option<String>,
+    pub target_hint: Option<String>,
+    pub rule_id: String,
+    pub severity: Option<Severity>,
+    pub scope: Option<ApprovalScope>,
+    pub status_kind: ApprovalStatusKind,
+    pub status_owner: ApprovalStatusOwner,
+    pub notification_class: ApprovalNotificationClass,
+    pub notification_audience: ApprovalNotificationAudience,
+    pub reconciliation_state: ApprovalReconciliationState,
+    pub explanation_summary: String,
+    pub explanation_next_step: String,
+    pub policy_reason: Option<String>,
+    pub reviewer_hint: Option<String>,
+    pub requester_context: Option<String>,
+}
+
 impl ApprovalReconciliationSummary {
     pub fn derive(queue_item: &ApprovalQueueItem, ops_status: &ApprovalOpsHardeningStatus) -> Self {
         match ops_status.recovery {
@@ -615,6 +645,45 @@ impl ApprovalReconciliationSummary {
                     queue_item.approval_id
                 ),
             },
+        }
+    }
+}
+
+impl ApprovalAuditExportRecord {
+    pub fn derive(
+        queue_item: &ApprovalQueueItem,
+        status: &ApprovalStatusSummary,
+        explanation: &ApprovalStatusExplanation,
+        notification: &ApprovalNotificationSummary,
+        reconciliation: &ApprovalReconciliationSummary,
+    ) -> Self {
+        Self {
+            approval_id: queue_item.approval_id.clone(),
+            session_id: queue_item.session_id.clone(),
+            event_id: queue_item.event_id.clone(),
+            requested_at: queue_item.requested_at,
+            resolved_at: queue_item.resolved_at,
+            expires_at: queue_item.expires_at,
+            status: queue_item.status,
+            outcome: queue_item.rationale_capture.outcome,
+            action_class: queue_item.action_class,
+            action_verb: queue_item.action_verb.clone(),
+            provider_id: string_attribute(&queue_item.attributes, "provider_id"),
+            action_family: string_attribute(&queue_item.attributes, "action_family"),
+            target_hint: queue_item.target.clone(),
+            rule_id: queue_item.decision_summary.rule_id.clone(),
+            severity: queue_item.decision_summary.severity,
+            scope: queue_item.decision_summary.scope,
+            status_kind: status.kind,
+            status_owner: explanation.owner,
+            notification_class: notification.class,
+            notification_audience: notification.audience,
+            reconciliation_state: reconciliation.state,
+            explanation_summary: explanation.summary.clone(),
+            explanation_next_step: explanation.next_step.clone(),
+            policy_reason: explanation.policy_reason.clone(),
+            reviewer_hint: explanation.reviewer_hint.clone(),
+            requester_context: explanation.requester_context.clone(),
         }
     }
 }
@@ -674,6 +743,12 @@ fn requester_context_for_queue_item(queue_item: &ApprovalQueueItem) -> Option<St
         (None, Some(agent_reason)) => Some(format!("Agent reason: {}", agent_reason)),
         (None, None) => None,
     }
+}
+
+fn string_attribute(attributes: &JsonMap, key: &str) -> Option<String> {
+    attributes
+        .get(key)
+        .and_then(|value| value.as_str().map(ToOwned::to_owned))
 }
 
 fn action_summary_for_request(request: &ApprovalRequest) -> String {
@@ -1253,5 +1328,66 @@ mod tests {
                 .next_step
                 .contains("Recheck downstream or merge state")
         );
+    }
+
+    #[test]
+    fn audit_export_record_keeps_linkage_and_redaction_safe_explanation() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: true,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+        let explanation = ApprovalStatusExplanation::derive(&queue_item, &ops_status, &status);
+        let notification = ApprovalNotificationSummary::derive(&queue_item, &status);
+        let reconciliation = ApprovalReconciliationSummary::derive(&queue_item, &ops_status);
+        let export = ApprovalAuditExportRecord::derive(
+            &queue_item,
+            &status,
+            &explanation,
+            &notification,
+            &reconciliation,
+        );
+
+        assert_eq!(export.approval_id, "apr_controld_bootstrap");
+        assert_eq!(export.session_id, "sess_controld_bootstrap");
+        assert_eq!(export.event_id.as_deref(), Some("evt_msg_invite"));
+        assert_eq!(export.provider_id.as_deref(), Some("discord"));
+        assert_eq!(export.action_family.as_deref(), Some("channel.invite"));
+        assert_eq!(export.rule_id, "messaging.channel_invite.requires_approval");
+        assert_eq!(export.status_kind, ApprovalStatusKind::StaleFollowUp);
+        assert_eq!(export.status_owner, ApprovalStatusOwner::Ops);
+        assert_eq!(
+            export.notification_class,
+            ApprovalNotificationClass::StaleFollowUpAlert
+        );
+        assert_eq!(
+            export.reconciliation_state,
+            ApprovalReconciliationState::NeedsDownstreamRefresh
+        );
+        assert_eq!(
+            export.policy_reason.as_deref(),
+            Some("Membership change affects incident communications")
+        );
+        assert!(
+            export
+                .requester_context
+                .as_deref()
+                .expect("requester context should exist")
+                .contains("Human request:")
+        );
+
+        let export_json = serde_json::to_value(&export).expect("export should serialize");
+        assert!(export_json.get("reviewer_note").is_none());
+        assert!(export_json.get("attributes").is_none());
     }
 }

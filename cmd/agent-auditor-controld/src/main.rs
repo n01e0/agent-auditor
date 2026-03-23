@@ -3,9 +3,9 @@ use agenta_core::{
     ApprovalRecordPresentation, ApprovalRequest, ApprovalRequestAction, ApprovalScope,
     ApprovalStatus, RequesterContext, SessionRef, Severity,
     controlplane::{
-        ApprovalNotificationSummary, ApprovalOpsHardeningStatus, ApprovalOpsSignals,
-        ApprovalQueueItem, ApprovalReconciliationSummary, ApprovalStatusExplanation,
-        ApprovalStatusSummary,
+        ApprovalAuditExportRecord, ApprovalNotificationSummary, ApprovalOpsHardeningStatus,
+        ApprovalOpsSignals, ApprovalQueueItem, ApprovalReconciliationSummary,
+        ApprovalStatusExplanation, ApprovalStatusSummary,
     },
 };
 use agenta_policy::PolicyInput;
@@ -110,6 +110,17 @@ fn main() {
         &pending_review_ops_status,
         &pending_review_status_summary,
     );
+    let pending_review_notification =
+        ApprovalNotificationSummary::derive(&queue_item, &pending_review_status_summary);
+    let pending_review_reconciliation =
+        ApprovalReconciliationSummary::derive(&queue_item, &pending_review_ops_status);
+    let pending_review_audit_export = ApprovalAuditExportRecord::derive(
+        &queue_item,
+        &pending_review_status_summary,
+        &pending_review_status_explanation,
+        &pending_review_notification,
+        &pending_review_reconciliation,
+    );
     let stale_ops_status = ApprovalOpsHardeningStatus::derive(
         &queue_item,
         &ApprovalOpsSignals {
@@ -127,6 +138,13 @@ fn main() {
         ApprovalNotificationSummary::derive(&queue_item, &stale_status_summary);
     let stale_reconciliation =
         ApprovalReconciliationSummary::derive(&queue_item, &stale_ops_status);
+    let stale_audit_export = ApprovalAuditExportRecord::derive(
+        &queue_item,
+        &stale_status_summary,
+        &stale_status_explanation,
+        &stale_notification,
+        &stale_reconciliation,
+    );
 
     let mut approved_request = approval_request.clone();
     approved_request.status = ApprovalStatus::Approved;
@@ -157,6 +175,13 @@ fn main() {
         ApprovalNotificationSummary::derive(&approved_queue_item, &waiting_merge_status_summary);
     let waiting_merge_reconciliation =
         ApprovalReconciliationSummary::derive(&approved_queue_item, &waiting_merge_ops_status);
+    let waiting_merge_audit_export = ApprovalAuditExportRecord::derive(
+        &approved_queue_item,
+        &waiting_merge_status_summary,
+        &waiting_merge_status_explanation,
+        &waiting_merge_notification,
+        &waiting_merge_reconciliation,
+    );
 
     let stale_waiting_merge_ops_status = ApprovalOpsHardeningStatus::derive(
         &approved_queue_item,
@@ -182,6 +207,13 @@ fn main() {
     let stale_waiting_merge_reconciliation = ApprovalReconciliationSummary::derive(
         &approved_queue_item,
         &stale_waiting_merge_ops_status,
+    );
+    let stale_waiting_merge_audit_export = ApprovalAuditExportRecord::derive(
+        &approved_queue_item,
+        &stale_waiting_merge_status_summary,
+        &stale_waiting_merge_status_explanation,
+        &stale_waiting_merge_notification,
+        &stale_waiting_merge_reconciliation,
     );
 
     println!("agent-auditor-controld bootstrap");
@@ -296,5 +328,28 @@ fn main() {
         "approval_reconciliation_summary_stale_waiting_merge={}",
         serde_json::to_string(&stale_waiting_merge_reconciliation)
             .expect("approval stale waiting-merge reconciliation should serialize")
+    );
+    println!(
+        "approval_audit_export_model=components=approval_audit_export_record linkage=approval_id,session_id,event_id,rule_id search=provider_id,action_family,status,status_kind,status_owner,severity reconciliation=state explanation=redaction_safe"
+    );
+    println!(
+        "approval_audit_export_pending_review={}",
+        serde_json::to_string(&pending_review_audit_export)
+            .expect("approval pending-review audit export should serialize")
+    );
+    println!(
+        "approval_audit_export_stale={}",
+        serde_json::to_string(&stale_audit_export)
+            .expect("approval stale audit export should serialize")
+    );
+    println!(
+        "approval_audit_export_waiting_merge={}",
+        serde_json::to_string(&waiting_merge_audit_export)
+            .expect("approval waiting-merge audit export should serialize")
+    );
+    println!(
+        "approval_audit_export_stale_waiting_merge={}",
+        serde_json::to_string(&stale_waiting_merge_audit_export)
+            .expect("approval stale waiting-merge audit export should serialize")
     );
 }

@@ -190,6 +190,7 @@ Those bootstrap lines are only a local preview of the checked-in model shape. Th
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
 - status explanation: [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md)
+- audit export: [`approval-control-plane-audit-export.md`](approval-control-plane-audit-export.md)
 - architecture overview: [`overview.md`](overview.md)
 - failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - hostd enforcement known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)

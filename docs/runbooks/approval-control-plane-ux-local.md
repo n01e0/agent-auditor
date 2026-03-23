@@ -1,6 +1,6 @@
 # approval / control-plane UX: local runbook
 
-This runbook covers the current local workflow for the repository-wide approval / control-plane UX slice after the boundary, minimal queue model, ops-hardening vocabulary, status / notification / reconciliation summaries, and status explanation layer landed.
+This runbook covers the current local workflow for the repository-wide approval / control-plane UX slice after the boundary, minimal queue model, ops-hardening vocabulary, status / notification / reconciliation summaries, status explanation layer, and audit export projection landed.
 
 ## What this slice currently proves
 
@@ -12,8 +12,9 @@ The checked-in control-plane path is intentionally small but concrete:
   - reviewer-facing summaries via `ApprovalDecisionSummary` and `ApprovalRationaleCapture`
   - ops-hardening state via `ApprovalOpsHardeningStatus`
   - operator-facing status, status explanation, notification, and reconciliation summaries
+  - audit/export-ready rows via `ApprovalAuditExportRecord`
 - `agent-auditor-controld` can emit deterministic preview lines that show the current queue, stale-queue projection, `waiting_merge` projection, and stale follow-up / stale run projection without re-running upstream taxonomy or policy
-- the checked-in smoke path proves stale / drift / recovery / waiting-state language plus notification / reconciliation summaries stay stable from the control-plane perspective
+- the checked-in smoke path proves stale / drift / recovery / waiting-state language plus explanation / notification / reconciliation / audit-export summaries stay stable from the control-plane perspective
 - the slice is covered by focused `agenta-core` tests plus a dedicated `agent-auditor-controld` smoke test
 
 ## Prerequisites
@@ -59,6 +60,11 @@ Expected output includes these control-plane categories of lines:
 - `approval_status_explanation_stale_waiting_merge=...`
 - `approval_notification_summary_stale_waiting_merge=...`
 - `approval_reconciliation_summary_stale_waiting_merge=...`
+- `approval_audit_export_model=...`
+- `approval_audit_export_pending_review=...`
+- `approval_audit_export_stale=...`
+- `approval_audit_export_waiting_merge=...`
+- `approval_audit_export_stale_waiting_merge=...`
 
 Example shape:
 
@@ -84,6 +90,11 @@ approval_status_summary_stale_waiting_merge={"kind":"stale_follow_up",...}
 approval_status_explanation_stale_waiting_merge={"owner":"ops",...}
 approval_notification_summary_stale_waiting_merge={"class":"stale_follow_up_alert","audience":"ops",...}
 approval_reconciliation_summary_stale_waiting_merge={"state":"needs_downstream_refresh",...}
+approval_audit_export_model=components=approval_audit_export_record ...
+approval_audit_export_pending_review={"status_kind":"pending_review","status_owner":"reviewer",...}
+approval_audit_export_stale={"status_kind":"stale_queue","status_owner":"ops",...}
+approval_audit_export_waiting_merge={"status_kind":"waiting_merge","status_owner":"requester",...}
+approval_audit_export_stale_waiting_merge={"status_kind":"stale_follow_up","status_owner":"ops",...}
 ```
 
 ## Validation commands
@@ -137,6 +148,8 @@ The upstream hostd tests still matter because the control-plane slice depends on
   - `docs/architecture/approval-control-plane-status-notification-reconciliation.md`
 - status explanation layer:
   - `docs/architecture/approval-control-plane-status-explanation.md`
+- audit/export projection:
+  - `docs/architecture/approval-control-plane-audit-export.md`
 - shared control-plane types:
   - `crates/agenta-core/src/controlplane.rs`
 - control-plane bootstrap preview:
@@ -154,16 +167,17 @@ Use this rule when reading the current control-plane bootstrap output:
 - if you see `approval_status_explanation_pending_review={...}`, `approval_status_explanation_stale={...}`, `approval_status_explanation_waiting_merge={...}`, or `approval_status_explanation_stale_waiting_merge={...}`, read them as checked-in ownership / next-step cards, not proof that the repository already has a real reviewer assignment system or workflow engine
 - if you see `approval_notification_summary_stale={...}`, `approval_notification_summary_waiting_merge={...}`, or `approval_notification_summary_stale_waiting_merge={...}`, read them as delivery-ready summary shapes, not evidence that an email, DM, webhook, or pager notification was actually sent
 - if you see `approval_reconciliation_summary_stale={...}`, `approval_reconciliation_summary_waiting_merge={...}`, or `approval_reconciliation_summary_stale_waiting_merge={...}`, read them as reconciliation guidance, not proof of a background reconciliation worker or downstream executor
+- if you see `approval_audit_export_pending_review={...}`, `approval_audit_export_stale={...}`, `approval_audit_export_waiting_merge={...}`, or `approval_audit_export_stale_waiting_merge={...}`, read them as redaction-safe export rows, not proof that the repository already has a durable audit database or export API
 - if you see `approval_status_summary_waiting_merge={...}`, read it as explicit control-plane waiting-state vocabulary, not proof that a live merge or provider callback was observed
 - if you see `approval_status_summary_stale_waiting_merge={...}`, read it as explicit stale follow-up vocabulary, not proof that the repository can already recheck or resume a live downstream run automatically
 
-In other words: the current control-plane slice proves that the repository agrees on queue, status, status explanation, notification, and reconciliation summary shapes. It does **not** yet prove an operator-facing product or live workflow orchestration.
+In other words: the current control-plane slice proves that the repository agrees on queue, status, status explanation, notification, reconciliation, and audit-export summary shapes. It does **not** yet prove an operator-facing product or live workflow orchestration.
 
 ## What to validate before trusting the preview outputs
 
 If you change this path locally, the quickest honest confidence check is:
 
-1. run `cargo test -p agenta-core controlplane:: --lib` to verify the queue, ops-hardening, status, notification, and reconciliation helpers still agree on the checked-in sample cases
+1. run `cargo test -p agenta-core controlplane:: --lib` to verify the queue, ops-hardening, status, status explanation, notification, reconciliation, and audit-export helpers still agree on the checked-in sample cases
 2. run `cargo test -p agent-auditor-controld --test control_plane_smoke` to verify the bootstrap preview lines still match the expected control-plane surface
 3. run `cargo run -p agent-auditor-controld --quiet` and inspect the preview lines directly if you changed wording or bootstrap examples
 4. if your change depends on upstream approval/audit shape, run the relevant `agent-auditor-hostd` smoke tests too
