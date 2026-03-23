@@ -98,10 +98,43 @@ impl ApprovalEligibility {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiveFailurePosture {
+    FailOpen,
+    FailClosed,
+}
+
+impl LiveFailurePosture {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::FailOpen => "fail_open",
+            Self::FailClosed => "fail_closed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiveCoverageSupport {
+    PreviewSupported,
+    Unsupported,
+}
+
+impl LiveCoverageSupport {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::PreviewSupported => "preview_supported",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LiveModeProjection {
     pub mode: LiveMode,
     pub mode_behavior: LiveModeBehavior,
     pub coverage_posture: LiveCoveragePosture,
+    pub failure_posture: LiveFailurePosture,
+    pub coverage_support: LiveCoverageSupport,
+    pub coverage_summary: &'static str,
     pub mode_status: &'static str,
     pub record_status: &'static str,
     pub approval_eligibility: ApprovalEligibility,
@@ -143,6 +176,9 @@ fn shadow_projection(decision: PolicyDecisionKind) -> LiveModeProjection {
         mode: LiveMode::Shadow,
         mode_behavior: LiveModeBehavior::ObserveOnly,
         coverage_posture: LiveCoveragePosture::ObserveOnlyPreview,
+        failure_posture: LiveFailurePosture::FailOpen,
+        coverage_support: LiveCoverageSupport::PreviewSupported,
+        coverage_summary: "preview-supported observe-only path; policy intent is recorded but the live request remains fail-open",
         mode_status: "shadow_observe_only",
         record_status,
         approval_eligibility,
@@ -185,6 +221,9 @@ fn enforce_preview_projection(decision: PolicyDecisionKind) -> LiveModeProjectio
         mode: LiveMode::EnforcePreview,
         mode_behavior: LiveModeBehavior::RecordOnly,
         coverage_posture: LiveCoveragePosture::RecordOnlyPreview,
+        failure_posture: LiveFailurePosture::FailOpen,
+        coverage_support: LiveCoverageSupport::PreviewSupported,
+        coverage_summary: "preview-supported record-only path; approval or deny intent is reflected locally but the live request remains fail-open",
         mode_status: "enforce_preview_record_only",
         record_status,
         approval_eligibility,
@@ -227,6 +266,9 @@ fn unsupported_projection(decision: PolicyDecisionKind) -> LiveModeProjection {
         mode: LiveMode::Unsupported,
         mode_behavior: LiveModeBehavior::Unsupported,
         coverage_posture: LiveCoveragePosture::UnsupportedPreview,
+        failure_posture: LiveFailurePosture::FailOpen,
+        coverage_support: LiveCoverageSupport::Unsupported,
+        coverage_summary: "unsupported live preview path; policy signals are diagnostic only and the live request remains fail-open",
         mode_status: "unsupported_preview_only",
         record_status,
         approval_eligibility,
@@ -245,7 +287,9 @@ mod tests {
     };
     use serde_json::json;
 
-    use super::{ApprovalEligibility, LiveCoveragePosture, LiveMode};
+    use super::{
+        ApprovalEligibility, LiveCoveragePosture, LiveCoverageSupport, LiveFailurePosture, LiveMode,
+    };
 
     #[test]
     fn mode_projection_separates_shadow_enforce_preview_and_unsupported_behaviors() {
@@ -263,6 +307,12 @@ mod tests {
             shadow.approval_eligibility,
             ApprovalEligibility::AdvisoryOnly
         );
+        assert_eq!(shadow.failure_posture, LiveFailurePosture::FailOpen);
+        assert_eq!(
+            shadow.coverage_support,
+            LiveCoverageSupport::PreviewSupported
+        );
+        assert!(shadow.coverage_summary.contains("fail-open"));
         assert_eq!(shadow.wait_state, Some("shadow_observe_only"));
 
         assert_eq!(
@@ -273,6 +323,12 @@ mod tests {
             enforce.approval_eligibility,
             ApprovalEligibility::RecordOnly
         );
+        assert_eq!(enforce.failure_posture, LiveFailurePosture::FailOpen);
+        assert_eq!(
+            enforce.coverage_support,
+            LiveCoverageSupport::PreviewSupported
+        );
+        assert!(enforce.coverage_summary.contains("record-only"));
         assert_eq!(enforce.wait_state, Some("pending_approval_record_only"));
 
         assert_eq!(
@@ -282,6 +338,16 @@ mod tests {
         assert_eq!(
             unsupported.approval_eligibility,
             ApprovalEligibility::Unsupported
+        );
+        assert_eq!(unsupported.failure_posture, LiveFailurePosture::FailOpen);
+        assert_eq!(
+            unsupported.coverage_support,
+            LiveCoverageSupport::Unsupported
+        );
+        assert!(
+            unsupported
+                .coverage_summary
+                .contains("unsupported live preview path")
         );
         assert_eq!(
             unsupported.wait_state,

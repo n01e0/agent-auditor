@@ -33,6 +33,7 @@ This repository currently contains the initial product framing and core design c
 - approval / control-plane audit export: [`docs/architecture/approval-control-plane-audit-export.md`](docs/architecture/approval-control-plane-audit-export.md)
 - hostd process deny / hold PoC boundary: [`docs/architecture/hostd-process-enforcement-poc.md`](docs/architecture/hostd-process-enforcement-poc.md)
 - initial fail-open / fail-closed policy: [`docs/architecture/failure-behavior.md`](docs/architecture/failure-behavior.md)
+- live preview coverage / failure visibility: [`docs/architecture/live-preview-coverage-visibility.md`](docs/architecture/live-preview-coverage-visibility.md)
 - hostd network domain attribution: [`docs/architecture/hostd-network-domain-attribution.md`](docs/architecture/hostd-network-domain-attribution.md)
 - hostd network PoC known constraints: [`docs/architecture/hostd-network-known-constraints.md`](docs/architecture/hostd-network-known-constraints.md)
 - hostd filesystem PoC known constraints: [`docs/architecture/hostd-filesystem-known-constraints.md`](docs/architecture/hostd-filesystem-known-constraints.md)

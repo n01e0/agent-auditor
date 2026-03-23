@@ -128,7 +128,7 @@ The current repository now fixes three distinct live preview mode behaviors:
   - `coverage_posture=unsupported_preview`
   - records diagnostic signals and coverage gaps without claiming a supported live preview contract
 
-Those mode semantics are documented in [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md) and reflected in the append-only records described in [`live-preview-record-reflection.md`](live-preview-record-reflection.md).
+Those mode semantics are documented in [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md), the operator-facing coverage / fail-open / unsupported visibility is documented in [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md), and the append-only records are described in [`live-preview-record-reflection.md`](live-preview-record-reflection.md).
 
 ## Approval-hold interpretation
 
@@ -146,6 +146,13 @@ It does **not** yet prove:
 - a deny or hold failure is fail-closed on the live request path
 
 Until those conditions are validated for a specific action family, the live posture remains **fail-open with explicit preview metadata**, not fail-closed.
+
+That distinction is now reflected directly in live preview records through:
+
+- `failure_posture`
+- `coverage_support`
+- `coverage_summary`
+- `coverage_gap`
 
 ## Operator summary
 
@@ -166,6 +173,7 @@ That is exactly why the next task now focuses on final live-mode semantics (`P13
 - generic REST live preview adapter: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - provider semantic live preview adapters: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
 - live preview mode semantics: [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md)
+- live preview coverage visibility: [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md)
 - live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
 - generic REST constraints: [`generic-rest-oauth-governance-known-constraints.md`](generic-rest-oauth-governance-known-constraints.md)
 - GWS constraints: [`hostd-api-network-gws-known-constraints.md`](hostd-api-network-gws-known-constraints.md)

@@ -59,6 +59,9 @@ impl AuditPlan {
             "mode_behavior",
             "mode_status",
             "record_status",
+            "failure_posture",
+            "coverage_support",
+            "coverage_summary",
             "coverage_gap",
             "realized_enforcement",
             "redaction_status",
@@ -77,7 +80,7 @@ impl AuditPlan {
             record_fields: record_fields.clone(),
             responsibilities: vec![
                 "append live preview, enforce-preview, or unsupported audit records without replaying proxy capture, session correlation, semantic conversion, or policy evaluation",
-                "record the exact realized interception status, mode behavior, and coverage gap so operators can tell modeled intent from real runtime effect",
+                "record the exact realized interception status, fail-open/fail-closed posture, and unsupported/preview-supported coverage claim so operators can tell modeled intent from real runtime effect",
                 "preserve correlation ids and redaction-safe live request summaries for later control-plane reconciliation",
                 "stay append-only and avoid becoming the owner of approval queue state, policy decisions, or provider-specific taxonomy",
             ],
@@ -142,6 +145,18 @@ impl AuditPlan {
             json!(live_request_summary.clone()),
         );
         audit_record.action.attributes.insert(
+            "failure_posture".to_owned(),
+            json!(mode_projection.failure_posture.label()),
+        );
+        audit_record.action.attributes.insert(
+            "coverage_support".to_owned(),
+            json!(mode_projection.coverage_support.label()),
+        );
+        audit_record.action.attributes.insert(
+            "coverage_summary".to_owned(),
+            json!(mode_projection.coverage_summary),
+        );
+        audit_record.action.attributes.insert(
             "coverage_gap".to_owned(),
             json!(mode_projection.coverage_gap),
         );
@@ -157,6 +172,9 @@ impl AuditPlan {
             mode_behavior: evaluation.mode_behavior.label().to_owned(),
             mode_status: evaluation.mode_status.clone(),
             record_status: evaluation.record_status.clone(),
+            failure_posture: mode_projection.failure_posture.label().to_owned(),
+            coverage_support: mode_projection.coverage_support.label().to_owned(),
+            coverage_summary: mode_projection.coverage_summary.to_owned(),
             coverage_gap: mode_projection.coverage_gap.to_owned(),
             realized_enforcement: enforcement,
             redaction_status: LIVE_PREVIEW_REDACTION_STATUS,
@@ -209,6 +227,9 @@ pub struct LivePreviewAuditReflection {
     pub mode_behavior: String,
     pub mode_status: String,
     pub record_status: String,
+    pub failure_posture: String,
+    pub coverage_support: String,
+    pub coverage_summary: String,
     pub coverage_gap: String,
     pub realized_enforcement: EnforcementInfo,
     pub redaction_status: &'static str,
@@ -217,7 +238,7 @@ pub struct LivePreviewAuditReflection {
 impl LivePreviewAuditReflection {
     pub fn summary(&self) -> String {
         format!(
-            "event_id={} approval_request={} mode_behavior={} mode_status={} record_status={} coverage_gap={} redaction_status={}",
+            "event_id={} approval_request={} mode_behavior={} mode_status={} record_status={} failure_posture={} coverage_support={} coverage_gap={} redaction_status={}",
             self.audit_record.event_id,
             self.approval_request
                 .as_ref()
@@ -226,6 +247,8 @@ impl LivePreviewAuditReflection {
             self.mode_behavior,
             self.mode_status,
             self.record_status,
+            self.failure_posture,
+            self.coverage_support,
             self.coverage_gap,
             self.redaction_status
         )
@@ -419,6 +442,31 @@ mod tests {
             Some("enforce_preview_approval_request_recorded")
         );
         assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("failure_posture")
+                .and_then(|value| value.as_str()),
+            Some("fail_open")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_support")
+                .and_then(|value| value.as_str()),
+            Some("preview_supported")
+        );
+        assert!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_summary")
+                .and_then(|value| value.as_str())
+                .expect("coverage_summary should exist")
+                .contains("record-only path")
+        );
+        assert_eq!(
             persisted_request
                 .enforcement
                 .as_ref()
@@ -475,6 +523,31 @@ mod tests {
                 .get("record_status")
                 .and_then(|value| value.as_str()),
             Some("shadow_require_approval_recorded")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("failure_posture")
+                .and_then(|value| value.as_str()),
+            Some("fail_open")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_support")
+                .and_then(|value| value.as_str()),
+            Some("preview_supported")
+        );
+        assert!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_summary")
+                .and_then(|value| value.as_str())
+                .expect("coverage_summary should exist")
+                .contains("observe-only path")
         );
         assert!(
             store
@@ -602,6 +675,31 @@ mod tests {
             persisted_audit
                 .action
                 .attributes
+                .get("failure_posture")
+                .and_then(|value| value.as_str()),
+            Some("fail_open")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_support")
+                .and_then(|value| value.as_str()),
+            Some("unsupported")
+        );
+        assert!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_summary")
+                .and_then(|value| value.as_str())
+                .expect("coverage_summary should exist")
+                .contains("unsupported live preview path")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
                 .get("coverage_gap")
                 .and_then(|value| value.as_str()),
             Some("unsupported_mode_has_no_supported_live_preview_contract")
@@ -654,6 +752,9 @@ mod tests {
             reflection.record_status,
             "enforce_preview_approval_request_recorded"
         );
+        assert_eq!(reflection.failure_posture, "fail_open");
+        assert_eq!(reflection.coverage_support, "preview_supported");
+        assert!(reflection.coverage_summary.contains("record-only path"));
         assert_eq!(
             persisted_request
                 .enforcement
