@@ -63,6 +63,7 @@ Owns the operator-facing “what am I deciding?” card.
 Fields:
 
 - `action_summary`
+- `rule_id`
 - `target_hint`
 - `severity`
 - `policy_reason`
@@ -71,6 +72,8 @@ Fields:
 - `reviewer_hint`
 
 This summary is intentionally descriptive, not authoritative. It explains the request in reviewer-friendly terms, but it does not become a second policy source of truth.
+
+`rule_id` is carried so later status/explanation views can anchor the queue item back to the matched policy contract without reopening policy evaluation.
 
 ### `ApprovalRationaleCapture`
 
@@ -186,6 +189,7 @@ Those bootstrap lines are only a local preview of the checked-in model shape. Th
 - known constraints: [`approval-control-plane-ux-known-constraints.md`](approval-control-plane-ux-known-constraints.md)
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
+- status explanation: [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md)
 - architecture overview: [`overview.md`](overview.md)
 - failure behavior policy: [`failure-behavior.md`](failure-behavior.md)
 - hostd enforcement known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)

@@ -29,6 +29,7 @@ This repository currently contains the initial product framing and core design c
 - policy authoring / explainability local runbook: [`docs/runbooks/policy-authoring-explainability-local.md`](docs/runbooks/policy-authoring-explainability-local.md)
 - gap-closing phase boundary: [`docs/architecture/gap-closing-productization-hardening-foundation.md`](docs/architecture/gap-closing-productization-hardening-foundation.md)
 - gap-closing gap matrix: [`docs/architecture/gap-closing-gap-matrix.md`](docs/architecture/gap-closing-gap-matrix.md)
+- approval / control-plane status explanation: [`docs/architecture/approval-control-plane-status-explanation.md`](docs/architecture/approval-control-plane-status-explanation.md)
 - hostd process deny / hold PoC boundary: [`docs/architecture/hostd-process-enforcement-poc.md`](docs/architecture/hostd-process-enforcement-poc.md)
 - initial fail-open / fail-closed policy: [`docs/architecture/failure-behavior.md`](docs/architecture/failure-behavior.md)
 - hostd network domain attribution: [`docs/architecture/hostd-network-domain-attribution.md`](docs/architecture/hostd-network-domain-attribution.md)

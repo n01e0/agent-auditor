@@ -1,6 +1,6 @@
 # approval / control-plane status, notification, and reconciliation
 
-This note fixes the first checked-in improvement set for control-plane status surfaces, notification summaries, and reconciliation summaries.
+This note fixes the checked-in improvement set for control-plane status surfaces, notification summaries, and reconciliation summaries.
 
 It sits on top of:
 
@@ -34,6 +34,8 @@ The repository now adds these control-plane-facing types in `crates/agenta-core/
 - `ApprovalNotificationSummary`
 - `ApprovalReconciliationState`
 - `ApprovalReconciliationSummary`
+
+The follow-on ownership / next-step explanation layer is documented separately in [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md).
 
 These are derived from:
 
@@ -209,5 +211,6 @@ This note does **not** yet add:
 - known constraints: [`approval-control-plane-ux-known-constraints.md`](approval-control-plane-ux-known-constraints.md)
 - minimal model: [`approval-control-plane-ux-minimal-model.md`](approval-control-plane-ux-minimal-model.md)
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
+- status explanation: [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md)
 - architecture overview: [`overview.md`](overview.md)
 - Rust implementation notes: [`rust-implementation.md`](rust-implementation.md)
