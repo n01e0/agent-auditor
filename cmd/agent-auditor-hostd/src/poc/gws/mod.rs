@@ -806,6 +806,9 @@ mod tests {
             rule_id: Some("gws.gmail.users_messages_send.denied".to_owned()),
             severity: Some(Severity::High),
             reason: Some("Outbound Gmail send is denied by preview policy".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec!["gws".to_owned(), "gmail".to_owned(), "deny".to_owned()],
         };

@@ -534,18 +534,46 @@ impl PolicyEvaluator for RegoPolicyEvaluator {
     }
 }
 
+fn decision_explanation_summary(decision: &PolicyDecision) -> Option<String> {
+    decision
+        .explanation
+        .as_ref()
+        .map(|explanation| explanation.summary.clone())
+        .or_else(|| decision.rationale.clone())
+        .or_else(|| decision.reason.clone())
+}
+
+fn decision_reviewer_hint(decision: &PolicyDecision) -> Option<String> {
+    decision
+        .reviewer_hint
+        .clone()
+        .or_else(|| {
+            decision
+                .approval
+                .as_ref()
+                .and_then(|approval| approval.reviewer_hint.clone())
+        })
+        .or_else(|| {
+            decision
+                .explanation
+                .as_ref()
+                .and_then(|explanation| explanation.reviewer_hint.clone())
+        })
+}
+
 pub fn apply_decision_to_event(event: &EventEnvelope, decision: &PolicyDecision) -> EventEnvelope {
     let mut enriched = event.clone();
     enriched.result.status = result_status_for_decision(decision.decision);
     enriched.result.reason = decision
         .reason
         .clone()
+        .or_else(|| decision_explanation_summary(decision))
         .or_else(|| enriched.result.reason.clone());
     enriched.policy = Some(PolicyMetadata {
         decision: Some(decision.decision),
         rule_id: decision.rule_id.clone(),
         severity: decision.severity,
-        explanation: decision.reason.clone(),
+        explanation: decision_explanation_summary(decision),
     });
     enriched
 }
@@ -576,6 +604,9 @@ pub fn approval_request_from_decision(
     let constraint = decision.approval.clone()?;
     let action_verb = event.action.verb.clone()?;
 
+    let explanation_summary = decision_explanation_summary(decision);
+    let reviewer_hint = decision_reviewer_hint(decision);
+
     Some(ApprovalRequest {
         approval_id: format!("apr_{}", event.event_id),
         status: ApprovalStatus::Pending,
@@ -590,19 +621,28 @@ pub fn approval_request_from_decision(
             action_class: event.action.class,
             action_verb,
             target: event.action.target.clone(),
-            summary: decision.reason.clone(),
+            summary: decision
+                .rationale
+                .clone()
+                .or_else(|| explanation_summary.clone()),
             attributes: event.action.attributes.clone(),
         },
         policy: ApprovalPolicy {
             rule_id,
             severity: decision.severity,
-            reason: decision.reason.clone(),
+            reason: decision
+                .rationale
+                .clone()
+                .or_else(|| explanation_summary.clone()),
             scope: constraint.scope,
             ttl_seconds: constraint.ttl_seconds,
-            reviewer_hint: constraint.reviewer_hint,
+            reviewer_hint,
         },
         requester_context: Some(RequesterContext {
-            agent_reason: decision.reason.clone(),
+            agent_reason: decision
+                .rationale
+                .clone()
+                .or_else(|| decision.reason.clone()),
             human_request: None,
         }),
         decision: None,
@@ -1168,6 +1208,57 @@ mod tests {
     }
 
     #[test]
+    fn policy_decision_deserializes_explanation_rationale_and_reviewer_hint() {
+        let decision: PolicyDecision = serde_json::from_value(json!({
+            "decision": "require_approval",
+            "rule_id": "gmail.send.approval",
+            "severity": "high",
+            "reason": "outbound gmail send requires approval",
+            "rationale": "Approval required before sending external mail",
+            "reviewer_hint": "security-oncall",
+            "explanation": {
+                "disposition": "require_approval",
+                "summary": "Require approval before sending Gmail messages",
+                "rule_id": "gmail.send.approval",
+                "severity": "high",
+                "scope": {
+                    "provider_id": "gws",
+                    "action_key": "gmail.users.messages.send",
+                    "target_hint": "external-recipient",
+                    "labels": ["workspace-mail"]
+                },
+                "evidence": [
+                    {
+                        "code": "matched.posture",
+                        "detail": "outbound mail posture requires approval"
+                    }
+                ],
+                "reviewer_hint": "security-oncall"
+            },
+            "approval": {
+                "scope": "single_action",
+                "ttl_seconds": 1800,
+                "reviewer_hint": "security-oncall"
+            },
+            "tags": ["mail", "approval"]
+        }))
+        .expect("decision should deserialize");
+
+        assert_eq!(
+            decision.rationale.as_deref(),
+            Some("Approval required before sending external mail")
+        );
+        assert_eq!(decision.reviewer_hint.as_deref(), Some("security-oncall"));
+        assert_eq!(
+            decision
+                .explanation
+                .as_ref()
+                .map(|explanation| explanation.disposition),
+            Some(agenta_core::PolicyExplanationDisposition::RequireApproval)
+        );
+    }
+
+    #[test]
     fn apply_decision_to_event_reflects_allow_result_in_metadata() {
         let event = filesystem_event("/workspace/src/main.rs", "read");
         let decision = PolicyDecision {
@@ -1175,6 +1266,9 @@ mod tests {
             rule_id: Some("default.allow".to_owned()),
             severity: Some(Severity::Low),
             reason: Some("no matching rule".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec![],
         };
@@ -1195,6 +1289,43 @@ mod tests {
     }
 
     #[test]
+    fn apply_decision_to_event_uses_structured_explanation_summary_when_present() {
+        let event = filesystem_event("/tmp/blocked", "read");
+        let decision = PolicyDecision {
+            decision: PolicyDecisionKind::Deny,
+            rule_id: Some("fs.deny.demo".to_owned()),
+            severity: Some(Severity::Critical),
+            reason: None,
+            explanation: Some(agenta_core::PolicyExplanation {
+                disposition: agenta_core::PolicyExplanationDisposition::Deny,
+                summary: "Block sensitive filesystem read".to_owned(),
+                rule_id: Some("fs.deny.demo".to_owned()),
+                severity: Some(Severity::Critical),
+                scope: None,
+                evidence: vec![],
+                reviewer_hint: None,
+            }),
+            rationale: None,
+            reviewer_hint: None,
+            approval: None,
+            tags: vec!["filesystem".to_owned(), "deny".to_owned()],
+        };
+
+        let enriched = apply_decision_to_event(&event, &decision);
+        assert_eq!(
+            enriched.result.reason.as_deref(),
+            Some("Block sensitive filesystem read")
+        );
+        assert_eq!(
+            enriched
+                .policy
+                .as_ref()
+                .and_then(|policy| policy.explanation.as_deref()),
+            Some("Block sensitive filesystem read")
+        );
+    }
+
+    #[test]
     fn apply_decision_to_event_reflects_deny_result_in_metadata() {
         let event = filesystem_event("/tmp/blocked", "read");
         let decision = PolicyDecision {
@@ -1202,6 +1333,9 @@ mod tests {
             rule_id: Some("fs.deny.demo".to_owned()),
             severity: Some(Severity::Critical),
             reason: Some("blocked for test".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec!["filesystem".to_owned(), "deny".to_owned()],
         };
@@ -1264,9 +1398,13 @@ mod tests {
         );
         assert_eq!(
             request.request.summary.as_deref(),
-            Some("sensitive path access requires approval")
+            Some("Approval required for sensitive filesystem access")
         );
         assert_eq!(request.policy.rule_id, "fs.sensitive.read");
+        assert_eq!(
+            request.policy.reason.as_deref(),
+            Some("Approval required for sensitive filesystem access")
+        );
         assert_eq!(request.policy.scope, Some(ApprovalScope::SingleAction));
         assert_eq!(request.policy.ttl_seconds, Some(1800));
         assert_eq!(
@@ -1279,7 +1417,7 @@ mod tests {
                 .requester_context
                 .as_ref()
                 .and_then(|context| context.agent_reason.as_deref()),
-            Some("sensitive path access requires approval")
+            Some("Approval required for sensitive filesystem access")
         );
         assert!(request.decision.is_none());
     }
@@ -1292,6 +1430,9 @@ mod tests {
             rule_id: Some("default.allow".to_owned()),
             severity: Some(Severity::Low),
             reason: Some("no matching rule".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec![],
         };
@@ -2264,6 +2405,25 @@ mod tests {
             rule_id: Some("fs.sensitive.read".to_owned()),
             severity: Some(Severity::High),
             reason: Some("sensitive path access requires approval".to_owned()),
+            explanation: Some(agenta_core::PolicyExplanation {
+                disposition: agenta_core::PolicyExplanationDisposition::RequireApproval,
+                summary: "sensitive path access requires approval".to_owned(),
+                rule_id: Some("fs.sensitive.read".to_owned()),
+                severity: Some(Severity::High),
+                scope: Some(agenta_core::PolicyExplanationMatch {
+                    provider_id: None,
+                    action_key: None,
+                    target_hint: Some("/home/agent/.ssh/id_ed25519".to_owned()),
+                    labels: vec!["filesystem".to_owned(), "approval".to_owned()],
+                }),
+                evidence: vec![agenta_core::PolicyExplanationEvidence {
+                    code: "matched.policy_rule".to_owned(),
+                    detail: "sensitive path access requires approval".to_owned(),
+                }],
+                reviewer_hint: Some("security-oncall".to_owned()),
+            }),
+            rationale: Some("Approval required for sensitive filesystem access".to_owned()),
+            reviewer_hint: Some("security-oncall".to_owned()),
             approval: Some(ApprovalConstraint {
                 scope: Some(ApprovalScope::SingleAction),
                 ttl_seconds: Some(1800),

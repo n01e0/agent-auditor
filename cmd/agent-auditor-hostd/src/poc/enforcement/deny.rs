@@ -143,6 +143,9 @@ mod tests {
             rule_id: Some("fs.sensitive.write".to_owned()),
             severity: Some(Severity::Critical),
             reason: Some("sensitive path write is denied".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec!["filesystem".to_owned(), "deny".to_owned()],
         };
