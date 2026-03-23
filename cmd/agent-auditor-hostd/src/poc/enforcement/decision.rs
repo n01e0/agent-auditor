@@ -128,6 +128,9 @@ mod tests {
             rule_id: Some("default.allow".to_owned()),
             severity: Some(Severity::Low),
             reason: Some("no matching rule".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec![],
         };

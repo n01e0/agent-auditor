@@ -288,6 +288,9 @@ mod tests {
             rule_id: Some("gws.drive.files_get_media.allowed".to_owned()),
             severity: None,
             reason: Some("drive file media download unexpectedly allowed".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec!["gws".to_owned(), "drive".to_owned(), "allow".to_owned()],
         };

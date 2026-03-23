@@ -159,6 +159,9 @@ mod tests {
             rule_id: Some("fs.sensitive.read".to_owned()),
             severity: Some(Severity::High),
             reason: Some("sensitive path access requires approval".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec!["filesystem".to_owned(), "approval".to_owned()],
         };

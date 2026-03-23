@@ -419,6 +419,12 @@ pub struct PolicyDecision {
     pub rule_id: Option<String>,
     pub severity: Option<Severity>,
     pub reason: Option<String>,
+    #[serde(default)]
+    pub explanation: Option<PolicyExplanation>,
+    #[serde(default)]
+    pub rationale: Option<String>,
+    #[serde(default)]
+    pub reviewer_hint: Option<String>,
     pub approval: Option<ApprovalConstraint>,
     #[serde(default)]
     pub tags: Vec<String>,

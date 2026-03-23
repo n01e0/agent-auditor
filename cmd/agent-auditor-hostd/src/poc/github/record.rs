@@ -279,6 +279,9 @@ mod tests {
             rule_id: Some("github.actions.runs_rerun.denied".to_owned()),
             severity: Some(agenta_core::Severity::High),
             reason: Some("workflow rerun denied for mismatch test".to_owned()),
+            explanation: None,
+            rationale: None,
+            reviewer_hint: None,
             approval: None,
             tags: vec!["github".to_owned(), "actions".to_owned(), "deny".to_owned()],
         };
