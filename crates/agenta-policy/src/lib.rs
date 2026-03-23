@@ -1426,6 +1426,20 @@ mod tests {
             request.policy.reviewer_hint.as_deref(),
             Some("security-oncall")
         );
+        assert_eq!(
+            request
+                .presentation
+                .as_ref()
+                .and_then(|presentation| presentation.reviewer_summary.as_deref()),
+            Some("Approval required for sensitive filesystem access")
+        );
+        assert_eq!(
+            request
+                .presentation
+                .as_ref()
+                .and_then(|presentation| presentation.rationale.as_deref()),
+            Some("Approval required for sensitive filesystem access")
+        );
         assert!(request.expires_at.is_some());
         assert_eq!(
             request
@@ -1435,6 +1449,35 @@ mod tests {
             Some("Approval required for sensitive filesystem access")
         );
         assert!(request.decision.is_none());
+    }
+
+    #[test]
+    fn approval_request_from_decision_uses_explanation_summary_when_rationale_is_missing() {
+        let event = filesystem_event("/home/agent/.ssh/id_ed25519", "read");
+        let mut decision = require_approval_decision();
+        decision.rationale = None;
+
+        let request = approval_request_from_decision(&event, &decision)
+            .expect("require_approval should yield approval request");
+
+        assert_eq!(
+            request.request.summary.as_deref(),
+            Some("sensitive path access requires approval")
+        );
+        assert_eq!(
+            request
+                .presentation
+                .as_ref()
+                .and_then(|presentation| presentation.reviewer_summary.as_deref()),
+            Some("sensitive path access requires approval")
+        );
+        assert_eq!(
+            request
+                .presentation
+                .as_ref()
+                .and_then(|presentation| presentation.rationale.as_deref()),
+            Some("sensitive path access requires approval")
+        );
     }
 
     #[test]
