@@ -250,6 +250,7 @@ mod tests {
                 ttl_seconds: Some(1800),
                 reviewer_hint: Some("security-oncall".to_owned()),
             },
+            presentation: None,
             requester_context: Some(agenta_core::RequesterContext {
                 agent_reason: Some("sensitive path access requires approval".to_owned()),
                 human_request: None,
