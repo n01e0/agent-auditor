@@ -10,9 +10,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use agenta_core::{
-    Action, Actor, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction, ApprovalStatus,
-    CollectorKind, EnforcementInfo, EventEnvelope, PolicyDecision, PolicyDecisionKind,
-    PolicyMetadata, RequesterContext, ResultStatus, SessionRef,
+    Action, Actor, ApprovalPolicy, ApprovalRecordPresentation, ApprovalRequest,
+    ApprovalRequestAction, ApprovalStatus, CollectorKind, EnforcementInfo, EventEnvelope,
+    PolicyDecision, PolicyDecisionKind, PolicyMetadata, RequesterContext, ResultStatus, SessionRef,
     messaging::{
         DeliveryScope, FileTargetKind, MembershipTargetKind, MessagingAction,
         MessagingActionFamily, PermissionTargetKind,
@@ -561,6 +561,13 @@ fn decision_reviewer_hint(decision: &PolicyDecision) -> Option<String> {
         })
 }
 
+fn decision_reviewer_summary(decision: &PolicyDecision) -> Option<String> {
+    decision
+        .rationale
+        .clone()
+        .or_else(|| decision_explanation_summary(decision))
+}
+
 pub fn apply_decision_to_event(event: &EventEnvelope, decision: &PolicyDecision) -> EventEnvelope {
     let mut enriched = event.clone();
     enriched.result.status = result_status_for_decision(decision.decision);
@@ -606,6 +613,7 @@ pub fn approval_request_from_decision(
 
     let explanation_summary = decision_explanation_summary(decision);
     let reviewer_hint = decision_reviewer_hint(decision);
+    let reviewer_summary = decision_reviewer_summary(decision);
 
     Some(ApprovalRequest {
         approval_id: format!("apr_{}", event.event_id),
@@ -638,6 +646,13 @@ pub fn approval_request_from_decision(
             ttl_seconds: constraint.ttl_seconds,
             reviewer_hint,
         },
+        presentation: Some(ApprovalRecordPresentation {
+            reviewer_summary: reviewer_summary.clone(),
+            rationale: decision
+                .rationale
+                .clone()
+                .or_else(|| explanation_summary.clone()),
+        }),
         requester_context: Some(RequesterContext {
             agent_reason: decision
                 .rationale

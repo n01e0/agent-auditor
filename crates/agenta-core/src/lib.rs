@@ -397,6 +397,12 @@ pub struct ApprovalDecisionRecord {
     pub outcome: Option<ApprovalStatus>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalRecordPresentation {
+    pub reviewer_summary: Option<String>,
+    pub rationale: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ApprovalRequest {
     pub approval_id: String,
@@ -408,6 +414,8 @@ pub struct ApprovalRequest {
     pub event_id: Option<String>,
     pub request: ApprovalRequestAction,
     pub policy: ApprovalPolicy,
+    #[serde(default)]
+    pub presentation: Option<ApprovalRecordPresentation>,
     pub requester_context: Option<RequesterContext>,
     pub decision: Option<ApprovalDecisionRecord>,
     pub enforcement: Option<EnforcementInfo>,

@@ -305,6 +305,7 @@ mod tests {
                 ttl_seconds: Some(1800),
                 reviewer_hint: Some("security-oncall".to_owned()),
             },
+            presentation: None,
             requester_context: None,
             decision: None,
             enforcement: None,

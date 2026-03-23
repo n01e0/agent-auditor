@@ -17,10 +17,18 @@ pub struct ApprovalDecisionSummary {
 impl ApprovalDecisionSummary {
     pub fn from_request(request: &ApprovalRequest) -> Self {
         Self {
-            action_summary: action_summary_for_request(request),
+            action_summary: request
+                .presentation
+                .as_ref()
+                .and_then(|presentation| presentation.reviewer_summary.clone())
+                .unwrap_or_else(|| action_summary_for_request(request)),
             target_hint: request.request.target.clone(),
             severity: request.policy.severity,
-            policy_reason: request.policy.reason.clone(),
+            policy_reason: request
+                .presentation
+                .as_ref()
+                .and_then(|presentation| presentation.rationale.clone())
+                .or_else(|| request.policy.reason.clone()),
             scope: request.policy.scope,
             ttl_seconds: request.policy.ttl_seconds,
             reviewer_hint: request.policy.reviewer_hint.clone(),
@@ -41,7 +49,11 @@ pub struct ApprovalRationaleCapture {
 impl ApprovalRationaleCapture {
     pub fn from_request(request: &ApprovalRequest) -> Self {
         Self {
-            policy_reason: request.policy.reason.clone(),
+            policy_reason: request
+                .presentation
+                .as_ref()
+                .and_then(|presentation| presentation.rationale.clone())
+                .or_else(|| request.policy.reason.clone()),
             agent_reason: request
                 .requester_context
                 .as_ref()
@@ -469,8 +481,8 @@ fn action_summary_for_request(request: &ApprovalRequest) -> String {
 mod tests {
     use super::*;
     use crate::{
-        ApprovalDecisionRecord, ApprovalPolicy, ApprovalRequestAction, ApprovalStatus,
-        RequesterContext,
+        ApprovalDecisionRecord, ApprovalPolicy, ApprovalRecordPresentation, ApprovalRequestAction,
+        ApprovalStatus, RequesterContext,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -510,6 +522,12 @@ mod tests {
                 ttl_seconds: Some(1800),
                 reviewer_hint: Some("security-oncall".to_owned()),
             },
+            presentation: Some(ApprovalRecordPresentation {
+                reviewer_summary: Some(
+                    "Approval required before expanding incident-room membership".to_owned(),
+                ),
+                rationale: Some("Membership change affects incident communications".to_owned()),
+            }),
             requester_context: Some(RequesterContext {
                 agent_reason: Some("Need to add the incident commander to the thread".to_owned()),
                 human_request: Some("please bring ops into the live incident room".to_owned()),
@@ -529,7 +547,7 @@ mod tests {
 
         assert_eq!(
             summary.action_summary,
-            "Invite a new member into the incident thread"
+            "Approval required before expanding incident-room membership"
         );
         assert_eq!(
             summary.target_hint.as_deref(),
@@ -538,7 +556,7 @@ mod tests {
         assert_eq!(summary.severity, Some(Severity::High));
         assert_eq!(
             summary.policy_reason.as_deref(),
-            Some("Messaging membership expansion requires approval")
+            Some("Membership change affects incident communications")
         );
         assert_eq!(summary.scope, Some(ApprovalScope::SingleAction));
         assert_eq!(summary.ttl_seconds, Some(1800));
@@ -551,7 +569,7 @@ mod tests {
 
         assert_eq!(
             rationale.policy_reason.as_deref(),
-            Some("Messaging membership expansion requires approval")
+            Some("Membership change affects incident communications")
         );
         assert_eq!(
             rationale.agent_reason.as_deref(),
@@ -594,7 +612,7 @@ mod tests {
         );
         assert_eq!(
             queue_item.decision_summary.action_summary,
-            "Invite a new member into the incident thread"
+            "Approval required before expanding incident-room membership"
         );
         assert_eq!(
             queue_item.rationale_capture.outcome,
@@ -606,6 +624,7 @@ mod tests {
     fn queue_item_falls_back_to_verb_and_target_when_summary_is_missing() {
         let mut request = sample_request();
         request.request.summary = None;
+        request.presentation = None;
         request.decision = None;
 
         let queue_item = ApprovalQueueItem::from_request(&request);
