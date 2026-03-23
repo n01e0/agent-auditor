@@ -763,7 +763,7 @@ mod tests {
         assert!(status.actionable);
         assert_eq!(
             status.detail,
-            "Invite a new member into the incident thread"
+            "Approval required before expanding incident-room membership"
         );
     }
 
