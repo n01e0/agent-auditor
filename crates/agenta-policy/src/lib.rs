@@ -1,3 +1,12 @@
+//! Policy evaluation boundary for agent-auditor.
+//!
+//! Current explainability-phase split:
+//! - policy authoring owns the human-writable rule surface
+//! - explanation owns redaction-safe decision output for one evaluated event
+//! - reviewer-facing rationale owns approval/operator wording derived downstream
+//!
+//! See `docs/architecture/policy-authoring-explainability-foundation.md`.
+
 use std::collections::BTreeMap;
 
 use agenta_core::{
