@@ -136,6 +136,7 @@ If the PR cannot state both clearly, it is probably mixing concerns and should b
 ## related docs
 
 - `gap-closing-productization-hardening-foundation.md`
+- `deployment-hardening-minimums.md`
 - `approval-control-plane-ux-foundation.md`
 - `approval-control-plane-ops-hardening.md`
 - `policy-authoring-explainability-foundation.md`
