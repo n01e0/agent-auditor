@@ -1,5 +1,5 @@
 use agent_auditor_hostd::poc::live_proxy::{
-    LiveProxyInterceptionPlan, fixtures::seam_fixture_catalog,
+    LiveProxyInterceptionPlan, fixtures::seam_fixture_catalog, mode::LiveMode,
 };
 
 #[test]
@@ -111,5 +111,70 @@ fn smoke_test_runs_live_proxy_fixture_catalog_through_policy_approval_and_audit_
                 .and_then(|value| value.as_str()),
             Some(fixture.expected_coverage_gap)
         );
+    }
+}
+
+#[test]
+fn smoke_test_keeps_live_preview_hardening_posture_honest_across_fixture_catalog() {
+    let live_proxy = LiveProxyInterceptionPlan::bootstrap();
+
+    for fixture in seam_fixture_catalog() {
+        let evaluation = live_proxy
+            .policy
+            .evaluate_preview_event(fixture.consumer, &fixture.event)
+            .unwrap_or_else(|error| panic!("{} failed policy evaluation: {error}", fixture.name));
+        let approval = live_proxy
+            .approval
+            .project_preview_approval(&evaluation)
+            .unwrap_or_else(|error| panic!("{} failed approval projection: {error}", fixture.name));
+        let reflection = live_proxy
+            .audit
+            .reflect_preview_records(&evaluation, &approval);
+        let summary = reflection.summary();
+
+        assert_eq!(
+            reflection.failure_posture, "fail_open",
+            "{} should stay fail-open until a validated inline path exists",
+            fixture.name
+        );
+        assert!(
+            !summary.contains("fail_closed"),
+            "{} should not advertise fail-closed behavior in live preview summary",
+            fixture.name
+        );
+
+        match fixture.mode {
+            LiveMode::Unsupported => {
+                assert_eq!(
+                    reflection.coverage_support, "unsupported",
+                    "{} should stay marked unsupported",
+                    fixture.name
+                );
+                assert!(
+                    reflection
+                        .coverage_summary
+                        .contains("unsupported live preview path"),
+                    "{} should explain that the path is unsupported",
+                    fixture.name
+                );
+                assert!(
+                    approval.approval_request.is_none(),
+                    "{} should not materialize preview approval state in unsupported mode",
+                    fixture.name
+                );
+            }
+            LiveMode::Shadow | LiveMode::EnforcePreview => {
+                assert_eq!(
+                    reflection.coverage_support, "preview_supported",
+                    "{} should remain within the supported preview contract",
+                    fixture.name
+                );
+                assert!(
+                    reflection.coverage_summary.contains("fail-open"),
+                    "{} should explain that supported preview still remains fail-open",
+                    fixture.name
+                );
+            }
+        }
     }
 }

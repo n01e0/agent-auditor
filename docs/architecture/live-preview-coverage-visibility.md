@@ -140,6 +140,8 @@ This step extends live preview tests so they verify:
 - fixture expectations for `coverage_support`
 - fixture expectations for `coverage_summary`
 - reflected audit-record attributes for those same fields
+- catalog-wide smoke invariants that live preview still stays fail-open and does not mislabel unsupported mode as supported
+- unit-level summary contract checks for the reflected audit surface
 
 ## related docs
 

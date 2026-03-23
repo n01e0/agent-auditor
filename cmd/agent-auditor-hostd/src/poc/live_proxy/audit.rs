@@ -764,6 +764,55 @@ mod tests {
         );
     }
 
+    #[test]
+    fn audit_plan_summary_advertises_failure_posture_and_coverage_visibility_fields() {
+        let summary = LiveProxyInterceptionPlan::bootstrap().audit.summary();
+
+        assert!(summary.contains("failure_posture"));
+        assert!(summary.contains("coverage_support"));
+        assert!(summary.contains("coverage_summary"));
+        assert!(summary.contains("coverage_gap"));
+    }
+
+    #[test]
+    fn reflection_summary_keeps_fail_open_and_unsupported_visibility_explicit() {
+        let live_proxy = LiveProxyInterceptionPlan::bootstrap();
+        let github_live = GitHubLivePreviewAdapterPlan::default();
+        let github_plan = GitHubSemanticGovernancePocPlan::bootstrap();
+        let normalized = live_proxy.policy.annotate_preview_event(
+            LivePreviewConsumer::GitHub,
+            &github_plan.policy.normalize_classified_action(
+                &github_live.preview_actions_secrets_create_or_update(),
+                &placeholder_session(
+                    "openclaw-main",
+                    "sess_live_proxy_summary_github_actions_secrets_create_or_update_preview",
+                ),
+            ),
+            "unsupported",
+            "consumer=github action=actions.secrets.create_or_update target=repos/n01e0/agent-auditor/actions/secrets/DEPLOY_TOKEN",
+        );
+        let evaluation = live_proxy
+            .policy
+            .evaluate_preview_event(LivePreviewConsumer::GitHub, &normalized)
+            .expect("GitHub live preview should evaluate");
+        let approval = live_proxy
+            .approval
+            .project_preview_approval(&evaluation)
+            .expect("deny preview should not need approval");
+        let reflection = live_proxy
+            .audit
+            .reflect_preview_records(&evaluation, &approval);
+        let summary = reflection.summary();
+
+        assert!(summary.contains("failure_posture=fail_open"));
+        assert!(summary.contains("coverage_support=unsupported"));
+        assert!(
+            summary
+                .contains("coverage_gap=unsupported_mode_has_no_supported_live_preview_contract")
+        );
+        assert!(!summary.contains("fail_closed"));
+    }
+
     fn unique_store_dir(name: &str) -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../target")

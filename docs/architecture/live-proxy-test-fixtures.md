@@ -70,6 +70,12 @@ The smoke test then verifies that the reflected record matches the fixture expec
 - wait state
 - coverage gap
 
+It also keeps one catalog-wide hardening invariant explicit:
+
+- every current live preview fixture must remain `fail_open`
+- unsupported mode must stay labeled `unsupported`
+- supported preview modes must stay labeled `preview_supported`
+
 ## Why this matters
 
 Before P13-9, the repository had strong per-module tests, but it did not have one shared fixture catalog that proved the seam still behaved coherently end to end.
