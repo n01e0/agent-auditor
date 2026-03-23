@@ -10,7 +10,7 @@ This note records the current constraints of the repository-wide approval / cont
    - the slice proves a repository-owned contract, not a full operator-facing product
 
 2. **The control-plane slice still depends on upstream preview producers**
-   - queue, status, status explanation, notification, and reconciliation summaries still derive from `ApprovalRequest` and related approval/audit metadata produced upstream
+   - queue, status, status explanation, notification, reconciliation, and audit-export summaries still derive from `ApprovalRequest` and related approval/audit metadata produced upstream
    - the control-plane layer does not independently observe provider activity, classify actions, or re-run policy
    - if upstream redaction-safe approval records change, the control-plane slice must follow that contract
 
@@ -33,36 +33,41 @@ This note records the current constraints of the repository-wide approval / cont
    - there is no background reconciliation worker, retry scheduler, durable checkpoint store, or replay engine yet
    - the repository proves reconciliation vocabulary, not a reconciliation subsystem
 
-7. **`waiting_merge` is explicit vocabulary, not live merge tracking**
+7. **Audit export support stops at projection derivation**
+   - `ApprovalAuditExportRecord` can produce a searchable, redaction-safe export row with approval/session/event/rule linkage
+   - there is no durable audit index, export API, CSV/report generator, or warehouse sync behind that projection yet
+   - the repository proves an export-ready record shape, not a live audit export subsystem
+
+8. **`waiting_merge` is explicit vocabulary, not live merge tracking**
    - `waiting_merge` is now a checked-in control-plane waiting state
    - it does not yet mean the control plane has integrated with real GitHub merge callbacks, workflow completion hooks, or downstream runtime handoff acknowledgements
    - it is still a derived state in the preview contract
 
-8. **Freshness and drift signals are externally supplied heuristics today**
+9. **Freshness and drift signals are externally supplied heuristics today**
    - `ApprovalOpsSignals` carries booleans like `stale`, `audit_record_present`, and `decision_record_present`
    - the repository does not yet fix a universal stale threshold, drift detector, or deployment-wide reconciliation policy
    - deployments or future workers still need to decide how those signals are produced
 
-9. **Reviewer identity and authorization are still shallow**
+10. **Reviewer identity and authorization are still shallow**
    - the current slice can carry reviewer ids and reviewer notes as strings
    - it does not yet prove reviewer authn/authz, policy-controlled reviewer assignment, escalation ownership, or tenant isolation
 
-10. **No live provider resume / cancel / finalize path exists yet**
+11. **No live provider resume / cancel / finalize path exists yet**
     - the control-plane slice can summarize pending review, stale queue state, drift, and `waiting_merge`
     - it does not yet drive live provider resume / cancel callbacks for Slack, Discord, GitHub, GWS, filesystem, process, or other surfaces
     - decisions are still represented as repository-owned records and summaries, not runtime orchestration
 
-11. **There is no dedicated control-plane persistence store yet**
-    - `agent-auditor-controld` does not currently create a queue database, notification outbox, or reconciliation ledger
+12. **There is no dedicated control-plane persistence store yet**
+    - `agent-auditor-controld` does not currently create a queue database, notification outbox, reconciliation ledger, or durable audit export index
     - unlike some hostd PoC slices, there is no control-plane JSONL or local store directory to inspect
     - the control-plane bootstrap is stdout-only today
 
-12. **Smoke coverage is deterministic by design**
-    - `cmd/agent-auditor-controld/tests/control_plane_smoke.rs` validates the bootstrap preview contract for queue, ops-hardening, status, status explanation, notification, and reconciliation lines
-    - `agenta-core` unit tests validate derivation behavior for pending, stale, stale-follow-up, drifted, and `waiting_merge` cases
-    - none of this is evidence of a deployed reviewer workflow, notification service, or reconciliation daemon operating against live approval traffic
+13. **Smoke coverage is deterministic by design**
+    - `cmd/agent-auditor-controld/tests/control_plane_smoke.rs` validates the bootstrap preview contract for queue, ops-hardening, status, status explanation, notification, reconciliation, and audit-export lines
+    - `agenta-core` unit tests validate derivation behavior for pending, stale, stale-follow-up, drifted, `waiting_merge`, and audit-export cases
+    - none of this is evidence of a deployed reviewer workflow, notification service, reconciliation daemon, or live audit export service operating against approval traffic
 
-13. **The slice is still intentionally single-node and single-process in spirit**
+14. **The slice is still intentionally single-node and single-process in spirit**
     - the current checked-in path does not address distributed locking, concurrent reviewers, optimistic concurrency, replication, or HA control-plane coordination
     - those concerns are intentionally postponed rather than implied by the existence of the summary models
 
@@ -71,9 +76,9 @@ This note records the current constraints of the repository-wide approval / cont
 Today’s approval / control-plane UX slice is good for:
 
 - fixing ownership between upstream approval/audit producers and downstream operator-facing summaries
-- proving repository-owned Rust types for queue, summary, status explanation, hardening, notification, and reconciliation concepts
+- proving repository-owned Rust types for queue, summary, status explanation, hardening, notification, reconciliation, and audit-export concepts
 - proving deterministic bootstrap output for the current control-plane vocabulary
-- giving future reviewer inbox, notification, and reconciliation work a stable contract to build on
+- giving future reviewer inbox, notification, reconciliation, and audit-export work a stable contract to build on
 - documenting `waiting_merge` as a first-class control-plane concern rather than hidden runner folklore
 
 It is **not yet** good evidence of:
@@ -82,6 +87,7 @@ It is **not yet** good evidence of:
 - durable control-plane persistence
 - real notification delivery
 - a background reconciliation engine
+- a live audit export/index service
 - live provider resume / cancel workflows
 - reviewer authorization and escalation policy
 - distributed or multi-tenant control-plane behavior
@@ -93,6 +99,7 @@ It is **not yet** good evidence of:
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
 - status explanation: [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md)
+- audit export: [`approval-control-plane-audit-export.md`](approval-control-plane-audit-export.md)
 - local runbook: [`../runbooks/approval-control-plane-ux-local.md`](../runbooks/approval-control-plane-ux-local.md)
 - architecture overview: [`overview.md`](overview.md)
 - hostd enforcement known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)

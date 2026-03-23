@@ -212,5 +212,6 @@ This note does **not** yet add:
 - minimal model: [`approval-control-plane-ux-minimal-model.md`](approval-control-plane-ux-minimal-model.md)
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - status explanation: [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md)
+- audit export: [`approval-control-plane-audit-export.md`](approval-control-plane-audit-export.md)
 - architecture overview: [`overview.md`](overview.md)
 - Rust implementation notes: [`rust-implementation.md`](rust-implementation.md)

@@ -81,6 +81,31 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
         "security-oncall"
     );
 
+    assert!(
+        lines
+            .get("approval_audit_export_model")
+            .expect("audit export model line should exist")
+            .contains("approval_audit_export_record")
+    );
+
+    let pending_review_audit_export: Value = serde_json::from_str(
+        lines
+            .get("approval_audit_export_pending_review")
+            .expect("pending_review audit export line should exist"),
+    )
+    .expect("pending_review audit export json should parse");
+    assert_eq!(pending_review_audit_export["status_kind"], "pending_review");
+    assert_eq!(pending_review_audit_export["status_owner"], "reviewer");
+    assert_eq!(pending_review_audit_export["provider_id"], "discord");
+    assert_eq!(
+        pending_review_audit_export["action_family"],
+        "channel.invite"
+    );
+    assert_eq!(
+        pending_review_audit_export["rule_id"],
+        "messaging.channel_invite.requires_approval"
+    );
+
     let stale_ops: Value = serde_json::from_str(
         lines
             .get("approval_ops_hardening_status_stale")
@@ -130,6 +155,20 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     .expect("stale reconciliation json should parse");
     assert_eq!(stale_reconciliation["state"], "needs_queue_refresh");
 
+    let stale_audit_export: Value = serde_json::from_str(
+        lines
+            .get("approval_audit_export_stale")
+            .expect("stale audit export line should exist"),
+    )
+    .expect("stale audit export json should parse");
+    assert_eq!(stale_audit_export["status_kind"], "stale_queue");
+    assert_eq!(stale_audit_export["status_owner"], "ops");
+    assert_eq!(
+        stale_audit_export["reconciliation_state"],
+        "needs_queue_refresh"
+    );
+    assert!(stale_audit_export.get("reviewer_note").is_none());
+
     let waiting_merge_ops: Value = serde_json::from_str(
         lines
             .get("approval_ops_hardening_status_waiting_merge")
@@ -178,6 +217,19 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     )
     .expect("waiting_merge reconciliation json should parse");
     assert_eq!(waiting_merge_reconciliation["state"], "awaiting_completion");
+
+    let waiting_merge_audit_export: Value = serde_json::from_str(
+        lines
+            .get("approval_audit_export_waiting_merge")
+            .expect("waiting_merge audit export line should exist"),
+    )
+    .expect("waiting_merge audit export json should parse");
+    assert_eq!(waiting_merge_audit_export["status_kind"], "waiting_merge");
+    assert_eq!(waiting_merge_audit_export["status_owner"], "requester");
+    assert_eq!(
+        waiting_merge_audit_export["notification_class"],
+        "waiting_merge_reminder"
+    );
 
     let stale_waiting_merge_ops: Value = serde_json::from_str(
         lines
@@ -240,5 +292,27 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     assert_eq!(
         stale_waiting_merge_reconciliation["state"],
         "needs_downstream_refresh"
+    );
+
+    let stale_waiting_merge_audit_export: Value = serde_json::from_str(
+        lines
+            .get("approval_audit_export_stale_waiting_merge")
+            .expect("stale waiting_merge audit export line should exist"),
+    )
+    .expect("stale waiting_merge audit export json should parse");
+    assert_eq!(
+        stale_waiting_merge_audit_export["status_kind"],
+        "stale_follow_up"
+    );
+    assert_eq!(stale_waiting_merge_audit_export["status_owner"], "ops");
+    assert_eq!(
+        stale_waiting_merge_audit_export["reconciliation_state"],
+        "needs_downstream_refresh"
+    );
+    assert!(
+        stale_waiting_merge_audit_export["explanation_next_step"]
+            .as_str()
+            .expect("stale waiting_merge export next_step should be a string")
+            .contains("Recheck downstream or merge state")
     );
 }

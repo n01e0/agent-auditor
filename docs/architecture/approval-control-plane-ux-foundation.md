@@ -180,6 +180,7 @@ This keeps the next tasks cleaner:
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
 - status explanation: [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md)
+- audit export: [`approval-control-plane-audit-export.md`](approval-control-plane-audit-export.md)
 - messaging / collaboration governance boundary: [`messaging-collaboration-governance-foundation.md`](messaging-collaboration-governance-foundation.md)
 - generic REST / OAuth governance boundary: [`generic-rest-oauth-governance-foundation.md`](generic-rest-oauth-governance-foundation.md)
 - hostd enforcement foundation: [`hostd-enforcement-foundation.md`](hostd-enforcement-foundation.md)
