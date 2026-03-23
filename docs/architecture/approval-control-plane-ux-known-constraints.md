@@ -10,7 +10,7 @@ This note records the current constraints of the repository-wide approval / cont
    - the slice proves a repository-owned contract, not a full operator-facing product
 
 2. **The control-plane slice still depends on upstream preview producers**
-   - queue, status, notification, and reconciliation summaries still derive from `ApprovalRequest` and related approval/audit metadata produced upstream
+   - queue, status, status explanation, notification, and reconciliation summaries still derive from `ApprovalRequest` and related approval/audit metadata produced upstream
    - the control-plane layer does not independently observe provider activity, classify actions, or re-run policy
    - if upstream redaction-safe approval records change, the control-plane slice must follow that contract
 
@@ -20,7 +20,7 @@ This note records the current constraints of the repository-wide approval / cont
    - it is not enough to claim comprehensive coverage across all approval-producing domains
 
 4. **There is no reviewer inbox or decision-taking UI yet**
-   - `ApprovalQueueItem`, `ApprovalDecisionSummary`, and `ApprovalRationaleCapture` define the shape of reviewable work
+   - `ApprovalQueueItem`, `ApprovalDecisionSummary`, `ApprovalRationaleCapture`, and `ApprovalStatusExplanation` define the shape of reviewable work and follow-up context
    - they do not yet come with list/filter/paging UX, approval forms, defer flows, bulk actions, or reviewer routing logic
 
 5. **Notification support stops at summary derivation**
@@ -58,7 +58,7 @@ This note records the current constraints of the repository-wide approval / cont
     - the control-plane bootstrap is stdout-only today
 
 12. **Smoke coverage is deterministic by design**
-    - `cmd/agent-auditor-controld/tests/control_plane_smoke.rs` validates the bootstrap preview contract for queue, ops-hardening, status, notification, and reconciliation lines
+    - `cmd/agent-auditor-controld/tests/control_plane_smoke.rs` validates the bootstrap preview contract for queue, ops-hardening, status, status explanation, notification, and reconciliation lines
     - `agenta-core` unit tests validate derivation behavior for pending, stale, stale-follow-up, drifted, and `waiting_merge` cases
     - none of this is evidence of a deployed reviewer workflow, notification service, or reconciliation daemon operating against live approval traffic
 
@@ -71,7 +71,7 @@ This note records the current constraints of the repository-wide approval / cont
 Today’s approval / control-plane UX slice is good for:
 
 - fixing ownership between upstream approval/audit producers and downstream operator-facing summaries
-- proving repository-owned Rust types for queue, summary, hardening, notification, and reconciliation concepts
+- proving repository-owned Rust types for queue, summary, status explanation, hardening, notification, and reconciliation concepts
 - proving deterministic bootstrap output for the current control-plane vocabulary
 - giving future reviewer inbox, notification, and reconciliation work a stable contract to build on
 - documenting `waiting_merge` as a first-class control-plane concern rather than hidden runner folklore
@@ -92,6 +92,7 @@ It is **not yet** good evidence of:
 - minimal model: [`approval-control-plane-ux-minimal-model.md`](approval-control-plane-ux-minimal-model.md)
 - ops hardening: [`approval-control-plane-ops-hardening.md`](approval-control-plane-ops-hardening.md)
 - status / notification / reconciliation: [`approval-control-plane-status-notification-reconciliation.md`](approval-control-plane-status-notification-reconciliation.md)
+- status explanation: [`approval-control-plane-status-explanation.md`](approval-control-plane-status-explanation.md)
 - local runbook: [`../runbooks/approval-control-plane-ux-local.md`](../runbooks/approval-control-plane-ux-local.md)
 - architecture overview: [`overview.md`](overview.md)
 - hostd enforcement known constraints: [`hostd-enforcement-known-constraints.md`](hostd-enforcement-known-constraints.md)

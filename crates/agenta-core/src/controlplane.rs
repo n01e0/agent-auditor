@@ -6,6 +6,7 @@ use crate::{ActionClass, ApprovalRequest, ApprovalScope, ApprovalStatus, JsonMap
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalDecisionSummary {
     pub action_summary: String,
+    pub rule_id: String,
     pub target_hint: Option<String>,
     pub severity: Option<Severity>,
     pub policy_reason: Option<String>,
@@ -22,6 +23,7 @@ impl ApprovalDecisionSummary {
                 .as_ref()
                 .and_then(|presentation| presentation.reviewer_summary.clone())
                 .unwrap_or_else(|| action_summary_for_request(request)),
+            rule_id: request.policy.rule_id.clone(),
             target_hint: request.request.target.clone(),
             severity: request.policy.severity,
             policy_reason: request
@@ -262,6 +264,26 @@ pub struct ApprovalStatusSummary {
     pub actionable: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalStatusOwner {
+    Reviewer,
+    Ops,
+    Requester,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalStatusExplanation {
+    pub owner: ApprovalStatusOwner,
+    pub summary: String,
+    pub next_step: String,
+    pub rule_id: String,
+    pub policy_reason: Option<String>,
+    pub reviewer_hint: Option<String>,
+    pub requester_context: Option<String>,
+}
+
 impl ApprovalStatusSummary {
     pub fn derive(queue_item: &ApprovalQueueItem, ops_status: &ApprovalOpsHardeningStatus) -> Self {
         match ops_status.drift {
@@ -372,6 +394,88 @@ impl ApprovalStatusSummary {
                         actionable: false,
                     },
                 },
+            },
+        }
+    }
+}
+
+impl ApprovalStatusExplanation {
+    pub fn derive(
+        queue_item: &ApprovalQueueItem,
+        ops_status: &ApprovalOpsHardeningStatus,
+        status: &ApprovalStatusSummary,
+    ) -> Self {
+        let requester_context = requester_context_for_queue_item(queue_item);
+
+        match status.kind {
+            ApprovalStatusKind::PendingReview => Self {
+                owner: ApprovalStatusOwner::Reviewer,
+                summary: format!(
+                    "{} is pending reviewer decision for {}",
+                    queue_item.approval_id, queue_item.decision_summary.action_summary
+                ),
+                next_step: next_step_for_pending_review(queue_item),
+                rule_id: queue_item.decision_summary.rule_id.clone(),
+                policy_reason: queue_item.decision_summary.policy_reason.clone(),
+                reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+                requester_context,
+            },
+            ApprovalStatusKind::StaleQueue => Self {
+                owner: ApprovalStatusOwner::Ops,
+                summary: format!(
+                    "{} no longer looks fresh enough for reviewer action",
+                    queue_item.approval_id
+                ),
+                next_step: "Refresh the queue projection from append-only approval inputs before asking a reviewer to act".to_owned(),
+                rule_id: queue_item.decision_summary.rule_id.clone(),
+                policy_reason: queue_item.decision_summary.policy_reason.clone(),
+                reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+                requester_context,
+            },
+            ApprovalStatusKind::StaleFollowUp => Self {
+                owner: ApprovalStatusOwner::Ops,
+                summary: status.detail.clone(),
+                next_step: "Recheck downstream or merge state, then either record completion or refresh the control-plane view".to_owned(),
+                rule_id: queue_item.decision_summary.rule_id.clone(),
+                policy_reason: queue_item.decision_summary.policy_reason.clone(),
+                reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+                requester_context,
+            },
+            ApprovalStatusKind::Drifted => Self {
+                owner: ApprovalStatusOwner::Ops,
+                summary: status.detail.clone(),
+                next_step: next_step_for_drift(ops_status),
+                rule_id: queue_item.decision_summary.rule_id.clone(),
+                policy_reason: queue_item.decision_summary.policy_reason.clone(),
+                reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+                requester_context,
+            },
+            ApprovalStatusKind::WaitingDownstream => Self {
+                owner: ApprovalStatusOwner::Requester,
+                summary: status.detail.clone(),
+                next_step: "Wait for downstream completion; escalate to ops only if the follow-up becomes stale".to_owned(),
+                rule_id: queue_item.decision_summary.rule_id.clone(),
+                policy_reason: queue_item.decision_summary.policy_reason.clone(),
+                reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+                requester_context,
+            },
+            ApprovalStatusKind::WaitingMerge => Self {
+                owner: ApprovalStatusOwner::Requester,
+                summary: status.detail.clone(),
+                next_step: "Wait for merge-like completion; escalate to ops only if the follow-up becomes stale".to_owned(),
+                rule_id: queue_item.decision_summary.rule_id.clone(),
+                policy_reason: queue_item.decision_summary.policy_reason.clone(),
+                reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+                requester_context,
+            },
+            ApprovalStatusKind::Resolved => Self {
+                owner: ApprovalStatusOwner::None,
+                summary: status.detail.clone(),
+                next_step: "No reviewer or operator action is currently required".to_owned(),
+                rule_id: queue_item.decision_summary.rule_id.clone(),
+                policy_reason: queue_item.decision_summary.policy_reason.clone(),
+                reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+                requester_context,
             },
         }
     }
@@ -515,6 +619,63 @@ impl ApprovalReconciliationSummary {
     }
 }
 
+fn next_step_for_pending_review(queue_item: &ApprovalQueueItem) -> String {
+    match (
+        queue_item.decision_summary.reviewer_hint.as_deref(),
+        queue_item.expires_at,
+    ) {
+        (Some(reviewer_hint), Some(expires_at)) => format!(
+            "{} should review this request before {}",
+            reviewer_hint,
+            expires_at.to_rfc3339()
+        ),
+        (Some(reviewer_hint), None) => {
+            format!("{} should review this request next", reviewer_hint)
+        }
+        (None, Some(expires_at)) => format!(
+            "A reviewer should decide whether to allow or deny this request before {}",
+            expires_at.to_rfc3339()
+        ),
+        (None, None) => {
+            "A reviewer should decide whether to allow or deny this request next".to_owned()
+        }
+    }
+}
+
+fn next_step_for_drift(ops_status: &ApprovalOpsHardeningStatus) -> String {
+    match ops_status.drift {
+        ApprovalQueueDrift::MissingAuditRecord => {
+            "Replay the queue item from durable audit records before trusting the current status"
+                .to_owned()
+        }
+        ApprovalQueueDrift::MissingDecisionRecord => {
+            "Rebuild the missing decision record from durable approval data before continuing follow-up"
+                .to_owned()
+        }
+        ApprovalQueueDrift::MissingDownstreamCompletion => {
+            "Recheck downstream state before assuming this approval is still incomplete".to_owned()
+        }
+        ApprovalQueueDrift::InSync => {
+            "No drift recovery is required from the current control-plane view".to_owned()
+        }
+    }
+}
+
+fn requester_context_for_queue_item(queue_item: &ApprovalQueueItem) -> Option<String> {
+    match (
+        queue_item.rationale_capture.human_request.as_deref(),
+        queue_item.rationale_capture.agent_reason.as_deref(),
+    ) {
+        (Some(human_request), Some(agent_reason)) => Some(format!(
+            "Human request: {}; agent reason: {}",
+            human_request, agent_reason
+        )),
+        (Some(human_request), None) => Some(format!("Human request: {}", human_request)),
+        (None, Some(agent_reason)) => Some(format!("Agent reason: {}", agent_reason)),
+        (None, None) => None,
+    }
+}
+
 fn action_summary_for_request(request: &ApprovalRequest) -> String {
     request
         .request
@@ -603,6 +764,10 @@ mod tests {
             "Approval required before expanding incident-room membership"
         );
         assert_eq!(
+            summary.rule_id,
+            "messaging.channel_invite.requires_approval"
+        );
+        assert_eq!(
             summary.target_hint.as_deref(),
             Some("discord://server/ops/thread/incident-room")
         );
@@ -666,6 +831,10 @@ mod tests {
         assert_eq!(
             queue_item.decision_summary.action_summary,
             "Approval required before expanding incident-room membership"
+        );
+        assert_eq!(
+            queue_item.decision_summary.rule_id,
+            "messaging.channel_invite.requires_approval"
         );
         assert_eq!(
             queue_item.rationale_capture.outcome,
@@ -850,6 +1019,49 @@ mod tests {
     }
 
     #[test]
+    fn status_explanation_tracks_reviewer_owned_pending_review() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Pending;
+        request.decision = None;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: false,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+        let explanation = ApprovalStatusExplanation::derive(&queue_item, &ops_status, &status);
+
+        assert_eq!(explanation.owner, ApprovalStatusOwner::Reviewer);
+        assert_eq!(
+            explanation.rule_id,
+            "messaging.channel_invite.requires_approval"
+        );
+        assert_eq!(
+            explanation.policy_reason.as_deref(),
+            Some("Membership change affects incident communications")
+        );
+        assert_eq!(
+            explanation.reviewer_hint.as_deref(),
+            Some("security-oncall")
+        );
+        assert!(
+            explanation
+                .requester_context
+                .as_deref()
+                .expect("requester context should exist")
+                .contains("please bring ops into the live incident room")
+        );
+        assert!(explanation.next_step.contains("security-oncall"));
+    }
+
+    #[test]
     fn notification_summary_prioritizes_drift_alerts_for_ops() {
         let mut request = sample_request();
         request.status = ApprovalStatus::Pending;
@@ -975,6 +1187,34 @@ mod tests {
     }
 
     #[test]
+    fn waiting_merge_explanation_marks_requester_owned_follow_up() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let ops_status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+        let status = ApprovalStatusSummary::derive(&queue_item, &ops_status);
+        let explanation = ApprovalStatusExplanation::derive(&queue_item, &ops_status, &status);
+
+        assert_eq!(explanation.owner, ApprovalStatusOwner::Requester);
+        assert!(
+            explanation
+                .summary
+                .contains("waiting for merge-like completion")
+        );
+        assert!(explanation.next_step.contains("merge-like completion"));
+    }
+
+    #[test]
     fn stale_follow_up_routes_ops_alert_and_recheck_guidance() {
         let mut request = sample_request();
         request.status = ApprovalStatus::Approved;
@@ -1005,5 +1245,13 @@ mod tests {
             ApprovalReconciliationState::NeedsDownstreamRefresh
         );
         assert!(reconciliation.note.contains("should be rechecked"));
+
+        let explanation = ApprovalStatusExplanation::derive(&queue_item, &ops_status, &status);
+        assert_eq!(explanation.owner, ApprovalStatusOwner::Ops);
+        assert!(
+            explanation
+                .next_step
+                .contains("Recheck downstream or merge state")
+        );
     }
 }

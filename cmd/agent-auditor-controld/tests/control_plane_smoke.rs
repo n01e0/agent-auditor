@@ -35,6 +35,10 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
         queue_item["decision_summary"]["action_summary"],
         "Approval required before expanding incident-room membership"
     );
+    assert_eq!(
+        queue_item["decision_summary"]["rule_id"],
+        "messaging.channel_invite.requires_approval"
+    );
 
     let rationale_capture: Value = serde_json::from_str(
         lines
@@ -50,7 +54,32 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     assert!(lines
         .get("approval_control_plane_surface_model")
         .expect("surface model line should exist")
-        .contains("approval_status_summary,approval_notification_summary,approval_reconciliation_summary"));
+        .contains("approval_status_summary,approval_status_explanation,approval_notification_summary,approval_reconciliation_summary"));
+
+    let pending_review_status: Value = serde_json::from_str(
+        lines
+            .get("approval_status_summary_pending_review")
+            .expect("pending_review status summary line should exist"),
+    )
+    .expect("pending_review status summary json should parse");
+    assert_eq!(pending_review_status["kind"], "pending_review");
+    assert_eq!(pending_review_status["actionable"], true);
+
+    let pending_review_explanation: Value = serde_json::from_str(
+        lines
+            .get("approval_status_explanation_pending_review")
+            .expect("pending_review status explanation line should exist"),
+    )
+    .expect("pending_review status explanation json should parse");
+    assert_eq!(pending_review_explanation["owner"], "reviewer");
+    assert_eq!(
+        pending_review_explanation["rule_id"],
+        "messaging.channel_invite.requires_approval"
+    );
+    assert_eq!(
+        pending_review_explanation["reviewer_hint"],
+        "security-oncall"
+    );
 
     let stale_ops: Value = serde_json::from_str(
         lines
@@ -71,6 +100,18 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     .expect("stale status summary json should parse");
     assert_eq!(stale_status["kind"], "stale_queue");
     assert_eq!(stale_status["actionable"], false);
+
+    let stale_explanation: Value = serde_json::from_str(
+        lines
+            .get("approval_status_explanation_stale")
+            .expect("stale explanation line should exist"),
+    )
+    .expect("stale explanation json should parse");
+    assert_eq!(stale_explanation["owner"], "ops");
+    assert_eq!(
+        stale_explanation["next_step"],
+        "Refresh the queue projection from append-only approval inputs before asking a reviewer to act"
+    );
 
     let stale_notification: Value = serde_json::from_str(
         lines
@@ -105,6 +146,18 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     )
     .expect("waiting_merge status summary json should parse");
     assert_eq!(waiting_merge_status["kind"], "waiting_merge");
+
+    let waiting_merge_explanation: Value = serde_json::from_str(
+        lines
+            .get("approval_status_explanation_waiting_merge")
+            .expect("waiting_merge explanation line should exist"),
+    )
+    .expect("waiting_merge explanation json should parse");
+    assert_eq!(waiting_merge_explanation["owner"], "requester");
+    assert_eq!(
+        waiting_merge_explanation["reviewer_hint"],
+        "security-oncall"
+    );
 
     let waiting_merge_notification: Value = serde_json::from_str(
         lines
@@ -151,6 +204,20 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     .expect("stale waiting_merge status summary json should parse");
     assert_eq!(stale_waiting_merge_status["kind"], "stale_follow_up");
     assert_eq!(stale_waiting_merge_status["actionable"], false);
+
+    let stale_waiting_merge_explanation: Value = serde_json::from_str(
+        lines
+            .get("approval_status_explanation_stale_waiting_merge")
+            .expect("stale waiting_merge explanation line should exist"),
+    )
+    .expect("stale waiting_merge explanation json should parse");
+    assert_eq!(stale_waiting_merge_explanation["owner"], "ops");
+    assert!(
+        stale_waiting_merge_explanation["next_step"]
+            .as_str()
+            .expect("stale waiting_merge next_step should be a string")
+            .contains("Recheck downstream or merge state")
+    );
 
     let stale_waiting_merge_notification: Value = serde_json::from_str(
         lines
