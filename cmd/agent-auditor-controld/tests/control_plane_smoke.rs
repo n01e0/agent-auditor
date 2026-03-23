@@ -25,6 +25,28 @@ fn controld_lines() -> BTreeMap<String, String> {
 fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliation() {
     let lines = controld_lines();
 
+    let queue_item: Value = serde_json::from_str(
+        lines
+            .get("approval_queue_item")
+            .expect("approval queue item line should exist"),
+    )
+    .expect("approval queue item json should parse");
+    assert_eq!(
+        queue_item["decision_summary"]["action_summary"],
+        "Approval required before expanding incident-room membership"
+    );
+
+    let rationale_capture: Value = serde_json::from_str(
+        lines
+            .get("approval_rationale_capture")
+            .expect("approval rationale capture line should exist"),
+    )
+    .expect("approval rationale capture json should parse");
+    assert_eq!(
+        rationale_capture["policy_reason"],
+        "Membership change affects incident communications"
+    );
+
     assert!(lines
         .get("approval_control_plane_surface_model")
         .expect("surface model line should exist")

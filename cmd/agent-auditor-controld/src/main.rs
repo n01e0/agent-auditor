@@ -1,6 +1,7 @@
 use agenta_core::{
-    Action, ActionClass, Actor, ActorKind, ApprovalDecisionRecord, ApprovalPolicy, ApprovalRequest,
-    ApprovalRequestAction, ApprovalScope, ApprovalStatus, RequesterContext, SessionRef, Severity,
+    Action, ActionClass, Actor, ActorKind, ApprovalDecisionRecord, ApprovalPolicy,
+    ApprovalRecordPresentation, ApprovalRequest, ApprovalRequestAction, ApprovalScope,
+    ApprovalStatus, RequesterContext, SessionRef, Severity,
     controlplane::{
         ApprovalNotificationSummary, ApprovalOpsHardeningStatus, ApprovalOpsSignals,
         ApprovalQueueItem, ApprovalReconciliationSummary, ApprovalStatusSummary,
@@ -76,7 +77,12 @@ fn main() {
             ttl_seconds: Some(1800),
             reviewer_hint: Some("security-oncall".to_owned()),
         },
-        presentation: None,
+        presentation: Some(ApprovalRecordPresentation {
+            reviewer_summary: Some(
+                "Approval required before expanding incident-room membership".to_owned(),
+            ),
+            rationale: Some("Membership change affects incident communications".to_owned()),
+        }),
         requester_context: Some(RequesterContext {
             agent_reason: Some("Need to add the incident commander to the thread".to_owned()),
             human_request: Some("please bring ops into the live incident room".to_owned()),
