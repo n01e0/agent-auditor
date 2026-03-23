@@ -7,7 +7,7 @@
 //!
 //! See `docs/architecture/policy-authoring-explainability-foundation.md`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use agenta_core::{
     Action, Actor, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction, ApprovalStatus,
@@ -45,6 +45,101 @@ const MESSAGING_ACTION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/messaging_action.rego");
 const GITHUB_ACTION_POLICY_MODULE: &str =
     include_str!("../../../examples/policies/github_action.rego");
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyAuthoringPosture {
+    Allow,
+    RequireApproval,
+    Deny,
+    Hold,
+}
+
+impl PolicyAuthoringPosture {
+    pub fn decision_kind(&self) -> Option<PolicyDecisionKind> {
+        match self {
+            Self::Allow => Some(PolicyDecisionKind::Allow),
+            Self::RequireApproval => Some(PolicyDecisionKind::RequireApproval),
+            Self::Deny => Some(PolicyDecisionKind::Deny),
+            Self::Hold => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PolicyAuthoringRule {
+    pub id: String,
+    pub summary: String,
+    #[serde(
+        default,
+        alias = "provider",
+        alias = "provider_id",
+        deserialize_with = "deserialize_provider_ids",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub providers: Vec<ProviderId>,
+    #[serde(
+        default,
+        alias = "action",
+        alias = "action_key",
+        deserialize_with = "deserialize_action_keys",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub actions: Vec<ActionKey>,
+    pub posture: PolicyAuthoringPosture,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewer_hint: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct PolicyAuthoringCatalog {
+    #[serde(default)]
+    pub rules: Vec<PolicyAuthoringRule>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+enum OneOrMany<T> {
+    One(T),
+    Many(Vec<T>),
+}
+
+fn normalize_list<T>(items: Vec<T>) -> Vec<T>
+where
+    T: Ord,
+{
+    items
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn deserialize_provider_ids<'de, D>(deserializer: D) -> Result<Vec<ProviderId>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = OneOrMany::<ProviderId>::deserialize(deserializer)?;
+    let items = match raw {
+        OneOrMany::One(item) => vec![item],
+        OneOrMany::Many(items) => items,
+    };
+    Ok(normalize_list(items))
+}
+
+fn deserialize_action_keys<'de, D>(deserializer: D) -> Result<Vec<ActionKey>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = OneOrMany::<ActionKey>::deserialize(deserializer)?;
+    let items = match raw {
+        OneOrMany::One(item) => vec![item],
+        OneOrMany::Many(items) => items,
+    };
+    Ok(normalize_list(items))
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PolicyCoverageContext {
@@ -570,6 +665,76 @@ mod tests {
         provider::{ProviderActionId, ProviderSemanticAction},
     };
     use serde_json::json;
+
+    #[test]
+    fn policy_authoring_rule_accepts_singular_provider_action_fields() {
+        let rule: PolicyAuthoringRule = serde_json::from_value(json!({
+            "id": "gmail-send-requires-approval",
+            "summary": "Require approval before sending Gmail messages",
+            "provider": "gws",
+            "action": "gmail.users.messages.send",
+            "posture": "require_approval"
+        }))
+        .expect("authoring rule should deserialize");
+
+        assert_eq!(rule.providers, vec![ProviderId::gws()]);
+        assert_eq!(
+            rule.actions,
+            vec![ActionKey::new("gmail.users.messages.send").unwrap()]
+        );
+        assert_eq!(rule.posture, PolicyAuthoringPosture::RequireApproval);
+        assert_eq!(
+            rule.posture.decision_kind(),
+            Some(PolicyDecisionKind::RequireApproval)
+        );
+    }
+
+    #[test]
+    fn policy_authoring_rule_normalizes_plural_provider_action_lists() {
+        let rule: PolicyAuthoringRule = serde_json::from_value(json!({
+            "id": "github-high-risk-writes",
+            "summary": "Block selected GitHub write operations",
+            "providers": ["github", "github"],
+            "actions": [
+                "pull_requests.merge",
+                "branch_protection.update",
+                "pull_requests.merge"
+            ],
+            "posture": "deny",
+            "labels": ["repo-admin"]
+        }))
+        .expect("authoring rule should deserialize");
+
+        assert_eq!(rule.providers, vec![ProviderId::github()]);
+        assert_eq!(
+            rule.actions,
+            vec![
+                ActionKey::new("branch_protection.update").unwrap(),
+                ActionKey::new("pull_requests.merge").unwrap()
+            ]
+        );
+        assert_eq!(rule.posture, PolicyAuthoringPosture::Deny);
+    }
+
+    #[test]
+    fn policy_authoring_posture_preserves_hold_without_policy_decision_mapping() {
+        let rule: PolicyAuthoringRule = serde_json::from_value(json!({
+            "id": "suspend-external-send",
+            "summary": "Hold outbound mail for review",
+            "provider": "gws",
+            "action": "gmail.users.messages.send",
+            "posture": "hold",
+            "reviewer_hint": "Verify business justification"
+        }))
+        .expect("authoring rule should deserialize");
+
+        assert_eq!(rule.posture, PolicyAuthoringPosture::Hold);
+        assert_eq!(rule.posture.decision_kind(), None);
+        assert_eq!(
+            rule.reviewer_hint.as_deref(),
+            Some("Verify business justification")
+        );
+    }
 
     #[test]
     fn policy_input_new_sets_stable_defaults() {
