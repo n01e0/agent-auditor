@@ -2,6 +2,8 @@
 
 Linux-first agent execution security / governance for autonomous agents.
 
+日本語版: [`README_ja.md`](README_ja.md)
+
 `agent-auditor` is a Rust workspace for observing, classifying, auditing, and gradually governing what permissioned agents do on a Linux host and across provider APIs. The project currently covers runtime activity, provider semantic actions, approval/audit flows, and productization hardening in a proof-of-concept / pre-product form.
 
 ## Status
