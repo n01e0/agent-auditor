@@ -1,72 +1,216 @@
 # agent-auditor
 
-Agent execution security / governance for Linux-hosted autonomous agents.
+Linux-first agent execution security / governance for autonomous agents.
 
-## Current status
+日本語版: [`README_ja.md`](README_ja.md)
 
-This repository currently contains the initial product framing and core design contracts.
+`agent-auditor` is a Rust workspace for observing, classifying, auditing, and gradually governing what permissioned agents do on a Linux host and across provider APIs. The project currently covers runtime activity, provider semantic actions, approval/audit flows, and productization hardening in a proof-of-concept / pre-product form.
 
-- PRD: [`docs/PRD.md`](docs/PRD.md)
-- Architecture overview: [`docs/architecture/overview.md`](docs/architecture/overview.md)
-- Coverage matrix: [`docs/architecture/coverage-matrix.md`](docs/architecture/coverage-matrix.md)
-- Rust implementation direction: [`docs/architecture/rust-implementation.md`](docs/architecture/rust-implementation.md)
-- hostd exec/exit PoC boundary: [`docs/architecture/hostd-exec-exit-poc.md`](docs/architecture/hostd-exec-exit-poc.md)
-- hostd filesystem PoC boundary: [`docs/architecture/hostd-filesystem-poc.md`](docs/architecture/hostd-filesystem-poc.md)
-- hostd network PoC boundary: [`docs/architecture/hostd-network-poc.md`](docs/architecture/hostd-network-poc.md)
-- hostd secret access MVP boundary: [`docs/architecture/hostd-secret-access-poc.md`](docs/architecture/hostd-secret-access-poc.md)
-- hostd enforcement foundation boundary: [`docs/architecture/hostd-enforcement-foundation.md`](docs/architecture/hostd-enforcement-foundation.md)
-- hostd enforcement local runbook: [`docs/runbooks/hostd-enforcement-foundation-local.md`](docs/runbooks/hostd-enforcement-foundation-local.md)
-- hostd enforcement known constraints: [`docs/architecture/hostd-enforcement-known-constraints.md`](docs/architecture/hostd-enforcement-known-constraints.md)
-- generic REST / OAuth governance boundary: [`docs/architecture/generic-rest-oauth-governance-foundation.md`](docs/architecture/generic-rest-oauth-governance-foundation.md)
-- generic REST / OAuth governance local runbook: [`docs/runbooks/generic-rest-oauth-governance-local.md`](docs/runbooks/generic-rest-oauth-governance-local.md)
-- generic REST / OAuth governance known constraints: [`docs/architecture/generic-rest-oauth-governance-known-constraints.md`](docs/architecture/generic-rest-oauth-governance-known-constraints.md)
-- messaging / collaboration governance boundary: [`docs/architecture/messaging-collaboration-governance-foundation.md`](docs/architecture/messaging-collaboration-governance-foundation.md)
-- messaging / collaboration action catalog: [`docs/architecture/messaging-collaboration-action-catalog.md`](docs/architecture/messaging-collaboration-action-catalog.md)
-- policy authoring / explainability phase boundary: [`docs/architecture/policy-authoring-explainability-foundation.md`](docs/architecture/policy-authoring-explainability-foundation.md)
-- policy authoring model v1: [`docs/architecture/policy-authoring-model-v1.md`](docs/architecture/policy-authoring-model-v1.md)
-- policy explanation schema v1: [`docs/architecture/policy-explanation-schema-v1.md`](docs/architecture/policy-explanation-schema-v1.md)
-- policy authoring / explainability known constraints: [`docs/architecture/policy-authoring-explainability-known-constraints.md`](docs/architecture/policy-authoring-explainability-known-constraints.md)
-- policy authoring / explainability local runbook: [`docs/runbooks/policy-authoring-explainability-local.md`](docs/runbooks/policy-authoring-explainability-local.md)
-- gap-closing phase boundary: [`docs/architecture/gap-closing-productization-hardening-foundation.md`](docs/architecture/gap-closing-productization-hardening-foundation.md)
-- gap-closing gap matrix: [`docs/architecture/gap-closing-gap-matrix.md`](docs/architecture/gap-closing-gap-matrix.md)
-- approval / control-plane status explanation: [`docs/architecture/approval-control-plane-status-explanation.md`](docs/architecture/approval-control-plane-status-explanation.md)
-- approval / control-plane audit export: [`docs/architecture/approval-control-plane-audit-export.md`](docs/architecture/approval-control-plane-audit-export.md)
-- deployment hardening minimums: [`docs/architecture/deployment-hardening-minimums.md`](docs/architecture/deployment-hardening-minimums.md)
-- hostd process deny / hold PoC boundary: [`docs/architecture/hostd-process-enforcement-poc.md`](docs/architecture/hostd-process-enforcement-poc.md)
-- initial fail-open / fail-closed policy: [`docs/architecture/failure-behavior.md`](docs/architecture/failure-behavior.md)
-- live preview coverage / failure visibility: [`docs/architecture/live-preview-coverage-visibility.md`](docs/architecture/live-preview-coverage-visibility.md)
-- hostd network domain attribution: [`docs/architecture/hostd-network-domain-attribution.md`](docs/architecture/hostd-network-domain-attribution.md)
-- hostd network PoC known constraints: [`docs/architecture/hostd-network-known-constraints.md`](docs/architecture/hostd-network-known-constraints.md)
-- hostd filesystem PoC known constraints: [`docs/architecture/hostd-filesystem-known-constraints.md`](docs/architecture/hostd-filesystem-known-constraints.md)
-- hostd secret access PoC known constraints: [`docs/architecture/hostd-secret-access-known-constraints.md`](docs/architecture/hostd-secret-access-known-constraints.md)
-- hostd exec/exit PoC local runbook: [`docs/runbooks/hostd-exec-exit-poc-local.md`](docs/runbooks/hostd-exec-exit-poc-local.md)
-- hostd filesystem PoC local runbook: [`docs/runbooks/hostd-filesystem-poc-local.md`](docs/runbooks/hostd-filesystem-poc-local.md)
-- hostd network PoC local runbook: [`docs/runbooks/hostd-network-poc-local.md`](docs/runbooks/hostd-network-poc-local.md)
-- hostd secret access PoC local runbook: [`docs/runbooks/hostd-secret-access-poc-local.md`](docs/runbooks/hostd-secret-access-poc-local.md)
-- Event schema: [`docs/schemas/event-envelope.schema.json`](docs/schemas/event-envelope.schema.json)
-- Session schema: [`docs/schemas/session.schema.json`](docs/schemas/session.schema.json)
-- Approval request schema: [`docs/schemas/approval-request.schema.json`](docs/schemas/approval-request.schema.json)
-- Policy decision schema: [`docs/schemas/policy-decision.schema.json`](docs/schemas/policy-decision.schema.json)
-- Rego contract: [`docs/policies/rego-contract.md`](docs/policies/rego-contract.md)
-- Example policy: [`examples/policies/sensitive_fs.rego`](examples/policies/sensitive_fs.rego)
+## Status
 
-## Product direction
+This repository is **active but not production-ready**.
 
-- Linux-first
-- Container-first (Docker / Kubernetes / Podman)
-- Runtime monitoring via eBPF + fanotify
-- Browser / Google Workspace governance after filesystem and process coverage
-- Policy engine based on OPA / Rego
-- microVM support deferred until after the initial container-focused release
+What already exists:
 
-## Workspace bootstrap
+- process exec/exit observation PoC
+- filesystem governance PoC
+- network destination governance PoC
+- secret access modeling and approval/audit path
+- enforcement preview paths for deny / hold / approval semantics
+- Google Workspace semantic action modeling
+- GitHub semantic action modeling
+- generic REST / OAuth governance foundation
+- messaging / collaboration governance foundation
+- policy authoring / explainability foundation
+- productization / hardening groundwork
 
-The repository now includes an initial Rust workspace:
+What is still missing:
 
-- `crates/agenta-core` — shared domain models for sessions, events, approvals, and policy decisions
-- `crates/agenta-policy` — policy input models and evaluation boundary
-- `cmd/agent-auditor-hostd` — host-side collector / enforcement daemon bootstrap
-- `cmd/agent-auditor-controld` — control-plane bootstrap
-- `cmd/agent-auditor-cli` — operator CLI bootstrap
+- production-grade inline interception
+- polished control plane / UI
+- stable deployment packaging
+- long-term compatibility guarantees
+- end-to-end integration with external runtimes at production confidence
 
-Current goal: keep the type system and process boundaries stable before deeper `aya` / fanotify implementation starts.
+## Repository layout
+
+```text
+agent-auditor/
+  cmd/                binaries
+  crates/             shared Rust crates
+  docs/               architecture, schemas, runbooks, roadmaps
+  examples/policies/  sample Rego policy fragments
+  deploy/             deployment notes (still minimal)
+```
+
+## Binaries
+
+Current workspace binaries:
+
+- `agent-auditor-hostd` — host-side collector / enforcement preview daemon
+- `agent-auditor-hostd-ebpf` — embedded eBPF object builder for the hostd PoC
+- `agent-auditor-controld` — control-plane preview binary
+- `agent-auditor-cli` — local diagnostics / admin preview binary
+
+## Installation
+
+Right now, installation is developer-oriented.
+
+### Prerequisites
+
+- Linux
+- Rust toolchain (workspace currently targets edition 2024; see `Cargo.toml`)
+- standard C/Rust build environment suitable for local Rust development
+
+### Clone
+
+```bash
+git clone git@github.com:n01e0/agent-auditor
+cd agent-auditor
+```
+
+### Build
+
+```bash
+cargo build
+```
+
+### Validate the workspace
+
+```bash
+cargo fmt --all --check
+cargo check --workspace --all-targets
+cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
+```
+
+## Quick start
+
+The easiest current entrypoint is the host daemon preview:
+
+```bash
+cargo run -p agent-auditor-hostd
+```
+
+This does **not** yet mean "start a production daemon on a live host". In the current repository state it runs the checked-in preview/bootstrap path described in the runbooks.
+
+Other preview entrypoints:
+
+```bash
+cargo run -p agent-auditor-controld
+cargo run -p agent-auditor-cli
+```
+
+## Usage guide
+
+Because the project is still phase-driven, the most useful way to use it today is:
+
+1. read the architecture overview
+2. choose the capability area you want to inspect
+3. use the matching runbook to reproduce the current PoC locally
+4. run the focused tests for that area
+
+Recommended order:
+
+1. [`docs/README.md`](docs/README.md)
+2. [`docs/architecture/overview.md`](docs/architecture/overview.md)
+3. relevant runbook under [`docs/runbooks/`](docs/runbooks/README.md)
+4. related architecture notes under [`docs/architecture/`](docs/architecture/README.md)
+
+## Configuration
+
+There is **not yet** a single stable end-user configuration file.
+
+Current configuration surfaces are split across:
+
+- policy examples in [`examples/policies/`](examples/policies)
+- schema contracts in [`docs/schemas/`](docs/schemas)
+- policy/evaluation contracts in [`docs/policies/`](docs/policies)
+- architecture docs describing current mode semantics and constraints
+
+In practice, today you should think of configuration as three layers:
+
+### 1. Policy layer
+
+Sample Rego fragments live in:
+
+- `examples/policies/sensitive_fs.rego`
+- `examples/policies/process_exec.rego`
+- `examples/policies/network_destination.rego`
+- `examples/policies/secret_access.rego`
+- `examples/policies/gws_action.rego`
+- `examples/policies/github_action.rego`
+- `examples/policies/generic_rest_action.rego`
+- `examples/policies/messaging_action.rego`
+
+### 2. Event / decision schema layer
+
+Contracts live in:
+
+- `docs/schemas/event-envelope.schema.json`
+- `docs/schemas/session.schema.json`
+- `docs/schemas/approval-request.schema.json`
+- `docs/schemas/policy-decision.schema.json`
+
+### 3. Behavior / mode semantics layer
+
+Current mode, coverage, and known-constraint documentation lives under:
+
+- `docs/architecture/`
+- `docs/runbooks/`
+
+## Documentation map
+
+Start here:
+
+- docs index: [`docs/README.md`](docs/README.md)
+
+Key entrypoints:
+
+- product requirements: [`docs/PRD.md`](docs/PRD.md)
+- architecture overview: [`docs/architecture/overview.md`](docs/architecture/overview.md)
+- architecture index: [`docs/architecture/README.md`](docs/architecture/README.md)
+- runbook index: [`docs/runbooks/README.md`](docs/runbooks/README.md)
+- policy contract: [`docs/policies/rego-contract.md`](docs/policies/rego-contract.md)
+
+## Development workflow
+
+Typical local workflow:
+
+```bash
+cargo fmt --all --check
+cargo check --workspace --all-targets
+cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
+```
+
+If you are working on a specific slice, prefer the focused runbook and focused tests for that area rather than reading the entire repository from scratch.
+
+## Current capability areas
+
+The repository currently contains architecture and runbook material for:
+
+- runtime / host observation
+- filesystem governance
+- network destination governance
+- secret access governance
+- enforcement preview paths
+- Google Workspace semantic governance
+- GitHub semantic governance
+- generic REST / OAuth governance
+- messaging / collaboration governance
+- policy authoring / explainability
+- productization / hardening gaps
+
+## Limitations
+
+A few important caveats:
+
+- many paths are preview or PoC quality rather than production-grade enforcement
+- some flows model future runtime behavior before live hooks exist
+- documentation is currently phase-oriented because the implementation has grown iteratively
+- deployment guidance is still minimal compared with the architecture and testing material
+
+## Near-term direction
+
+The current direction is to close productization gaps and make the repository easier to operate and reason about before pushing further into deeper runtime integrations.
