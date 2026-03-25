@@ -92,6 +92,12 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
             .expect("audit export model line should exist")
             .contains("approval_audit_export_record")
     );
+    assert!(
+        lines
+            .get("approval_audit_export_model")
+            .expect("audit export model line should exist")
+            .contains("consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_id")
+    );
 
     let pending_review_audit_export: Value = serde_json::from_str(
         lines
@@ -110,6 +116,23 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
         pending_review_audit_export["rule_id"],
         "messaging.channel_invite.requires_approval"
     );
+    assert_eq!(
+        pending_review_audit_export["reviewer_summary"],
+        "Approval required before expanding incident-room membership"
+    );
+    assert_eq!(
+        pending_review_audit_export["persisted_rationale"],
+        "Membership change affects incident communications"
+    );
+    assert_eq!(
+        pending_review_audit_export["agent_reason"],
+        "Need to add the incident commander to the thread"
+    );
+    assert_eq!(
+        pending_review_audit_export["human_request"],
+        "please bring ops into the live incident room"
+    );
+    assert_eq!(pending_review_audit_export["reviewer_id"], Value::Null);
 
     let stale_ops: Value = serde_json::from_str(
         lines
@@ -298,6 +321,18 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
         waiting_merge_audit_export["notification_class"],
         "waiting_merge_reminder"
     );
+    assert_eq!(
+        waiting_merge_audit_export["reviewer_summary"],
+        "Approval required before expanding incident-room membership"
+    );
+    assert_eq!(
+        waiting_merge_audit_export["persisted_rationale"],
+        "Membership change affects incident communications"
+    );
+    assert_eq!(
+        waiting_merge_audit_export["reviewer_id"],
+        "user:security-oncall"
+    );
 
     let waiting_downstream_ops: Value = serde_json::from_str(
         lines
@@ -474,4 +509,17 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     )
     .expect("resolved reconciliation json should parse");
     assert_eq!(resolved_reconciliation["state"], "in_sync");
+
+    let resolved_audit_export: Value = serde_json::from_str(
+        lines
+            .get("approval_audit_export_resolved")
+            .expect("resolved audit export line should exist"),
+    )
+    .expect("resolved audit export json should parse");
+    assert_eq!(resolved_audit_export["status_kind"], "resolved");
+    assert_eq!(
+        resolved_audit_export["reviewer_summary"],
+        "Approval required before expanding incident-room membership"
+    );
+    assert_eq!(resolved_audit_export["reviewer_id"], "user:security-oncall");
 }

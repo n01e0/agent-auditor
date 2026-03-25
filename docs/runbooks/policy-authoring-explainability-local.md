@@ -80,6 +80,7 @@ The smoke test should continue to prove that:
 
 - the approval queue item surfaces the reviewer-facing summary
 - the rationale capture view surfaces the persisted rationale
+- the audit/export view preserves the same reviewer-facing summary / rationale consistency fields without exposing reviewer freeform notes
 - the bootstrap control-plane examples still deserialize cleanly
 
 ## Change guide by concern

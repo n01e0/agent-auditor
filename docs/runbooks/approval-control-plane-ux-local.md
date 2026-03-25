@@ -64,6 +64,7 @@ Expected output includes these control-plane categories of lines:
 - `approval_status_summary_resolved=...`
 - matching `approval_status_explanation_*`, `approval_notification_summary_*`, `approval_reconciliation_summary_*`, and `approval_audit_export_*` lines for each case above
 - `approval_audit_export_model=...`
+  - includes `consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_id`
 
 Example shape:
 
@@ -86,14 +87,14 @@ approval_status_summary_waiting_merge={"kind":"waiting_merge",...}
 approval_status_summary_stale_waiting_downstream={"kind":"stale_follow_up",...}
 approval_status_summary_stale_waiting_merge={"kind":"stale_follow_up",...}
 approval_status_summary_resolved={"kind":"resolved",...}
-approval_audit_export_model=components=approval_audit_export_record ...
-approval_audit_export_pending_review={"status_kind":"pending_review","status_owner":"reviewer",...}
+approval_audit_export_model=components=approval_audit_export_record ... consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_id ...
+approval_audit_export_pending_review={"status_kind":"pending_review","status_owner":"reviewer","reviewer_summary":"Approval required before expanding incident-room membership","persisted_rationale":"Membership change affects incident communications",...}
 approval_audit_export_drift_missing_audit={"status_kind":"drifted","status_owner":"ops",...}
 approval_audit_export_waiting_downstream={"status_kind":"waiting_downstream","status_owner":"requester",...}
-approval_audit_export_waiting_merge={"status_kind":"waiting_merge","status_owner":"requester",...}
+approval_audit_export_waiting_merge={"status_kind":"waiting_merge","status_owner":"requester","reviewer_id":"user:security-oncall",...}
 approval_audit_export_stale_waiting_downstream={"status_kind":"stale_follow_up","status_owner":"ops",...}
 approval_audit_export_stale_waiting_merge={"status_kind":"stale_follow_up","status_owner":"ops",...}
-approval_audit_export_resolved={"status_kind":"resolved","status_owner":"requester",...}
+approval_audit_export_resolved={"status_kind":"resolved","status_owner":"requester","reviewer_id":"user:security-oncall",...}
 ```
 
 ## Validation commands
@@ -171,6 +172,17 @@ Use this rule when reading the current control-plane bootstrap output:
 - if you see `approval_notification_summary_*={...}`, read those lines as delivery-ready summary shapes, not evidence that an email, DM, webhook, or pager notification was actually sent
 - if you see `approval_reconciliation_summary_*={...}`, read those lines as reconciliation guidance, not proof of a background reconciliation worker or downstream executor
 - if you see `approval_audit_export_*={...}`, read those lines as redaction-safe export rows, not proof that the repository already has a durable audit database or export API
+
+For the minimum record-consistency check in this slice, compare these pairs directly:
+
+- `approval_queue_item.decision_summary.action_summary`
+  ↔ `approval_audit_export_*.reviewer_summary`
+- `approval_rationale_capture.policy_reason`
+  ↔ `approval_audit_export_*.persisted_rationale`
+- `approval_rationale_capture.agent_reason` / `human_request`
+  ↔ `approval_audit_export_*.agent_reason` / `human_request`
+- `approval_rationale_capture.reviewer_id`
+  ↔ `approval_audit_export_*.reviewer_id` once a reviewer outcome exists
 
 In other words: the current control-plane slice proves that the repository agrees on queue, status, status explanation, notification, reconciliation, and audit-export summary shapes. It does **not** yet prove an operator-facing product or live workflow orchestration.
 
