@@ -52,6 +52,11 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     );
 
     assert!(lines
+        .get("approval_ops_hardening_pattern_matrix")
+        .expect("pattern matrix line should exist")
+        .contains("drift_missing_audit,drift_missing_decision,waiting_downstream,waiting_merge,stale_waiting_downstream,stale_waiting_merge,resolved"));
+
+    assert!(lines
         .get("approval_control_plane_surface_model")
         .expect("surface model line should exist")
         .contains("approval_status_summary,approval_status_explanation,approval_notification_summary,approval_reconciliation_summary"));
@@ -169,6 +174,69 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     );
     assert!(stale_audit_export.get("reviewer_note").is_none());
 
+    let drift_missing_audit_ops: Value = serde_json::from_str(
+        lines
+            .get("approval_ops_hardening_status_drift_missing_audit")
+            .expect("drift_missing_audit ops hardening line should exist"),
+    )
+    .expect("drift_missing_audit ops hardening json should parse");
+    assert_eq!(drift_missing_audit_ops["drift"], "missing_audit_record");
+    assert_eq!(drift_missing_audit_ops["recovery"], "replay_from_audit");
+
+    let drift_missing_audit_status: Value = serde_json::from_str(
+        lines
+            .get("approval_status_summary_drift_missing_audit")
+            .expect("drift_missing_audit status summary line should exist"),
+    )
+    .expect("drift_missing_audit status summary json should parse");
+    assert_eq!(drift_missing_audit_status["kind"], "drifted");
+
+    let drift_missing_audit_reconciliation: Value = serde_json::from_str(
+        lines
+            .get("approval_reconciliation_summary_drift_missing_audit")
+            .expect("drift_missing_audit reconciliation line should exist"),
+    )
+    .expect("drift_missing_audit reconciliation json should parse");
+    assert_eq!(
+        drift_missing_audit_reconciliation["state"],
+        "needs_audit_replay"
+    );
+
+    let drift_missing_audit_export: Value = serde_json::from_str(
+        lines
+            .get("approval_audit_export_drift_missing_audit")
+            .expect("drift_missing_audit export line should exist"),
+    )
+    .expect("drift_missing_audit export json should parse");
+    assert_eq!(drift_missing_audit_export["status_kind"], "drifted");
+    assert_eq!(
+        drift_missing_audit_export["reconciliation_state"],
+        "needs_audit_replay"
+    );
+
+    let drift_missing_decision_ops: Value = serde_json::from_str(
+        lines
+            .get("approval_ops_hardening_status_drift_missing_decision")
+            .expect("drift_missing_decision ops hardening line should exist"),
+    )
+    .expect("drift_missing_decision ops hardening json should parse");
+    assert_eq!(
+        drift_missing_decision_ops["drift"],
+        "missing_decision_record"
+    );
+    assert_eq!(
+        drift_missing_decision_ops["waiting"],
+        "downstream_completion"
+    );
+
+    let drift_missing_decision_status: Value = serde_json::from_str(
+        lines
+            .get("approval_status_summary_drift_missing_decision")
+            .expect("drift_missing_decision status summary line should exist"),
+    )
+    .expect("drift_missing_decision status summary json should parse");
+    assert_eq!(drift_missing_decision_status["kind"], "drifted");
+
     let waiting_merge_ops: Value = serde_json::from_str(
         lines
             .get("approval_ops_hardening_status_waiting_merge")
@@ -229,6 +297,37 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
     assert_eq!(
         waiting_merge_audit_export["notification_class"],
         "waiting_merge_reminder"
+    );
+
+    let waiting_downstream_ops: Value = serde_json::from_str(
+        lines
+            .get("approval_ops_hardening_status_waiting_downstream")
+            .expect("waiting_downstream ops hardening line should exist"),
+    )
+    .expect("waiting_downstream ops hardening json should parse");
+    assert_eq!(waiting_downstream_ops["waiting"], "downstream_completion");
+    assert_eq!(
+        waiting_downstream_ops["recovery"],
+        "await_downstream_completion"
+    );
+
+    let waiting_downstream_status: Value = serde_json::from_str(
+        lines
+            .get("approval_status_summary_waiting_downstream")
+            .expect("waiting_downstream status summary line should exist"),
+    )
+    .expect("waiting_downstream status summary json should parse");
+    assert_eq!(waiting_downstream_status["kind"], "waiting_downstream");
+
+    let waiting_downstream_notification: Value = serde_json::from_str(
+        lines
+            .get("approval_notification_summary_waiting_downstream")
+            .expect("waiting_downstream notification line should exist"),
+    )
+    .expect("waiting_downstream notification json should parse");
+    assert_eq!(
+        waiting_downstream_notification["class"],
+        "waiting_downstream_reminder"
     );
 
     let stale_waiting_merge_ops: Value = serde_json::from_str(
@@ -315,4 +414,64 @@ fn controld_bootstrap_surfaces_control_plane_status_notification_and_reconciliat
             .expect("stale waiting_merge export next_step should be a string")
             .contains("Recheck downstream or merge state")
     );
+
+    let stale_waiting_downstream_ops: Value = serde_json::from_str(
+        lines
+            .get("approval_ops_hardening_status_stale_waiting_downstream")
+            .expect("stale waiting_downstream ops hardening line should exist"),
+    )
+    .expect("stale waiting_downstream ops hardening json should parse");
+    assert_eq!(
+        stale_waiting_downstream_ops["waiting"],
+        "downstream_completion"
+    );
+    assert_eq!(
+        stale_waiting_downstream_ops["recovery"],
+        "recheck_downstream_state"
+    );
+
+    let stale_waiting_downstream_status: Value = serde_json::from_str(
+        lines
+            .get("approval_status_summary_stale_waiting_downstream")
+            .expect("stale waiting_downstream status summary line should exist"),
+    )
+    .expect("stale waiting_downstream status summary json should parse");
+    assert_eq!(stale_waiting_downstream_status["kind"], "stale_follow_up");
+
+    let stale_waiting_downstream_reconciliation: Value = serde_json::from_str(
+        lines
+            .get("approval_reconciliation_summary_stale_waiting_downstream")
+            .expect("stale waiting_downstream reconciliation line should exist"),
+    )
+    .expect("stale waiting_downstream reconciliation json should parse");
+    assert_eq!(
+        stale_waiting_downstream_reconciliation["state"],
+        "needs_downstream_refresh"
+    );
+
+    let resolved_status: Value = serde_json::from_str(
+        lines
+            .get("approval_status_summary_resolved")
+            .expect("resolved status summary line should exist"),
+    )
+    .expect("resolved status summary json should parse");
+    assert_eq!(resolved_status["kind"], "resolved");
+    assert_eq!(resolved_status["actionable"], false);
+
+    let resolved_notification: Value = serde_json::from_str(
+        lines
+            .get("approval_notification_summary_resolved")
+            .expect("resolved notification line should exist"),
+    )
+    .expect("resolved notification json should parse");
+    assert_eq!(resolved_notification["class"], "resolution_update");
+    assert_eq!(resolved_notification["audience"], "requester");
+
+    let resolved_reconciliation: Value = serde_json::from_str(
+        lines
+            .get("approval_reconciliation_summary_resolved")
+            .expect("resolved reconciliation line should exist"),
+    )
+    .expect("resolved reconciliation json should parse");
+    assert_eq!(resolved_reconciliation["state"], "in_sync");
 }

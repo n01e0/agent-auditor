@@ -607,6 +607,16 @@ pub struct ApprovalAuditExportRecord {
     pub requester_context: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalControlPlaneProjection {
+    pub ops_status: ApprovalOpsHardeningStatus,
+    pub status: ApprovalStatusSummary,
+    pub explanation: ApprovalStatusExplanation,
+    pub notification: ApprovalNotificationSummary,
+    pub reconciliation: ApprovalReconciliationSummary,
+    pub audit_export: ApprovalAuditExportRecord,
+}
+
 impl ApprovalReconciliationSummary {
     pub fn derive(queue_item: &ApprovalQueueItem, ops_status: &ApprovalOpsHardeningStatus) -> Self {
         match ops_status.recovery {
@@ -684,6 +694,32 @@ impl ApprovalAuditExportRecord {
             policy_reason: explanation.policy_reason.clone(),
             reviewer_hint: explanation.reviewer_hint.clone(),
             requester_context: explanation.requester_context.clone(),
+        }
+    }
+}
+
+impl ApprovalControlPlaneProjection {
+    pub fn derive(queue_item: &ApprovalQueueItem, signals: &ApprovalOpsSignals) -> Self {
+        let ops_status = ApprovalOpsHardeningStatus::derive(queue_item, signals);
+        let status = ApprovalStatusSummary::derive(queue_item, &ops_status);
+        let explanation = ApprovalStatusExplanation::derive(queue_item, &ops_status, &status);
+        let notification = ApprovalNotificationSummary::derive(queue_item, &status);
+        let reconciliation = ApprovalReconciliationSummary::derive(queue_item, &ops_status);
+        let audit_export = ApprovalAuditExportRecord::derive(
+            queue_item,
+            &status,
+            &explanation,
+            &notification,
+            &reconciliation,
+        );
+
+        Self {
+            ops_status,
+            status,
+            explanation,
+            notification,
+            reconciliation,
+            audit_export,
         }
     }
 }
@@ -986,6 +1022,29 @@ mod tests {
     }
 
     #[test]
+    fn ops_status_marks_drift_when_decision_record_is_missing() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let status = ApprovalOpsHardeningStatus::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: false,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+
+        assert_eq!(status.freshness, ApprovalQueueFreshness::Fresh);
+        assert_eq!(status.drift, ApprovalQueueDrift::MissingDecisionRecord);
+        assert_eq!(status.recovery, ApprovalRecoveryAction::ReplayFromAudit);
+        assert_eq!(status.waiting, ApprovalWaitingState::DownstreamCompletion);
+    }
+
+    #[test]
     fn ops_status_treats_merge_follow_up_as_waiting_merge() {
         let mut request = sample_request();
         request.status = ApprovalStatus::Approved;
@@ -1262,6 +1321,47 @@ mod tests {
     }
 
     #[test]
+    fn stale_waiting_downstream_follow_up_uses_recheck_recovery() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let projection = ApprovalControlPlaneProjection::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: true,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: false,
+            },
+        );
+
+        assert_eq!(
+            projection.ops_status.waiting,
+            ApprovalWaitingState::DownstreamCompletion
+        );
+        assert_eq!(
+            projection.ops_status.recovery,
+            ApprovalRecoveryAction::RecheckDownstreamState
+        );
+        assert_eq!(projection.status.kind, ApprovalStatusKind::StaleFollowUp);
+        assert_eq!(projection.explanation.owner, ApprovalStatusOwner::Ops);
+        assert_eq!(
+            projection.notification.class,
+            ApprovalNotificationClass::StaleFollowUpAlert
+        );
+        assert_eq!(
+            projection.reconciliation.state,
+            ApprovalReconciliationState::NeedsDownstreamRefresh
+        );
+        assert_eq!(
+            projection.audit_export.status_kind,
+            ApprovalStatusKind::StaleFollowUp
+        );
+    }
+
+    #[test]
     fn waiting_merge_explanation_marks_requester_owned_follow_up() {
         let mut request = sample_request();
         request.status = ApprovalStatus::Approved;
@@ -1327,6 +1427,51 @@ mod tests {
             explanation
                 .next_step
                 .contains("Recheck downstream or merge state")
+        );
+    }
+
+    #[test]
+    fn control_plane_projection_keeps_derived_surfaces_in_sync() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let projection = ApprovalControlPlaneProjection::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: true,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+
+        assert_eq!(
+            projection.ops_status.freshness,
+            ApprovalQueueFreshness::Stale
+        );
+        assert_eq!(
+            projection.ops_status.drift,
+            ApprovalQueueDrift::MissingDownstreamCompletion
+        );
+        assert_eq!(projection.status.kind, ApprovalStatusKind::StaleFollowUp);
+        assert_eq!(projection.explanation.owner, ApprovalStatusOwner::Ops);
+        assert_eq!(
+            projection.notification.class,
+            ApprovalNotificationClass::StaleFollowUpAlert
+        );
+        assert_eq!(
+            projection.reconciliation.state,
+            ApprovalReconciliationState::NeedsDownstreamRefresh
+        );
+        assert_eq!(
+            projection.audit_export.reconciliation_state,
+            ApprovalReconciliationState::NeedsDownstreamRefresh
+        );
+        assert_eq!(
+            projection.audit_export.status_owner,
+            ApprovalStatusOwner::Ops
         );
     }
 

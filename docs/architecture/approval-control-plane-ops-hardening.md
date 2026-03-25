@@ -195,9 +195,30 @@ These are intentionally conservative operator semantics, not proof of a full dis
 `cmd/agent-auditor-controld/src/main.rs` now emits deterministic preview lines for:
 
 - `approval_ops_hardening_model=...`
+- `approval_ops_hardening_pattern_matrix=...`
+- `approval_ops_hardening_status_pending_review=...`
 - `approval_ops_hardening_status_stale=...`
+- `approval_ops_hardening_status_drift_missing_audit=...`
+- `approval_ops_hardening_status_drift_missing_decision=...`
+- `approval_ops_hardening_status_waiting_downstream=...`
 - `approval_ops_hardening_status_waiting_merge=...`
+- `approval_ops_hardening_status_stale_waiting_downstream=...`
 - `approval_ops_hardening_status_stale_waiting_merge=...`
+- `approval_ops_hardening_status_resolved=...`
+
+The checked-in preview now keeps the main runtime-reliability patterns explicit in one place:
+
+| preview case | what it shows | why it matters for preview readiness |
+| --- | --- | --- |
+| `pending_review` | reviewer is the current owner and no durable drift exists yet | baseline reviewer-owned queue state |
+| `stale` | queue projection is stale but not durably drifted | proves stale queue refresh is distinct from drift |
+| `drift_missing_audit` | audit evidence is missing and replay is required | proves durable drift is surfaced before casual review |
+| `drift_missing_decision` | decision evidence is missing even though outcome is reflected | proves status drift is not limited to missing audit rows |
+| `waiting_downstream` | approved action is still waiting on generic downstream completion | separates generic downstream wait from merge-like wait |
+| `waiting_merge` | approved action is waiting on merge-like completion | keeps merge follow-up explicit instead of hiding it in runner folklore |
+| `stale_waiting_downstream` | downstream wait became stale and now needs recheck | turns stale run / stale follow-up into an explicit ops pattern |
+| `stale_waiting_merge` | merge-like wait became stale and now needs recheck | shows stale merge follow-up separately from fresh waiting |
+| `resolved` | no remaining waiting or drift from the current control-plane view | proves the checked-in model can close the loop cleanly |
 
 Those lines prove the repository-owned vocabulary and example derivation paths. They do **not** yet prove a full production control-plane reconciler.
 
