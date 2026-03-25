@@ -60,6 +60,7 @@ This directory contains design notes for the current `agent-auditor` architectur
 
 - gap-closing foundation: [`gap-closing-productization-hardening-foundation.md`](gap-closing-productization-hardening-foundation.md)
 - separate-machine audit preview readiness boundary: [`preview-readiness-boundary.md`](preview-readiness-boundary.md)
+- separate-machine audit preview readiness gap matrix: [`preview-readiness-gap-matrix.md`](preview-readiness-gap-matrix.md)
 - gap matrix: [`gap-closing-gap-matrix.md`](gap-closing-gap-matrix.md)
 
 ## Known constraints

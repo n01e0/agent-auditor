@@ -206,7 +206,8 @@ It only fixes the responsibility seams for the preview-readiness work.
 ## related docs
 
 - gap-closing foundation: [`gap-closing-productization-hardening-foundation.md`](gap-closing-productization-hardening-foundation.md)
-- gap matrix: [`gap-closing-gap-matrix.md`](gap-closing-gap-matrix.md)
+- preview gap matrix: [`preview-readiness-gap-matrix.md`](preview-readiness-gap-matrix.md)
+- broader gap matrix: [`gap-closing-gap-matrix.md`](gap-closing-gap-matrix.md)
 - deployment minimums: [`deployment-hardening-minimums.md`](deployment-hardening-minimums.md)
 - coverage visibility: [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md)
 - architecture overview: [`overview.md`](overview.md)
