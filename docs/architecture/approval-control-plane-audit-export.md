@@ -78,14 +78,15 @@ These are the minimum checked-in dimensions for operator-friendly filtering and 
 These fields keep the minimum reviewer-facing and rationale-oriented view stable across:
 
 - the stored approval request contract
+- `ApprovalLocalJsonlInspectionRecord`
 - `ApprovalDecisionSummary`
 - `ApprovalRationaleCapture`
 - `ApprovalAuditExportRecord`
 
 The rule for this slice is intentionally small:
 
-- the same reviewer-facing summary that appears in the queue projection should still be visible in audit/export-oriented output
-- the persisted rationale should not disappear when an operator switches from queue/rationale views to export-oriented rows
+- the same reviewer-facing summary that appears in local JSONL inspection and queue projection should still be visible in audit/export-oriented output
+- the persisted rationale should not disappear when an operator switches from local inspection or queue/rationale views to export-oriented rows
 - requester context should stay structured enough that an evaluator does not have to parse a single concatenated string just to compare approval and audit surfaces
 - reviewer identity may travel for consistency and handoff, but reviewer freeform notes still stay out of the export row
 
@@ -140,7 +141,7 @@ This closes four concrete usability gaps:
    - operators can filter by provider/action family/severity/status owner without reconstructing them across separate records
 
 3. **reviewer-facing summary and rationale stop disappearing in export**
-   - the same reviewer-facing summary / persisted rationale / requester context now remain visible when an operator moves from approval-oriented surfaces to audit/export rows
+   - the same reviewer-facing summary / persisted rationale / requester context now remain visible when an operator moves from local JSONL inspection or approval-oriented surfaces to audit/export rows
 
 4. **explanation travels with the export**
    - the exported row already answers “what is this?” and “what happens next?” in redaction-safe form
@@ -157,6 +158,8 @@ Representative lines include:
 - `approval_audit_export_waiting_merge=...`
 - `approval_audit_export_stale_waiting_merge=...`
 - `approval_audit_export_resolved=...`
+
+The matching local-inspection preview is documented in [`../runbooks/approval-jsonl-inspection-local.md`](../runbooks/approval-jsonl-inspection-local.md).
 
 These lines prove that the repository has a checked-in audit/export projection shape.
 They do **not** prove a live export API, report builder, warehouse sync, or long-term audit index.

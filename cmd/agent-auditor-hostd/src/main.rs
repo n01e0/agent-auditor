@@ -19,9 +19,10 @@ use agent_auditor_hostd::poc::{
     },
 };
 use agenta_core::{
-    Action, ActionClass, Actor, ActorKind, CollectorKind, EventEnvelope, EventType, JsonMap,
-    PolicyDecision, PolicyDecisionKind, ResultInfo, ResultStatus, SessionRecord, SessionRef,
-    Severity, SourceInfo,
+    Action, ActionClass, Actor, ActorKind, ApprovalRequest, CollectorKind, EventEnvelope,
+    EventType, JsonMap, PolicyDecision, PolicyDecisionKind, ResultInfo, ResultStatus,
+    SessionRecord, SessionRef, Severity, SourceInfo,
+    controlplane::{ApprovalLocalJsonlInspectionRecord, ApprovalQueueItem},
     provider::{ProviderAbstractionPlan, ProviderMetadataCatalog},
 };
 use agenta_policy::{
@@ -29,6 +30,17 @@ use agenta_policy::{
     apply_enforcement_to_approval_request, apply_enforcement_to_event,
     approval_request_from_decision,
 };
+
+fn print_local_jsonl_inspection_line(key: &str, request: &ApprovalRequest) {
+    let inspection =
+        ApprovalLocalJsonlInspectionRecord::derive(&ApprovalQueueItem::from_request(request));
+    println!(
+        "{}={}",
+        key,
+        serde_json::to_string(&inspection)
+            .expect("approval local jsonl inspection record should serialize")
+    );
+}
 
 fn main() {
     let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
@@ -1340,6 +1352,9 @@ fn main() {
         eprintln!("persisted_messaging_approval_request_require_approval_error={error}");
         std::process::exit(1);
     }
+    println!(
+        "approval_local_jsonl_inspection_model=components=approval_local_jsonl_inspection_record linkage=approval_id,event_id,rule_id consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_hint explanation=redaction_safe_summary"
+    );
     match messaging_store.latest_approval_request() {
         Ok(Some(record)) => match serde_json::to_string(&record) {
             Ok(json) => println!("persisted_messaging_approval_request_require_approval={json}"),
@@ -1359,6 +1374,10 @@ fn main() {
             std::process::exit(1);
         }
     }
+    print_local_jsonl_inspection_line(
+        "persisted_messaging_local_jsonl_inspection_require_approval",
+        &messaging_approval_request_require_approval,
+    );
     if let Err(error) = messaging_store.append_audit_record(&messaging_enriched_deny) {
         eprintln!("persisted_messaging_audit_record_deny_error={error}");
         std::process::exit(1);

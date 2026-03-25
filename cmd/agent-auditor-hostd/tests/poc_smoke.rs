@@ -494,4 +494,41 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     assert!(persisted_approval_request["requested_at"].is_string());
     assert!(persisted_approval_request["expires_at"].is_string());
     assert!(persisted_approval_request["enforcement"]["expires_at"].is_string());
+
+    assert!(
+        lines
+            .get("approval_local_jsonl_inspection_model")
+            .expect("smoke output should include approval_local_jsonl_inspection_model")
+            .contains("consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_hint")
+    );
+
+    let persisted_messaging_local_jsonl_inspection_require_approval: Value =
+        serde_json::from_str(
+            lines
+                .get("persisted_messaging_local_jsonl_inspection_require_approval")
+                .expect(
+                    "smoke output should include persisted_messaging_local_jsonl_inspection_require_approval"
+                ),
+        )
+        .expect("persisted messaging local jsonl inspection should be valid json");
+    assert_eq!(
+        persisted_messaging_local_jsonl_inspection_require_approval["reviewer_summary"],
+        "Messaging membership expansion requires approval"
+    );
+    assert_eq!(
+        persisted_messaging_local_jsonl_inspection_require_approval["persisted_rationale"],
+        "Messaging membership expansion requires approval"
+    );
+    assert_eq!(
+        persisted_messaging_local_jsonl_inspection_require_approval["reviewer_hint"],
+        "security-oncall"
+    );
+    assert_eq!(
+        persisted_messaging_local_jsonl_inspection_require_approval["explanation_source"],
+        "persisted_rationale"
+    );
+    assert_eq!(
+        persisted_messaging_local_jsonl_inspection_require_approval["explanation_summary"],
+        "Messaging membership expansion requires approval"
+    );
 }
