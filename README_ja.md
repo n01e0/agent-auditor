@@ -118,6 +118,10 @@ cargo run -p agent-auditor-cli
 - local JSONL / stdout inspection
 - cleanup と retry
 
+focused smoke test と runbook の対応表、それを踏まえた簡潔な checklist はここ。
+
+- [`docs/runbooks/separate-machine-preview-checklist.md`](docs/runbooks/separate-machine-preview-checklist.md)
+
 ## 使い方
 
 現状の `agent-auditor` は phase ごとに機能が積み上がっているので、使うときは次の順がわかりやすい。
