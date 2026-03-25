@@ -13,7 +13,7 @@ The checked-in control-plane path is intentionally small but concrete:
   - ops-hardening state via `ApprovalOpsHardeningStatus`
   - operator-facing status, status explanation, notification, and reconciliation summaries
   - audit/export-ready rows via `ApprovalAuditExportRecord`
-- `agent-auditor-controld` can emit deterministic preview lines that show the current queue, stale-queue projection, `waiting_merge` projection, and stale follow-up / stale run projection without re-running upstream taxonomy or policy
+- `agent-auditor-controld` can emit deterministic preview lines that organize the current major runtime-reliability patterns without re-running upstream taxonomy or policy: pending review, stale queue, drift from missing audit/decision evidence, waiting downstream, `waiting_merge`, stale follow-up / stale run, and resolved
 - the checked-in smoke path proves stale / drift / recovery / waiting-state language plus explanation / notification / reconciliation / audit-export summaries stay stable from the control-plane perspective
 - the slice is covered by focused `agenta-core` tests plus a dedicated `agent-auditor-controld` smoke test
 
@@ -42,29 +42,28 @@ Expected output includes these control-plane categories of lines:
 - `approval_decision_summary=...`
 - `approval_rationale_capture=...`
 - `approval_ops_hardening_model=...`
+- `approval_ops_hardening_pattern_matrix=...`
+- `approval_ops_hardening_status_pending_review=...`
 - `approval_ops_hardening_status_stale=...`
+- `approval_ops_hardening_status_drift_missing_audit=...`
+- `approval_ops_hardening_status_drift_missing_decision=...`
+- `approval_ops_hardening_status_waiting_downstream=...`
 - `approval_ops_hardening_status_waiting_merge=...`
+- `approval_ops_hardening_status_stale_waiting_downstream=...`
 - `approval_ops_hardening_status_stale_waiting_merge=...`
+- `approval_ops_hardening_status_resolved=...`
 - `approval_control_plane_surface_model=...`
 - `approval_status_summary_pending_review=...`
-- `approval_status_explanation_pending_review=...`
 - `approval_status_summary_stale=...`
-- `approval_status_explanation_stale=...`
-- `approval_notification_summary_stale=...`
-- `approval_reconciliation_summary_stale=...`
+- `approval_status_summary_drift_missing_audit=...`
+- `approval_status_summary_drift_missing_decision=...`
+- `approval_status_summary_waiting_downstream=...`
 - `approval_status_summary_waiting_merge=...`
-- `approval_status_explanation_waiting_merge=...`
-- `approval_notification_summary_waiting_merge=...`
-- `approval_reconciliation_summary_waiting_merge=...`
+- `approval_status_summary_stale_waiting_downstream=...`
 - `approval_status_summary_stale_waiting_merge=...`
-- `approval_status_explanation_stale_waiting_merge=...`
-- `approval_notification_summary_stale_waiting_merge=...`
-- `approval_reconciliation_summary_stale_waiting_merge=...`
+- `approval_status_summary_resolved=...`
+- matching `approval_status_explanation_*`, `approval_notification_summary_*`, `approval_reconciliation_summary_*`, and `approval_audit_export_*` lines for each case above
 - `approval_audit_export_model=...`
-- `approval_audit_export_pending_review=...`
-- `approval_audit_export_stale=...`
-- `approval_audit_export_waiting_merge=...`
-- `approval_audit_export_stale_waiting_merge=...`
 
 Example shape:
 
@@ -74,27 +73,27 @@ request_id=req_bootstrap_controld action_class=Filesystem
 approval_queue_model=components=approval_queue_item,approval_decision_summary,approval_rationale_capture ...
 approval_queue_item={...}
 approval_ops_hardening_model=components=approval_ops_signals,approval_ops_hardening_status ...
+approval_ops_hardening_pattern_matrix=cases=pending_review,stale,drift_missing_audit,drift_missing_decision,waiting_downstream,waiting_merge,stale_waiting_downstream,stale_waiting_merge,resolved ...
 approval_ops_hardening_status_stale={"freshness":"stale","drift":"in_sync","recovery":"refresh_queue_projection","waiting":"reviewer_decision"}
+approval_ops_hardening_status_drift_missing_audit={"freshness":"fresh","drift":"missing_audit_record","recovery":"replay_from_audit","waiting":"reviewer_decision"}
+approval_ops_hardening_status_waiting_downstream={"freshness":"fresh","drift":"missing_downstream_completion","recovery":"await_downstream_completion","waiting":"downstream_completion"}
+approval_ops_hardening_status_stale_waiting_downstream={"freshness":"stale","drift":"missing_downstream_completion","recovery":"recheck_downstream_state","waiting":"downstream_completion"}
 approval_control_plane_surface_model=components=approval_status_summary,approval_status_explanation,approval_notification_summary,approval_reconciliation_summary ...
 approval_status_summary_pending_review={"kind":"pending_review",...}
-approval_status_explanation_pending_review={"owner":"reviewer",...}
-approval_status_summary_stale={"kind":"stale_queue",...}
-approval_status_explanation_stale={"owner":"ops",...}
-approval_notification_summary_stale={"class":"stale_queue_alert","audience":"ops",...}
-approval_reconciliation_summary_stale={"state":"needs_queue_refresh",...}
+approval_status_summary_drift_missing_audit={"kind":"drifted",...}
+approval_status_summary_waiting_downstream={"kind":"waiting_downstream",...}
 approval_status_summary_waiting_merge={"kind":"waiting_merge",...}
-approval_status_explanation_waiting_merge={"owner":"requester",...}
-approval_notification_summary_waiting_merge={"class":"waiting_merge_reminder","audience":"requester",...}
-approval_reconciliation_summary_waiting_merge={"state":"awaiting_completion",...}
+approval_status_summary_stale_waiting_downstream={"kind":"stale_follow_up",...}
 approval_status_summary_stale_waiting_merge={"kind":"stale_follow_up",...}
-approval_status_explanation_stale_waiting_merge={"owner":"ops",...}
-approval_notification_summary_stale_waiting_merge={"class":"stale_follow_up_alert","audience":"ops",...}
-approval_reconciliation_summary_stale_waiting_merge={"state":"needs_downstream_refresh",...}
+approval_status_summary_resolved={"kind":"resolved",...}
 approval_audit_export_model=components=approval_audit_export_record ...
 approval_audit_export_pending_review={"status_kind":"pending_review","status_owner":"reviewer",...}
-approval_audit_export_stale={"status_kind":"stale_queue","status_owner":"ops",...}
+approval_audit_export_drift_missing_audit={"status_kind":"drifted","status_owner":"ops",...}
+approval_audit_export_waiting_downstream={"status_kind":"waiting_downstream","status_owner":"requester",...}
 approval_audit_export_waiting_merge={"status_kind":"waiting_merge","status_owner":"requester",...}
+approval_audit_export_stale_waiting_downstream={"status_kind":"stale_follow_up","status_owner":"ops",...}
 approval_audit_export_stale_waiting_merge={"status_kind":"stale_follow_up","status_owner":"ops",...}
+approval_audit_export_resolved={"status_kind":"resolved","status_owner":"requester",...}
 ```
 
 ## Validation commands
@@ -163,13 +162,15 @@ The upstream hostd tests still matter because the control-plane slice depends on
 
 Use this rule when reading the current control-plane bootstrap output:
 
+- if you see `approval_ops_hardening_pattern_matrix=...`, read it as the checked-in list of major preview patterns, not proof of a live reconciler or scheduler
 - if you see `approval_status_summary_stale={...}`, read it as **"the checked-in control-plane model can render a stale queue projection"**, not **"the repository has a production stale-item refresh loop"**
-- if you see `approval_status_explanation_pending_review={...}`, `approval_status_explanation_stale={...}`, `approval_status_explanation_waiting_merge={...}`, or `approval_status_explanation_stale_waiting_merge={...}`, read them as checked-in ownership / next-step cards, not proof that the repository already has a real reviewer assignment system or workflow engine
-- if you see `approval_notification_summary_stale={...}`, `approval_notification_summary_waiting_merge={...}`, or `approval_notification_summary_stale_waiting_merge={...}`, read them as delivery-ready summary shapes, not evidence that an email, DM, webhook, or pager notification was actually sent
-- if you see `approval_reconciliation_summary_stale={...}`, `approval_reconciliation_summary_waiting_merge={...}`, or `approval_reconciliation_summary_stale_waiting_merge={...}`, read them as reconciliation guidance, not proof of a background reconciliation worker or downstream executor
-- if you see `approval_audit_export_pending_review={...}`, `approval_audit_export_stale={...}`, `approval_audit_export_waiting_merge={...}`, or `approval_audit_export_stale_waiting_merge={...}`, read them as redaction-safe export rows, not proof that the repository already has a durable audit database or export API
-- if you see `approval_status_summary_waiting_merge={...}`, read it as explicit control-plane waiting-state vocabulary, not proof that a live merge or provider callback was observed
-- if you see `approval_status_summary_stale_waiting_merge={...}`, read it as explicit stale follow-up vocabulary, not proof that the repository can already recheck or resume a live downstream run automatically
+- if you see `approval_status_summary_drift_missing_audit={...}` or `approval_status_summary_drift_missing_decision={...}`, read them as checked-in status-drift projections, not proof that the repository already repairs durable drift automatically
+- if you see `approval_status_summary_waiting_downstream={...}` or `approval_status_summary_waiting_merge={...}`, read them as explicit control-plane waiting-state vocabulary, not proof that a live downstream callback or merge webhook was observed
+- if you see `approval_status_summary_stale_waiting_downstream={...}` or `approval_status_summary_stale_waiting_merge={...}`, read them as explicit stale follow-up vocabulary, not proof that the repository can already recheck or resume a live downstream run automatically
+- if you see `approval_status_explanation_*={...}`, read those lines as checked-in ownership / next-step cards, not proof that the repository already has a real reviewer assignment system or workflow engine
+- if you see `approval_notification_summary_*={...}`, read those lines as delivery-ready summary shapes, not evidence that an email, DM, webhook, or pager notification was actually sent
+- if you see `approval_reconciliation_summary_*={...}`, read those lines as reconciliation guidance, not proof of a background reconciliation worker or downstream executor
+- if you see `approval_audit_export_*={...}`, read those lines as redaction-safe export rows, not proof that the repository already has a durable audit database or export API
 
 In other words: the current control-plane slice proves that the repository agrees on queue, status, status explanation, notification, reconciliation, and audit-export summary shapes. It does **not** yet prove an operator-facing product or live workflow orchestration.
 
