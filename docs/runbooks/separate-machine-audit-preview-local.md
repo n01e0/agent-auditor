@@ -201,6 +201,21 @@ rm -rf \
 
 You do **not** need to delete the whole repository clone unless you want a fully fresh checkout.
 
+## focused smoke → runbook map
+
+Use the companion checklist note when you want a compact map from smoke test to runbook and inspection target:
+
+- [`separate-machine-preview-checklist.md`](separate-machine-preview-checklist.md)
+
+Current primary mapping:
+
+- `poc_smoke`
+  - backs the hostd bootstrap / JSONL artifact runbooks
+- `live_proxy_seam_smoke`
+  - backs the live preview coverage / fail-open / unsupported runbooks
+- `control_plane_smoke`
+  - backs the control-plane export / explanation / reviewer-facing summary runbooks
+
 ## shortest honest checklist
 
 If you only want the minimum separate-machine preview checklist, use this order:
@@ -210,10 +225,12 @@ If you only want the minimum separate-machine preview checklist, use this order:
 3. `./target/release/agent-auditor-hostd`
 4. `./target/release/agent-auditor-controld`
 5. `cargo test -p agent-auditor-hostd --test poc_smoke`
-6. `cargo test -p agent-auditor-hostd --test live_proxy_seam_smoke`
-7. `cargo test -p agent-auditor-controld --test control_plane_smoke`
-8. inspect `target/agent-auditor-hostd*-store/`
-9. clean the preview-local stores before retrying another revision
+6. inspect `target/agent-auditor-hostd*-store/` and local JSONL output
+7. `cargo test -p agent-auditor-hostd --test live_proxy_seam_smoke`
+8. inspect live preview coverage / fail-open fields
+9. `cargo test -p agent-auditor-controld --test control_plane_smoke`
+10. compare control-plane export output against the local JSONL inspection view
+11. clean the preview-local stores before retrying another revision
 
 ## related docs
 
@@ -222,3 +239,4 @@ If you only want the minimum separate-machine preview checklist, use this order:
 - [`../architecture/deployment-hardening-minimums.md`](../architecture/deployment-hardening-minimums.md)
 - [`approval-control-plane-ux-local.md`](approval-control-plane-ux-local.md)
 - [`approval-jsonl-inspection-local.md`](approval-jsonl-inspection-local.md)
+- [`separate-machine-preview-checklist.md`](separate-machine-preview-checklist.md)

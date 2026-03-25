@@ -118,6 +118,10 @@ That runbook fixes the current minimum path for:
 - local JSONL / stdout inspection
 - cleanup and retry
 
+If you want the smoke-test-to-runbook map and the compact operator checklist, use:
+
+- [`docs/runbooks/separate-machine-preview-checklist.md`](docs/runbooks/separate-machine-preview-checklist.md)
+
 ## Usage guide
 
 Because the project is still phase-driven, the most useful way to use it today is:

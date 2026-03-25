@@ -5,6 +5,7 @@ This directory contains local developer runbooks for reproducing the current PoC
 ## Recommended starting points
 
 - separate-machine audit preview: [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md)
+- separate-machine preview checklist: [`separate-machine-preview-checklist.md`](separate-machine-preview-checklist.md)
 - runtime process observation: [`hostd-exec-exit-poc-local.md`](hostd-exec-exit-poc-local.md)
 - filesystem governance: [`hostd-filesystem-poc-local.md`](hostd-filesystem-poc-local.md)
 - network governance: [`hostd-network-poc-local.md`](hostd-network-poc-local.md)
