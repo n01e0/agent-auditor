@@ -7,7 +7,10 @@ use super::{
     contract::{
         LIVE_PROXY_INTERCEPTION_REDACTION_RULE, PolicyBoundary, SemanticConversionBoundary,
     },
-    mode::{ApprovalEligibility, LiveCoveragePosture, LiveMode, LiveModeBehavior},
+    mode::{
+        ApprovalEligibility, LiveCoverageDisplayRule, LiveCoveragePosture, LiveMode,
+        LiveModeBehavior,
+    },
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +35,7 @@ impl PolicyPlan {
             "mode_status",
             "record_status",
             "approval_eligibility",
+            "coverage_display_rule",
         ];
 
         Self {
@@ -119,6 +123,10 @@ impl PolicyPlan {
             "approval_eligibility".to_owned(),
             json!(mode_projection.approval_eligibility.label()),
         );
+        normalized_event.action.attributes.insert(
+            "coverage_display_rule".to_owned(),
+            json!(mode_projection.coverage_display_rule.label()),
+        );
 
         Ok(LivePreviewPolicyEvaluation {
             consumer,
@@ -130,6 +138,7 @@ impl PolicyPlan {
             mode_status: mode_projection.mode_status.to_owned(),
             record_status: mode_projection.record_status.to_owned(),
             approval_eligibility: mode_projection.approval_eligibility,
+            coverage_display_rule: mode_projection.coverage_display_rule,
         })
     }
 
@@ -186,12 +195,13 @@ pub struct LivePreviewPolicyEvaluation {
     pub mode_status: String,
     pub record_status: String,
     pub approval_eligibility: ApprovalEligibility,
+    pub coverage_display_rule: LiveCoverageDisplayRule,
 }
 
 impl LivePreviewPolicyEvaluation {
     pub fn summary(&self) -> String {
         format!(
-            "consumer={} event_id={} decision={:?} coverage_posture={} mode_behavior={} mode_status={} record_status={} approval_eligibility={}",
+            "consumer={} event_id={} decision={:?} coverage_posture={} mode_behavior={} mode_status={} record_status={} approval_eligibility={} coverage_display_rule={}",
             self.consumer.label(),
             self.normalized_event.event_id,
             self.policy_decision.decision,
@@ -199,7 +209,8 @@ impl LivePreviewPolicyEvaluation {
             self.mode_behavior.label(),
             self.mode_status,
             self.record_status,
-            self.approval_eligibility.label()
+            self.approval_eligibility.label(),
+            self.coverage_display_rule.label()
         )
     }
 }
@@ -223,7 +234,10 @@ mod tests {
     use crate::poc::live_proxy::{
         LiveProxyInterceptionPlan,
         generic_rest::GenericRestLivePreviewPlan,
-        mode::{ApprovalEligibility, LiveCoveragePosture, LiveMode, LiveModeBehavior},
+        mode::{
+            ApprovalEligibility, LiveCoverageDisplayRule, LiveCoveragePosture, LiveMode,
+            LiveModeBehavior,
+        },
     };
 
     #[test]
@@ -256,6 +270,10 @@ mod tests {
             ApprovalEligibility::RecordOnly
         );
         assert_eq!(
+            evaluation.coverage_display_rule,
+            LiveCoverageDisplayRule::ShowPreviewSupportedAndFailOpen
+        );
+        assert_eq!(
             evaluation
                 .normalized_event
                 .action
@@ -281,6 +299,15 @@ mod tests {
                 .get("record_status")
                 .and_then(|value| value.as_str()),
             Some("enforce_preview_approval_request_recorded")
+        );
+        assert_eq!(
+            evaluation
+                .normalized_event
+                .action
+                .attributes
+                .get("coverage_display_rule")
+                .and_then(|value| value.as_str()),
+            Some("show_preview_supported_and_fail_open")
         );
     }
 
@@ -312,6 +339,10 @@ mod tests {
         assert_eq!(
             evaluation.approval_eligibility,
             ApprovalEligibility::AdvisoryOnly
+        );
+        assert_eq!(
+            evaluation.coverage_display_rule,
+            LiveCoverageDisplayRule::ShowPreviewSupportedAndFailOpen
         );
     }
 

@@ -32,12 +32,16 @@ The repository had the right semantics in docs, but those semantics were not yet
 
 - `failure_posture`
 - `coverage_support`
+- `coverage_display_rule`
 - `coverage_summary`
 
-`cmd/agent-auditor-hostd/src/poc/live_proxy/audit.rs` now reflects those fields into live preview audit records as action attributes:
+`cmd/agent-auditor-hostd/src/poc/live_proxy/policy.rs` reflects `coverage_display_rule` into normalized preview records, and `cmd/agent-auditor-hostd/src/poc/live_proxy/audit.rs` reflects the same field into live preview audit records as an action attribute.
+
+The checked-in record-facing fields are now:
 
 - `failure_posture`
 - `coverage_support`
+- `coverage_display_rule`
 - `coverage_summary`
 
 ## what each field means
@@ -68,6 +72,17 @@ Values:
 
 This keeps unsupported mode separate from ordinary shadow-mode observe-only preview.
 
+### `coverage_display_rule`
+
+This is the checked-in rendering rule for preview-facing records.
+
+Current values are intentionally small:
+
+- `show_preview_supported_and_fail_open`
+- `show_unsupported_and_fail_open`
+
+The rule is not a second policy engine. It is the compact record contract that says how `coverage_support` and `failure_posture` should be presented together.
+
 ### `coverage_summary`
 
 This is the compact operator sentence that ties the posture together.
@@ -80,11 +95,11 @@ Representative checked-in summaries:
 
 ## current mode mapping
 
-| mode | coverage_posture | failure_posture | coverage_support | practical reading |
-| --- | --- | --- | --- | --- |
-| `shadow` | `observe_only_preview` | `fail_open` | `preview_supported` | supported preview path that observes policy intent only |
-| `enforce_preview` | `record_only_preview` | `fail_open` | `preview_supported` | supported preview path that can record approval/deny intent locally, but not enforce inline |
-| `unsupported` | `unsupported_preview` | `fail_open` | `unsupported` | diagnostic-only path with no supported live preview contract |
+| mode | coverage_posture | failure_posture | coverage_support | coverage_display_rule | practical reading |
+| --- | --- | --- | --- | --- | --- |
+| `shadow` | `observe_only_preview` | `fail_open` | `preview_supported` | `show_preview_supported_and_fail_open` | supported preview path that observes policy intent only |
+| `enforce_preview` | `record_only_preview` | `fail_open` | `preview_supported` | `show_preview_supported_and_fail_open` | supported preview path that can record approval/deny intent locally, but not enforce inline |
+| `unsupported` | `unsupported_preview` | `fail_open` | `unsupported` | `show_unsupported_and_fail_open` | diagnostic-only path with no supported live preview contract |
 
 ## why `unsupported` is not the same as `fail_closed`
 
@@ -129,6 +144,7 @@ That is why the current record bundle is now:
 - `record_status`
 - `failure_posture`
 - `coverage_support`
+- `coverage_display_rule`
 - `coverage_summary`
 - `coverage_gap`
 
@@ -138,8 +154,9 @@ This step extends live preview tests so they verify:
 
 - fixture expectations for `failure_posture`
 - fixture expectations for `coverage_support`
+- fixture expectations for `coverage_display_rule`
 - fixture expectations for `coverage_summary`
-- reflected audit-record attributes for those same fields
+- reflected normalized-event and audit-record attributes for those same fields
 - catalog-wide smoke invariants that live preview still stays fail-open and does not mislabel unsupported mode as supported
 - unit-level summary contract checks for the reflected audit surface
 

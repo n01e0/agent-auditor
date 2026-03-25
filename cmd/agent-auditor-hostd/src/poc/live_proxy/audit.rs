@@ -44,6 +44,7 @@ impl AuditPlan {
             "mode_status",
             "record_status",
             "approval_eligibility",
+            "coverage_display_rule",
             "approval_request",
             "approval_hold_allowed",
             "hold_reason",
@@ -61,6 +62,7 @@ impl AuditPlan {
             "record_status",
             "failure_posture",
             "coverage_support",
+            "coverage_display_rule",
             "coverage_summary",
             "coverage_gap",
             "realized_enforcement",
@@ -153,6 +155,10 @@ impl AuditPlan {
             json!(mode_projection.coverage_support.label()),
         );
         audit_record.action.attributes.insert(
+            "coverage_display_rule".to_owned(),
+            json!(mode_projection.coverage_display_rule.label()),
+        );
+        audit_record.action.attributes.insert(
             "coverage_summary".to_owned(),
             json!(mode_projection.coverage_summary),
         );
@@ -174,6 +180,7 @@ impl AuditPlan {
             record_status: evaluation.record_status.clone(),
             failure_posture: mode_projection.failure_posture.label().to_owned(),
             coverage_support: mode_projection.coverage_support.label().to_owned(),
+            coverage_display_rule: mode_projection.coverage_display_rule.label().to_owned(),
             coverage_summary: mode_projection.coverage_summary.to_owned(),
             coverage_gap: mode_projection.coverage_gap.to_owned(),
             realized_enforcement: enforcement,
@@ -229,6 +236,7 @@ pub struct LivePreviewAuditReflection {
     pub record_status: String,
     pub failure_posture: String,
     pub coverage_support: String,
+    pub coverage_display_rule: String,
     pub coverage_summary: String,
     pub coverage_gap: String,
     pub realized_enforcement: EnforcementInfo,
@@ -238,7 +246,7 @@ pub struct LivePreviewAuditReflection {
 impl LivePreviewAuditReflection {
     pub fn summary(&self) -> String {
         format!(
-            "event_id={} approval_request={} mode_behavior={} mode_status={} record_status={} failure_posture={} coverage_support={} coverage_gap={} redaction_status={}",
+            "event_id={} approval_request={} mode_behavior={} mode_status={} record_status={} failure_posture={} coverage_support={} coverage_display_rule={} coverage_gap={} redaction_status={}",
             self.audit_record.event_id,
             self.approval_request
                 .as_ref()
@@ -249,6 +257,7 @@ impl LivePreviewAuditReflection {
             self.record_status,
             self.failure_posture,
             self.coverage_support,
+            self.coverage_display_rule,
             self.coverage_gap,
             self.redaction_status
         )
@@ -457,6 +466,14 @@ mod tests {
                 .and_then(|value| value.as_str()),
             Some("preview_supported")
         );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_display_rule")
+                .and_then(|value| value.as_str()),
+            Some("show_preview_supported_and_fail_open")
+        );
         assert!(
             persisted_audit
                 .action
@@ -539,6 +556,14 @@ mod tests {
                 .get("coverage_support")
                 .and_then(|value| value.as_str()),
             Some("preview_supported")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_display_rule")
+                .and_then(|value| value.as_str()),
+            Some("show_preview_supported_and_fail_open")
         );
         assert!(
             persisted_audit
@@ -687,6 +712,14 @@ mod tests {
                 .and_then(|value| value.as_str()),
             Some("unsupported")
         );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("coverage_display_rule")
+                .and_then(|value| value.as_str()),
+            Some("show_unsupported_and_fail_open")
+        );
         assert!(
             persisted_audit
                 .action
@@ -754,6 +787,10 @@ mod tests {
         );
         assert_eq!(reflection.failure_posture, "fail_open");
         assert_eq!(reflection.coverage_support, "preview_supported");
+        assert_eq!(
+            reflection.coverage_display_rule,
+            "show_preview_supported_and_fail_open"
+        );
         assert!(reflection.coverage_summary.contains("record-only path"));
         assert_eq!(
             persisted_request
@@ -770,6 +807,7 @@ mod tests {
 
         assert!(summary.contains("failure_posture"));
         assert!(summary.contains("coverage_support"));
+        assert!(summary.contains("coverage_display_rule"));
         assert!(summary.contains("coverage_summary"));
         assert!(summary.contains("coverage_gap"));
     }
@@ -806,6 +844,7 @@ mod tests {
 
         assert!(summary.contains("failure_posture=fail_open"));
         assert!(summary.contains("coverage_support=unsupported"));
+        assert!(summary.contains("coverage_display_rule=show_unsupported_and_fail_open"));
         assert!(
             summary
                 .contains("coverage_gap=unsupported_mode_has_no_supported_live_preview_contract")

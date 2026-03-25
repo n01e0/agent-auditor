@@ -128,12 +128,28 @@ impl LiveCoverageSupport {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiveCoverageDisplayRule {
+    ShowPreviewSupportedAndFailOpen,
+    ShowUnsupportedAndFailOpen,
+}
+
+impl LiveCoverageDisplayRule {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ShowPreviewSupportedAndFailOpen => "show_preview_supported_and_fail_open",
+            Self::ShowUnsupportedAndFailOpen => "show_unsupported_and_fail_open",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LiveModeProjection {
     pub mode: LiveMode,
     pub mode_behavior: LiveModeBehavior,
     pub coverage_posture: LiveCoveragePosture,
     pub failure_posture: LiveFailurePosture,
     pub coverage_support: LiveCoverageSupport,
+    pub coverage_display_rule: LiveCoverageDisplayRule,
     pub coverage_summary: &'static str,
     pub mode_status: &'static str,
     pub record_status: &'static str,
@@ -178,6 +194,7 @@ fn shadow_projection(decision: PolicyDecisionKind) -> LiveModeProjection {
         coverage_posture: LiveCoveragePosture::ObserveOnlyPreview,
         failure_posture: LiveFailurePosture::FailOpen,
         coverage_support: LiveCoverageSupport::PreviewSupported,
+        coverage_display_rule: LiveCoverageDisplayRule::ShowPreviewSupportedAndFailOpen,
         coverage_summary: "preview-supported observe-only path; policy intent is recorded but the live request remains fail-open",
         mode_status: "shadow_observe_only",
         record_status,
@@ -223,6 +240,7 @@ fn enforce_preview_projection(decision: PolicyDecisionKind) -> LiveModeProjectio
         coverage_posture: LiveCoveragePosture::RecordOnlyPreview,
         failure_posture: LiveFailurePosture::FailOpen,
         coverage_support: LiveCoverageSupport::PreviewSupported,
+        coverage_display_rule: LiveCoverageDisplayRule::ShowPreviewSupportedAndFailOpen,
         coverage_summary: "preview-supported record-only path; approval or deny intent is reflected locally but the live request remains fail-open",
         mode_status: "enforce_preview_record_only",
         record_status,
@@ -268,6 +286,7 @@ fn unsupported_projection(decision: PolicyDecisionKind) -> LiveModeProjection {
         coverage_posture: LiveCoveragePosture::UnsupportedPreview,
         failure_posture: LiveFailurePosture::FailOpen,
         coverage_support: LiveCoverageSupport::Unsupported,
+        coverage_display_rule: LiveCoverageDisplayRule::ShowUnsupportedAndFailOpen,
         coverage_summary: "unsupported live preview path; policy signals are diagnostic only and the live request remains fail-open",
         mode_status: "unsupported_preview_only",
         record_status,
@@ -288,7 +307,8 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        ApprovalEligibility, LiveCoveragePosture, LiveCoverageSupport, LiveFailurePosture, LiveMode,
+        ApprovalEligibility, LiveCoverageDisplayRule, LiveCoveragePosture, LiveCoverageSupport,
+        LiveFailurePosture, LiveMode,
     };
 
     #[test]
@@ -312,6 +332,10 @@ mod tests {
             shadow.coverage_support,
             LiveCoverageSupport::PreviewSupported
         );
+        assert_eq!(
+            shadow.coverage_display_rule,
+            LiveCoverageDisplayRule::ShowPreviewSupportedAndFailOpen
+        );
         assert!(shadow.coverage_summary.contains("fail-open"));
         assert_eq!(shadow.wait_state, Some("shadow_observe_only"));
 
@@ -328,6 +352,10 @@ mod tests {
             enforce.coverage_support,
             LiveCoverageSupport::PreviewSupported
         );
+        assert_eq!(
+            enforce.coverage_display_rule,
+            LiveCoverageDisplayRule::ShowPreviewSupportedAndFailOpen
+        );
         assert!(enforce.coverage_summary.contains("record-only"));
         assert_eq!(enforce.wait_state, Some("pending_approval_record_only"));
 
@@ -343,6 +371,10 @@ mod tests {
         assert_eq!(
             unsupported.coverage_support,
             LiveCoverageSupport::Unsupported
+        );
+        assert_eq!(
+            unsupported.coverage_display_rule,
+            LiveCoverageDisplayRule::ShowUnsupportedAndFailOpen
         );
         assert!(
             unsupported

@@ -26,6 +26,10 @@ fn smoke_test_runs_live_proxy_fixture_catalog_through_policy_approval_and_audit_
         );
         assert_eq!(evaluation.mode_status, fixture.expected_mode_status);
         assert_eq!(evaluation.record_status, fixture.expected_record_status);
+        assert_eq!(
+            evaluation.coverage_display_rule.label(),
+            fixture.expected_coverage_display_rule
+        );
 
         let approval = live_proxy
             .approval
@@ -51,6 +55,10 @@ fn smoke_test_runs_live_proxy_fixture_catalog_through_policy_approval_and_audit_
         assert_eq!(
             reflection.coverage_support,
             fixture.expected_coverage_support
+        );
+        assert_eq!(
+            reflection.coverage_display_rule,
+            fixture.expected_coverage_display_rule
         );
         assert_eq!(
             reflection.coverage_summary,
@@ -92,6 +100,15 @@ fn smoke_test_runs_live_proxy_fixture_catalog_through_policy_approval_and_audit_
                 .get("coverage_support")
                 .and_then(|value| value.as_str()),
             Some(fixture.expected_coverage_support)
+        );
+        assert_eq!(
+            reflection
+                .audit_record
+                .action
+                .attributes
+                .get("coverage_display_rule")
+                .and_then(|value| value.as_str()),
+            Some(fixture.expected_coverage_display_rule)
         );
         assert_eq!(
             reflection
@@ -150,6 +167,11 @@ fn smoke_test_keeps_live_preview_hardening_posture_honest_across_fixture_catalog
                     "{} should stay marked unsupported",
                     fixture.name
                 );
+                assert_eq!(
+                    reflection.coverage_display_rule, "show_unsupported_and_fail_open",
+                    "{} should advertise the unsupported+fail-open display rule",
+                    fixture.name
+                );
                 assert!(
                     reflection
                         .coverage_summary
@@ -167,6 +189,11 @@ fn smoke_test_keeps_live_preview_hardening_posture_honest_across_fixture_catalog
                 assert_eq!(
                     reflection.coverage_support, "preview_supported",
                     "{} should remain within the supported preview contract",
+                    fixture.name
+                );
+                assert_eq!(
+                    reflection.coverage_display_rule, "show_preview_supported_and_fail_open",
+                    "{} should advertise the supported-preview+fail-open display rule",
                     fixture.name
                 );
                 assert!(

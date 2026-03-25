@@ -51,6 +51,7 @@ Current checked-in values:
 - `coverage_posture=observe_only_preview`
 - `failure_posture=fail_open`
 - `coverage_support=preview_supported`
+- `coverage_display_rule=show_preview_supported_and_fail_open`
 - `mode_behavior=observe_only`
 - `mode_status=shadow_observe_only`
 - `approval_eligibility=advisory_only` for `require_approval`
@@ -71,6 +72,7 @@ Current checked-in values:
 - `coverage_posture=record_only_preview`
 - `failure_posture=fail_open`
 - `coverage_support=preview_supported`
+- `coverage_display_rule=show_preview_supported_and_fail_open`
 - `mode_behavior=record_only`
 - `mode_status=enforce_preview_record_only`
 - `approval_eligibility=record_only` for `require_approval`
@@ -91,6 +93,7 @@ Current checked-in values:
 - `coverage_posture=unsupported_preview`
 - `failure_posture=fail_open`
 - `coverage_support=unsupported`
+- `coverage_display_rule=show_unsupported_and_fail_open`
 - `mode_behavior=unsupported`
 - `mode_status=unsupported_preview_only`
 - `approval_eligibility=unsupported` for `require_approval`
@@ -111,6 +114,7 @@ These values appear together with:
 
 - `failure_posture`
 - `coverage_support`
+- `coverage_display_rule`
 - `coverage_summary`
 
 so operators can tell whether an approval request was merely observed, actually materialized as preview-only state, or not supported at all, without mistaking any of those states for fail-closed inline enforcement.
@@ -136,6 +140,7 @@ That makes the audit trail clearer than a single generic preview gap.
 - `mode_status`
 - `record_status`
 - `approval_eligibility`
+- `coverage_display_rule`
 
 onto the normalized live preview event.
 
@@ -170,6 +175,7 @@ The new tests prove that:
 - enforce-preview `require_approval` creates a preview-only approval request
 - unsupported mode records the policy signal and coverage gap without claiming a supported live preview path
 - reflected records keep `failure_posture=fail_open` while distinguishing `preview_supported` vs `unsupported`
+- normalized events and audit records carry a checked-in `coverage_display_rule` so the same preview/fail-open rendering rule can be read without re-deriving it from multiple fields
 
 ## Related docs
 
