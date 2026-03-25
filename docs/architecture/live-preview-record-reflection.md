@@ -43,6 +43,7 @@ It can:
   - `mode_status`
   - `record_status`
   - `approval_eligibility`
+  - `coverage_display_rule`
 
 The important detail is that the policy bridge keeps the repository honest about the current live posture. A `deny` or `require_approval` decision is treated as **policy intent**, not proof of real inline interception.
 
@@ -85,6 +86,7 @@ The operator-facing interpretation of those fields is fixed in [`live-preview-co
 - `record_status`
 - `failure_posture`
 - `coverage_support`
+- `coverage_display_rule`
 - `coverage_summary`
 - a mode-specific `coverage_gap`
 - `redaction_status=redaction_safe_preview_only`
@@ -96,6 +98,7 @@ That means the audit log now answers the operator question correctly:
 - whether the mode was shadow, enforce-preview, or unsupported
 - whether the path is still fail-open or allowed to claim fail-closed
 - whether the path is part of the supported preview contract or unsupported
+- which checked-in display rule should render those two facts together
 - what the runtime *actually* did
 - why the result was preview-only instead of real inline enforcement
 
@@ -127,7 +130,7 @@ The new tests prove that the live preview path can now:
 - keep shadow `require_approval` results advisory-only with no approval request
 - create preview-only approval state for enforce-preview `require_approval` results
 - reflect unsupported-mode deny results with an explicit unsupported coverage gap
-- keep `failure_posture`, `coverage_support`, and `coverage_summary` stable in reflected records
+- keep `failure_posture`, `coverage_support`, `coverage_display_rule`, and `coverage_summary` stable in reflected records
 - reflect a GWS allow preview into an audit record with `observe_only_fallback`
 - persist those records through the existing append-only PoC stores
 

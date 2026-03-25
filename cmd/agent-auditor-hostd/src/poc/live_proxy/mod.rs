@@ -195,6 +195,7 @@ mod tests {
                 "record_status",
                 "failure_posture",
                 "coverage_support",
+                "coverage_display_rule",
                 "coverage_summary",
                 "coverage_gap",
                 "realized_enforcement",
