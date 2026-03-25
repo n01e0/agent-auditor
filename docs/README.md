@@ -6,6 +6,7 @@ This directory is the entrypoint for the repository documentation.
 
 - product requirements: [`PRD.md`](PRD.md)
 - architecture overview: [`architecture/overview.md`](architecture/overview.md)
+- separate-machine audit preview boundary: [`architecture/preview-readiness-boundary.md`](architecture/preview-readiness-boundary.md)
 - architecture index: [`architecture/README.md`](architecture/README.md)
 - runbook index: [`runbooks/README.md`](runbooks/README.md)
 - policy contract: [`policies/rego-contract.md`](policies/rego-contract.md)
@@ -17,9 +18,10 @@ If you are new to the repository:
 
 1. [`PRD.md`](PRD.md)
 2. [`architecture/overview.md`](architecture/overview.md)
-3. [`architecture/coverage-matrix.md`](architecture/coverage-matrix.md)
-4. the capability-specific runbook you care about under [`runbooks/`](runbooks/README.md)
-5. the deeper architecture notes under [`architecture/`](architecture/README.md)
+3. [`architecture/preview-readiness-boundary.md`](architecture/preview-readiness-boundary.md)
+4. [`architecture/coverage-matrix.md`](architecture/coverage-matrix.md)
+5. the capability-specific runbook you care about under [`runbooks/`](runbooks/README.md)
+6. the deeper architecture notes under [`architecture/`](architecture/README.md)
 
 ## Sections
 

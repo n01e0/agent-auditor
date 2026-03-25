@@ -32,6 +32,8 @@ English version: [`README.md`](README.md)
 - 長期互換性保証
 - 外部 runtime との end-to-end integration の高信頼実装
 
+別実機での現状の audit preview 目標は [`docs/architecture/preview-readiness-boundary.md`](docs/architecture/preview-readiness-boundary.md) を参照。
+
 ## リポジトリ構成
 
 ```text

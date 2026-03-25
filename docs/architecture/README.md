@@ -59,6 +59,7 @@ This directory contains design notes for the current `agent-auditor` architectur
 ## Gap-closing / hardening
 
 - gap-closing foundation: [`gap-closing-productization-hardening-foundation.md`](gap-closing-productization-hardening-foundation.md)
+- separate-machine audit preview readiness boundary: [`preview-readiness-boundary.md`](preview-readiness-boundary.md)
 - gap matrix: [`gap-closing-gap-matrix.md`](gap-closing-gap-matrix.md)
 
 ## Known constraints
