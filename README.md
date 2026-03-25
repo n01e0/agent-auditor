@@ -103,6 +103,21 @@ cargo run -p agent-auditor-controld
 cargo run -p agent-auditor-cli
 ```
 
+### Separate-machine audit preview path
+
+If you are evaluating the repository on another Linux machine, use the dedicated minimal setup runbook:
+
+- [`docs/runbooks/separate-machine-audit-preview-local.md`](docs/runbooks/separate-machine-audit-preview-local.md)
+
+That runbook fixes the current minimum path for:
+
+- prerequisites / dependencies
+- revision-pinned build
+- running `agent-auditor-hostd` and `agent-auditor-controld`
+- focused validation
+- local JSONL / stdout inspection
+- cleanup and retry
+
 ## Usage guide
 
 Because the project is still phase-driven, the most useful way to use it today is:
@@ -116,8 +131,9 @@ Recommended order:
 
 1. [`docs/README.md`](docs/README.md)
 2. [`docs/architecture/overview.md`](docs/architecture/overview.md)
-3. relevant runbook under [`docs/runbooks/`](docs/runbooks/README.md)
-4. related architecture notes under [`docs/architecture/`](docs/architecture/README.md)
+3. if you are evaluating another Linux machine, start with [`docs/runbooks/separate-machine-audit-preview-local.md`](docs/runbooks/separate-machine-audit-preview-local.md)
+4. relevant runbook under [`docs/runbooks/`](docs/runbooks/README.md)
+5. related architecture notes under [`docs/architecture/`](docs/architecture/README.md)
 
 ## Configuration
 
