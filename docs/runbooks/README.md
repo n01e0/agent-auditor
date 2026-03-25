@@ -20,6 +20,7 @@ This directory contains local developer runbooks for reproducing the current PoC
 ## Control plane / explainability runbooks
 
 - approval / control-plane UX: [`approval-control-plane-ux-local.md`](approval-control-plane-ux-local.md)
+- approval JSONL inspection: [`approval-jsonl-inspection-local.md`](approval-jsonl-inspection-local.md)
 - policy authoring / explainability: [`policy-authoring-explainability-local.md`](policy-authoring-explainability-local.md)
 - provider abstraction foundation: [`provider-abstraction-foundation-local.md`](provider-abstraction-foundation-local.md)
 

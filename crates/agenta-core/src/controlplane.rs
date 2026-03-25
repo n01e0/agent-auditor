@@ -600,6 +600,38 @@ pub struct ApprovalAuditExportRecord {
     pub requester_context: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalLocalExplanationSource {
+    PersistedRationale,
+    ReviewerSummaryFallback,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApprovalLocalJsonlInspectionRecord {
+    pub approval_id: String,
+    pub session_id: String,
+    pub event_id: Option<String>,
+    pub requested_at: DateTime<Utc>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub status: ApprovalStatus,
+    pub action_class: ActionClass,
+    pub action_verb: String,
+    pub target_hint: Option<String>,
+    pub rule_id: String,
+    pub severity: Option<Severity>,
+    pub scope: Option<ApprovalScope>,
+    pub reviewer_summary: String,
+    pub persisted_rationale: Option<String>,
+    pub agent_reason: Option<String>,
+    pub human_request: Option<String>,
+    pub reviewer_id: Option<String>,
+    pub reviewer_hint: Option<String>,
+    pub explanation_summary: String,
+    pub explanation_source: ApprovalLocalExplanationSource,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalControlPlaneProjection {
     pub ops_status: ApprovalOpsHardeningStatus,
@@ -692,6 +724,46 @@ impl ApprovalAuditExportRecord {
             policy_reason: explanation.policy_reason.clone(),
             reviewer_hint: explanation.reviewer_hint.clone(),
             requester_context: explanation.requester_context.clone(),
+        }
+    }
+}
+
+impl ApprovalLocalJsonlInspectionRecord {
+    pub fn derive(queue_item: &ApprovalQueueItem) -> Self {
+        let persisted_rationale = queue_item.rationale_capture.policy_reason.clone();
+        let (explanation_summary, explanation_source) = match persisted_rationale.as_ref() {
+            Some(rationale) => (
+                rationale.clone(),
+                ApprovalLocalExplanationSource::PersistedRationale,
+            ),
+            None => (
+                queue_item.decision_summary.action_summary.clone(),
+                ApprovalLocalExplanationSource::ReviewerSummaryFallback,
+            ),
+        };
+
+        Self {
+            approval_id: queue_item.approval_id.clone(),
+            session_id: queue_item.session_id.clone(),
+            event_id: queue_item.event_id.clone(),
+            requested_at: queue_item.requested_at,
+            resolved_at: queue_item.resolved_at,
+            expires_at: queue_item.expires_at,
+            status: queue_item.status,
+            action_class: queue_item.action_class,
+            action_verb: queue_item.action_verb.clone(),
+            target_hint: queue_item.target.clone(),
+            rule_id: queue_item.decision_summary.rule_id.clone(),
+            severity: queue_item.decision_summary.severity,
+            scope: queue_item.decision_summary.scope,
+            reviewer_summary: queue_item.decision_summary.action_summary.clone(),
+            persisted_rationale,
+            agent_reason: queue_item.rationale_capture.agent_reason.clone(),
+            human_request: queue_item.rationale_capture.human_request.clone(),
+            reviewer_id: queue_item.rationale_capture.reviewer_id.clone(),
+            reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+            explanation_summary,
+            explanation_source,
         }
     }
 }
@@ -1486,6 +1558,92 @@ mod tests {
         assert_eq!(
             projection.audit_export.status_owner,
             ApprovalStatusOwner::Ops
+        );
+    }
+
+    #[test]
+    fn local_jsonl_inspection_prefers_persisted_rationale_for_explanation_summary() {
+        let queue_item = ApprovalQueueItem::from_request(&sample_request());
+        let inspection = ApprovalLocalJsonlInspectionRecord::derive(&queue_item);
+
+        assert_eq!(inspection.approval_id, "apr_controld_bootstrap");
+        assert_eq!(inspection.session_id, "sess_controld_bootstrap");
+        assert_eq!(inspection.event_id.as_deref(), Some("evt_msg_invite"));
+        assert_eq!(
+            inspection.reviewer_summary,
+            "Approval required before expanding incident-room membership"
+        );
+        assert_eq!(
+            inspection.persisted_rationale.as_deref(),
+            Some("Membership change affects incident communications")
+        );
+        assert_eq!(
+            inspection.agent_reason.as_deref(),
+            Some("Need to add the incident commander to the thread")
+        );
+        assert_eq!(
+            inspection.human_request.as_deref(),
+            Some("please bring ops into the live incident room")
+        );
+        assert_eq!(inspection.reviewer_hint.as_deref(), Some("security-oncall"));
+        assert_eq!(
+            inspection.explanation_summary,
+            "Membership change affects incident communications"
+        );
+        assert_eq!(
+            inspection.explanation_source,
+            ApprovalLocalExplanationSource::PersistedRationale
+        );
+    }
+
+    #[test]
+    fn local_jsonl_inspection_and_audit_export_keep_shared_fields_aligned() {
+        let mut request = sample_request();
+        request.status = ApprovalStatus::Approved;
+
+        let queue_item = ApprovalQueueItem::from_request(&request);
+        let inspection = ApprovalLocalJsonlInspectionRecord::derive(&queue_item);
+        let projection = ApprovalControlPlaneProjection::derive(
+            &queue_item,
+            &ApprovalOpsSignals {
+                stale: false,
+                audit_record_present: true,
+                decision_record_present: true,
+                downstream_completion_recorded: false,
+                requires_merge_follow_up: true,
+            },
+        );
+
+        assert_eq!(inspection.approval_id, projection.audit_export.approval_id);
+        assert_eq!(inspection.session_id, projection.audit_export.session_id);
+        assert_eq!(inspection.event_id, projection.audit_export.event_id);
+        assert_eq!(inspection.rule_id, projection.audit_export.rule_id);
+        assert_eq!(
+            inspection.reviewer_summary,
+            projection.audit_export.reviewer_summary
+        );
+        assert_eq!(
+            inspection.persisted_rationale,
+            projection.audit_export.persisted_rationale
+        );
+        assert_eq!(
+            inspection.agent_reason,
+            projection.audit_export.agent_reason
+        );
+        assert_eq!(
+            inspection.human_request,
+            projection.audit_export.human_request
+        );
+        assert_eq!(inspection.reviewer_id, projection.audit_export.reviewer_id);
+        assert_eq!(
+            inspection.reviewer_hint,
+            projection.audit_export.reviewer_hint
+        );
+        assert_eq!(
+            inspection.explanation_summary,
+            projection.audit_export.persisted_rationale.clone().expect(
+                "export should keep the persisted rationale that local jsonl inspection uses"
+            )
         );
     }
 

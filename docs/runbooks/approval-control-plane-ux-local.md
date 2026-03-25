@@ -172,6 +172,7 @@ Use this rule when reading the current control-plane bootstrap output:
 - if you see `approval_notification_summary_*={...}`, read those lines as delivery-ready summary shapes, not evidence that an email, DM, webhook, or pager notification was actually sent
 - if you see `approval_reconciliation_summary_*={...}`, read those lines as reconciliation guidance, not proof of a background reconciliation worker or downstream executor
 - if you see `approval_audit_export_*={...}`, read those lines as redaction-safe export rows, not proof that the repository already has a durable audit database or export API
+- if you need to compare those export rows against hostd-side local JSONL approval artifacts, use [`approval-jsonl-inspection-local.md`](approval-jsonl-inspection-local.md)
 
 For the minimum record-consistency check in this slice, compare these pairs directly:
 
