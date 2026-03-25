@@ -32,6 +32,8 @@ What is still missing:
 - long-term compatibility guarantees
 - end-to-end integration with external runtimes at production confidence
 
+For the current separate-machine audit-preview target, see [`docs/architecture/preview-readiness-boundary.md`](docs/architecture/preview-readiness-boundary.md).
+
 ## Repository layout
 
 ```text

@@ -4,6 +4,8 @@ This note defines the boundary for the gap-closing / productization / hardening 
 
 The goal of this phase is not to invent a new policy model. It is to close the operational and product gaps around the existing evaluator, control-plane, audit, and deployment surfaces so the repository can behave like a reliable system instead of a collection of isolated foundations.
 
+For the narrower separate-machine audit preview target inside this phase, see [`preview-readiness-boundary.md`](preview-readiness-boundary.md). That note keeps the same broad phase direction but swaps the immediate gating lens from `control-plane UX` to `coverage visibility`, because the current preview target is about reproducibility and honest evaluation on another Linux machine before a fuller reviewer workflow exists.
+
 ## phase goal
 
 The phase is split into four responsibilities:
@@ -160,6 +162,7 @@ A PR may touch adjacent layers, but it should still have one primary ownership b
 ## related docs
 
 - `overview.md`
+- `preview-readiness-boundary.md`
 - `deployment-hardening-minimums.md`
 - `approval-control-plane-ux-foundation.md`
 - `approval-control-plane-ops-hardening.md`
