@@ -103,6 +103,21 @@ cargo run -p agent-auditor-controld
 cargo run -p agent-auditor-cli
 ```
 
+### 別実機 audit preview の最小手順
+
+別の Linux 実機で現状の preview を評価するなら、専用の最小セットアップ runbook を使う。
+
+- [`docs/runbooks/separate-machine-audit-preview-local.md`](docs/runbooks/separate-machine-audit-preview-local.md)
+
+この runbook で次をまとめて確認できる。
+
+- 前提依存
+- revision 固定の build
+- `agent-auditor-hostd` / `agent-auditor-controld` の実行
+- focused validation
+- local JSONL / stdout inspection
+- cleanup と retry
+
 ## 使い方
 
 現状の `agent-auditor` は phase ごとに機能が積み上がっているので、使うときは次の順がわかりやすい。
@@ -116,8 +131,9 @@ cargo run -p agent-auditor-cli
 
 1. [`docs/README.md`](docs/README.md)
 2. [`docs/architecture/overview.md`](docs/architecture/overview.md)
-3. 関連 runbook（[`docs/runbooks/README.md`](docs/runbooks/README.md)）
-4. 深い architecture docs（[`docs/architecture/README.md`](docs/architecture/README.md)）
+3. 別実機で評価するなら [`docs/runbooks/separate-machine-audit-preview-local.md`](docs/runbooks/separate-machine-audit-preview-local.md)
+4. 関連 runbook（[`docs/runbooks/README.md`](docs/runbooks/README.md)）
+5. 深い architecture docs（[`docs/architecture/README.md`](docs/architecture/README.md)）
 
 ## 設定
 

@@ -8,6 +8,7 @@ It builds on:
 - [`gap-closing-gap-matrix.md`](gap-closing-gap-matrix.md)
 - [`overview.md`](overview.md)
 - [`failure-behavior.md`](failure-behavior.md)
+- [`../runbooks/separate-machine-audit-preview-local.md`](../runbooks/separate-machine-audit-preview-local.md)
 
 ## gap being closed
 
@@ -41,6 +42,8 @@ The checked-in packaging minimum is:
 2. produce release binaries from that revision
 3. keep the matching docs / policy bundle / config expectations tied to the same revision
 4. treat that revision as the rollback unit
+
+The current source-of-truth operator path for that minimum on another Linux machine is [`../runbooks/separate-machine-audit-preview-local.md`](../runbooks/separate-machine-audit-preview-local.md).
 
 The repository does **not** yet claim:
 
@@ -117,6 +120,12 @@ That means the most honest minimum checks are still based on:
 - `cargo test`
 - focused smoke tests per slice
 - successful local bootstrap execution for the relevant binary
+
+For the separate-machine audit preview target, the current minimum focused set is:
+
+- `cargo test -p agent-auditor-hostd --test poc_smoke`
+- `cargo test -p agent-auditor-hostd --test live_proxy_seam_smoke`
+- `cargo test -p agent-auditor-controld --test control_plane_smoke`
 
 ## observability minimums
 
@@ -198,6 +207,8 @@ The repository does not yet implement those claims.
 
 If a rollout changes the meaning of preview output, approval records, or audit reflection, operators should prefer **reverting the whole revision** rather than trying to hot-edit only one doc, binary, or policy file in place.
 
+For the current separate-machine preview path, the retry boundary is also small: clean the bootstrap-local `target/agent-auditor-hostd*-store/` directories before rerunning the same revision.
+
 ## deployment change checklist
 
 A deployment-affecting PR in the current phase should be able to answer these questions clearly:
@@ -241,5 +252,6 @@ Those belong to later deployment-hardening work once the current contracts stabi
 - architecture overview: [`overview.md`](overview.md)
 - failure posture: [`failure-behavior.md`](failure-behavior.md)
 - live preview coverage visibility: [`live-preview-coverage-visibility.md`](live-preview-coverage-visibility.md)
+- separate-machine preview runbook: [`../runbooks/separate-machine-audit-preview-local.md`](../runbooks/separate-machine-audit-preview-local.md)
 - control-plane local runbook: [`../runbooks/approval-control-plane-ux-local.md`](../runbooks/approval-control-plane-ux-local.md)
 - hostd enforcement local runbook: [`../runbooks/hostd-enforcement-foundation-local.md`](../runbooks/hostd-enforcement-foundation-local.md)
