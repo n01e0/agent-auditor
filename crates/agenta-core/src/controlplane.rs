@@ -18,19 +18,11 @@ pub struct ApprovalDecisionSummary {
 impl ApprovalDecisionSummary {
     pub fn from_request(request: &ApprovalRequest) -> Self {
         Self {
-            action_summary: request
-                .presentation
-                .as_ref()
-                .and_then(|presentation| presentation.reviewer_summary.clone())
-                .unwrap_or_else(|| action_summary_for_request(request)),
+            action_summary: reviewer_summary_for_request(request),
             rule_id: request.policy.rule_id.clone(),
             target_hint: request.request.target.clone(),
             severity: request.policy.severity,
-            policy_reason: request
-                .presentation
-                .as_ref()
-                .and_then(|presentation| presentation.rationale.clone())
-                .or_else(|| request.policy.reason.clone()),
+            policy_reason: persisted_rationale_for_request(request),
             scope: request.policy.scope,
             ttl_seconds: request.policy.ttl_seconds,
             reviewer_hint: request.policy.reviewer_hint.clone(),
@@ -51,11 +43,7 @@ pub struct ApprovalRationaleCapture {
 impl ApprovalRationaleCapture {
     pub fn from_request(request: &ApprovalRequest) -> Self {
         Self {
-            policy_reason: request
-                .presentation
-                .as_ref()
-                .and_then(|presentation| presentation.rationale.clone())
-                .or_else(|| request.policy.reason.clone()),
+            policy_reason: persisted_rationale_for_request(request),
             agent_reason: request
                 .requester_context
                 .as_ref()
@@ -595,6 +583,11 @@ pub struct ApprovalAuditExportRecord {
     pub rule_id: String,
     pub severity: Option<Severity>,
     pub scope: Option<ApprovalScope>,
+    pub reviewer_summary: String,
+    pub persisted_rationale: Option<String>,
+    pub agent_reason: Option<String>,
+    pub human_request: Option<String>,
+    pub reviewer_id: Option<String>,
     pub status_kind: ApprovalStatusKind,
     pub status_owner: ApprovalStatusOwner,
     pub notification_class: ApprovalNotificationClass,
@@ -684,6 +677,11 @@ impl ApprovalAuditExportRecord {
             rule_id: queue_item.decision_summary.rule_id.clone(),
             severity: queue_item.decision_summary.severity,
             scope: queue_item.decision_summary.scope,
+            reviewer_summary: queue_item.decision_summary.action_summary.clone(),
+            persisted_rationale: queue_item.rationale_capture.policy_reason.clone(),
+            agent_reason: queue_item.rationale_capture.agent_reason.clone(),
+            human_request: queue_item.rationale_capture.human_request.clone(),
+            reviewer_id: queue_item.rationale_capture.reviewer_id.clone(),
             status_kind: status.kind,
             status_owner: explanation.owner,
             notification_class: notification.class,
@@ -785,6 +783,22 @@ fn string_attribute(attributes: &JsonMap, key: &str) -> Option<String> {
     attributes
         .get(key)
         .and_then(|value| value.as_str().map(ToOwned::to_owned))
+}
+
+fn reviewer_summary_for_request(request: &ApprovalRequest) -> String {
+    request
+        .presentation
+        .as_ref()
+        .and_then(|presentation| presentation.reviewer_summary.clone())
+        .unwrap_or_else(|| action_summary_for_request(request))
+}
+
+fn persisted_rationale_for_request(request: &ApprovalRequest) -> Option<String> {
+    request
+        .presentation
+        .as_ref()
+        .and_then(|presentation| presentation.rationale.clone())
+        .or_else(|| request.policy.reason.clone())
 }
 
 fn action_summary_for_request(request: &ApprovalRequest) -> String {
@@ -1509,6 +1523,23 @@ mod tests {
         assert_eq!(export.provider_id.as_deref(), Some("discord"));
         assert_eq!(export.action_family.as_deref(), Some("channel.invite"));
         assert_eq!(export.rule_id, "messaging.channel_invite.requires_approval");
+        assert_eq!(
+            export.reviewer_summary,
+            "Approval required before expanding incident-room membership"
+        );
+        assert_eq!(
+            export.persisted_rationale.as_deref(),
+            Some("Membership change affects incident communications")
+        );
+        assert_eq!(
+            export.agent_reason.as_deref(),
+            Some("Need to add the incident commander to the thread")
+        );
+        assert_eq!(
+            export.human_request.as_deref(),
+            Some("please bring ops into the live incident room")
+        );
+        assert_eq!(export.reviewer_id.as_deref(), Some("user:security-oncall"));
         assert_eq!(export.status_kind, ApprovalStatusKind::StaleFollowUp);
         assert_eq!(export.status_owner, ApprovalStatusOwner::Ops);
         assert_eq!(

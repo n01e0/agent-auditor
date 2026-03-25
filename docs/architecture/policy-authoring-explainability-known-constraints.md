@@ -65,6 +65,7 @@ Current smoke coverage proves that:
 
 - reviewer-facing summary is visible in the approval queue item
 - rationale is visible in rationale capture output
+- the audit/export projection keeps the same reviewer-facing summary / rationale consistency fields without exporting reviewer freeform notes
 
 Current limitation:
 

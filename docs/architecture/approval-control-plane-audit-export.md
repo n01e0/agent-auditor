@@ -37,7 +37,7 @@ This is a repository-owned projection for **searchable, export-oriented, redacti
 
 ## fields carried in the export record
 
-The projection keeps four categories of fields together.
+The projection keeps five categories of fields together.
 
 ### linkage
 
@@ -67,6 +67,28 @@ These make approval/policy/audit linkage explicit without reopening full upstrea
 
 These are the minimum checked-in dimensions for operator-friendly filtering and export.
 
+### record-consistency payload
+
+- `reviewer_summary`
+- `persisted_rationale`
+- `agent_reason`
+- `human_request`
+- `reviewer_id`
+
+These fields keep the minimum reviewer-facing and rationale-oriented view stable across:
+
+- the stored approval request contract
+- `ApprovalDecisionSummary`
+- `ApprovalRationaleCapture`
+- `ApprovalAuditExportRecord`
+
+The rule for this slice is intentionally small:
+
+- the same reviewer-facing summary that appears in the queue projection should still be visible in audit/export-oriented output
+- the persisted rationale should not disappear when an operator switches from queue/rationale views to export-oriented rows
+- requester context should stay structured enough that an evaluator does not have to parse a single concatenated string just to compare approval and audit surfaces
+- reviewer identity may travel for consistency and handoff, but reviewer freeform notes still stay out of the export row
+
 ### timestamps
 
 - `requested_at`
@@ -82,6 +104,7 @@ These are the minimum checked-in dimensions for operator-friendly filtering and 
 - `requester_context`
 
 This explanation payload is intentionally derived from already-redacted control-plane fields.
+It remains separate from the record-consistency payload above: explanation answers **"what does the current control-plane state mean now?"**, while the record-consistency fields answer **"what stable reviewer/audit rationale should still line up across records?"**.
 
 ## redaction-safe rule
 
@@ -103,11 +126,12 @@ It does **not** carry:
 The practical rule is:
 
 - keep the export record useful for auditing
+- keep reviewer-facing summary / persisted rationale / requester context stable enough that approval and audit views can be compared directly
 - do not widen it into a raw event dump
 
 ## why this improves usability
 
-This closes three concrete usability gaps:
+This closes four concrete usability gaps:
 
 1. **record linkage becomes explicit**
    - the export row already carries approval/session/event/rule linkage
@@ -115,7 +139,10 @@ This closes three concrete usability gaps:
 2. **search dimensions become stable**
    - operators can filter by provider/action family/severity/status owner without reconstructing them across separate records
 
-3. **explanation travels with the export**
+3. **reviewer-facing summary and rationale stop disappearing in export**
+   - the same reviewer-facing summary / persisted rationale / requester context now remain visible when an operator moves from approval-oriented surfaces to audit/export rows
+
+4. **explanation travels with the export**
    - the exported row already answers “what is this?” and “what happens next?” in redaction-safe form
 
 ## bootstrap / smoke contract
@@ -126,9 +153,10 @@ Representative lines include:
 
 - `approval_audit_export_model=...`
 - `approval_audit_export_pending_review=...`
-- `approval_audit_export_stale=...`
+- `approval_audit_export_waiting_downstream=...`
 - `approval_audit_export_waiting_merge=...`
 - `approval_audit_export_stale_waiting_merge=...`
+- `approval_audit_export_resolved=...`
 
 These lines prove that the repository has a checked-in audit/export projection shape.
 They do **not** prove a live export API, report builder, warehouse sync, or long-term audit index.
@@ -140,10 +168,12 @@ This step adds coverage in two places:
 1. **`agenta-core` unit tests**
    - verify the export row preserves approval/session/event/rule linkage
    - verify searchable dimensions such as `provider_id` and `action_family`
+   - verify reviewer-facing summary / persisted rationale / requester context stay aligned with queue and rationale projections
    - verify the exported explanation remains redaction-safe by excluding raw attribute maps and reviewer notes
 
 2. **`agent-auditor-controld` smoke test**
-   - verifies deterministic export rows for pending review, stale queue, waiting merge, and stale follow-up paths
+   - verifies deterministic export rows for pending review, waiting downstream, waiting merge, stale follow-up, and resolved paths
+   - verifies the checked-in export model advertises the record-consistency payload explicitly
 
 ## explicit non-goals
 

@@ -259,7 +259,7 @@ fn main() {
         "approval_control_plane_surface_model=components=approval_status_summary,approval_status_explanation,approval_notification_summary,approval_reconciliation_summary focuses=status,explanation,notification,reconciliation"
     );
     println!(
-        "approval_audit_export_model=components=approval_audit_export_record linkage=approval_id,session_id,event_id,rule_id search=provider_id,action_family,status,status_kind,status_owner,severity reconciliation=state explanation=redaction_safe"
+        "approval_audit_export_model=components=approval_audit_export_record linkage=approval_id,session_id,event_id,rule_id search=provider_id,action_family,status,status_kind,status_owner,severity consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_id reconciliation=state explanation=redaction_safe"
     );
 
     emit_projection_case("pending_review", &pending_review_projection);
