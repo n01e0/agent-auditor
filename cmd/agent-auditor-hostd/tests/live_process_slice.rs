@@ -4,7 +4,7 @@ use std::{
 };
 
 use agent_auditor_hostd::poc::{
-    event_path::{ExecEvent, ExitEvent},
+    event_path::{ExecEvent, ExitEvent, OpenClawLineage},
     filesystem::persist::FilesystemPocStore,
     process_live::{FixtureProcessEventSource, LiveProcessEvent, LiveProcessRecorder},
 };
@@ -31,6 +31,11 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
             exe: "/usr/bin/sleep".to_owned(),
             argv: vec!["/usr/bin/sleep".to_owned(), "5".to_owned()],
             cwd: "/tmp/live-process-integration".to_owned(),
+            openclaw_lineage: Some(OpenClawLineage {
+                agent_id: "openclaw-main".to_owned(),
+                session_id: "sess_live_process_integration".to_owned(),
+                request_id: Some("req_live_process_sleep".to_owned()),
+            }),
         }),
         LiveProcessEvent::Exit(ExitEvent {
             pid: 5151,
@@ -77,6 +82,22 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
     assert_eq!(
         envelopes[0].action.attributes.get("argv"),
         Some(&serde_json::json!(["/usr/bin/sleep", "5"]))
+    );
+    assert_eq!(
+        envelopes[0].action.attributes.get("lineage_agent_id"),
+        Some(&serde_json::json!("openclaw-main"))
+    );
+    assert_eq!(
+        envelopes[0].action.attributes.get("lineage_session_id"),
+        Some(&serde_json::json!("sess_live_process_integration"))
+    );
+    assert_eq!(
+        envelopes[0].action.attributes.get("lineage_request_id"),
+        Some(&serde_json::json!("req_live_process_sleep"))
+    );
+    assert_eq!(
+        envelopes[1].action.attributes.get("lineage_request_id"),
+        Some(&serde_json::json!("req_live_process_sleep"))
     );
     assert_eq!(
         envelopes[0].source.host_id.as_deref(),

@@ -18,6 +18,13 @@ pub struct EventPathPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenClawLineage {
+    pub agent_id: String,
+    pub session_id: String,
+    pub request_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecEvent {
     pub pid: u32,
     pub ppid: u32,
@@ -28,6 +35,7 @@ pub struct ExecEvent {
     pub exe: String,
     pub argv: Vec<String>,
     pub cwd: String,
+    pub openclaw_lineage: Option<OpenClawLineage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -351,6 +359,7 @@ impl ExecEvent {
             exe: filename,
             argv: vec![command],
             cwd: "/workspace/fixture".to_owned(),
+            openclaw_lineage: None,
         })
     }
 
@@ -450,6 +459,14 @@ fn insert_exec_attribution(attributes: &mut JsonMap, event: &ExecEvent) {
     attributes.insert("exe".to_owned(), json!(event.exe));
     attributes.insert("argv".to_owned(), json!(event.argv));
     attributes.insert("cwd".to_owned(), json!(event.cwd));
+    if let Some(lineage) = &event.openclaw_lineage {
+        attributes.insert("lineage_agent_id".to_owned(), json!(lineage.agent_id));
+        attributes.insert("lineage_session_id".to_owned(), json!(lineage.session_id));
+        if let Some(request_id) = &lineage.request_id {
+            attributes.insert("lineage_request_id".to_owned(), json!(request_id));
+        }
+        attributes.insert("lineage_source".to_owned(), json!("openclaw_proc_environ"));
+    }
 }
 
 fn read_u32(bytes: &[u8], start: usize) -> u32 {
