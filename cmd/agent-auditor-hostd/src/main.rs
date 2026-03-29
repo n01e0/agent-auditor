@@ -16,7 +16,10 @@ use agent_auditor_hostd::{
             contract::{ClassifiedNetworkConnect, DestinationScope},
             persist::NetworkPocStore,
         },
-        process_live::{LiveProcessRecorder, ProcConnectorSource, current_host_id},
+        process_live::{
+            LiveProcessRecorder, ProcConnectorSource, current_host_id,
+            preview_fixture_process_slice,
+        },
         rest::persist::GenericRestPocStore,
         secret::{
             contract::{BrokeredSecretRequest, ClassifiedSecretAccess, SecretPathAccess},
@@ -1788,40 +1791,23 @@ fn run_preview_or_exit() {
         }
     }
 
-    let exec_delivery = match plan.event_path.preview_exec_delivery() {
-        Ok(delivered) => delivered,
+    let process_preview = match preview_fixture_process_slice(&session) {
+        Ok(preview) => preview,
         Err(error) => {
-            eprintln!("event_log_exec_error={error}");
+            eprintln!("synthetic_process_preview_error={error}");
             std::process::exit(1);
         }
     };
-    println!("event_log_exec={}", exec_delivery.log_line);
-
-    let exit_delivery = match plan.event_path.preview_exit_delivery() {
-        Ok(delivered) => delivered,
-        Err(error) => {
-            eprintln!("event_log_exit_error={error}");
-            std::process::exit(1);
-        }
-    };
-    println!("event_log_exit={}", exit_delivery.log_line);
-
-    let lifecycle_record = match plan.event_path.preview_exec_exit_lifecycle() {
-        Ok(record) => record,
-        Err(error) => {
-            eprintln!("lifecycle_log_error={error}");
-            std::process::exit(1);
-        }
-    };
+    println!("event_log_exec={}", process_preview.exec_log_line);
+    println!("event_log_exit={}", process_preview.exit_log_line);
     println!(
         "lifecycle_log={}",
-        lifecycle_record.summary_line(plan.event_path.transport)
+        process_preview
+            .lifecycle_record
+            .summary_line(plan.event_path.transport)
     );
 
-    let normalized_exec = plan
-        .event_path
-        .normalize_exec_event(&exec_delivery.event, &session);
-    match serde_json::to_string(&normalized_exec) {
+    match serde_json::to_string(&process_preview.normalized_exec) {
         Ok(json) => println!("normalized_exec={json}"),
         Err(error) => {
             eprintln!("normalized_exec_error={error}");
@@ -1829,12 +1815,7 @@ fn run_preview_or_exit() {
         }
     }
 
-    let normalized_exit = plan.event_path.normalize_exit_event(
-        &exit_delivery.event,
-        Some(&lifecycle_record),
-        &session,
-    );
-    match serde_json::to_string(&normalized_exit) {
+    match serde_json::to_string(&process_preview.normalized_exit) {
         Ok(json) => println!("normalized_exit={json}"),
         Err(error) => {
             eprintln!("normalized_exit_error={error}");
@@ -1874,7 +1855,7 @@ fn run_preview_or_exit() {
         process_policy_decision_allow,
         process_approval_request_allow,
         process_enforcement_allow,
-    ) = match preview_process_policy(&exec_delivery.event) {
+    ) = match preview_process_policy(&process_preview.exec_event) {
         Ok(preview) => preview,
         Err(error) => {
             eprintln!("process_policy_allow_error={error}");
@@ -1916,9 +1897,9 @@ fn run_preview_or_exit() {
 
     let process_exec_hold = ExecEvent {
         pid: 4545,
-        ppid: exec_delivery.event.ppid,
-        uid: exec_delivery.event.uid,
-        gid: exec_delivery.event.gid,
+        ppid: process_preview.exec_event.ppid,
+        uid: process_preview.exec_event.uid,
+        gid: process_preview.exec_event.gid,
         command: "ssh".to_owned(),
         filename: "/usr/bin/ssh".to_owned(),
         exe: "/usr/bin/ssh".to_owned(),
@@ -1974,9 +1955,9 @@ fn run_preview_or_exit() {
 
     let process_exec_deny = ExecEvent {
         pid: 4646,
-        ppid: exec_delivery.event.ppid,
-        uid: exec_delivery.event.uid,
-        gid: exec_delivery.event.gid,
+        ppid: process_preview.exec_event.ppid,
+        uid: process_preview.exec_event.uid,
+        gid: process_preview.exec_event.gid,
         command: "rm".to_owned(),
         filename: "/usr/bin/rm".to_owned(),
         exe: "/usr/bin/rm".to_owned(),
