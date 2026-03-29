@@ -1921,6 +1921,9 @@ fn run_preview_or_exit() {
         gid: exec_delivery.event.gid,
         command: "ssh".to_owned(),
         filename: "/usr/bin/ssh".to_owned(),
+        exe: "/usr/bin/ssh".to_owned(),
+        argv: vec!["/usr/bin/ssh".to_owned(), "user@example.com".to_owned()],
+        cwd: "/workspace/fixture".to_owned(),
     };
     let (
         normalized_process_hold,
@@ -1974,6 +1977,13 @@ fn run_preview_or_exit() {
         gid: exec_delivery.event.gid,
         command: "rm".to_owned(),
         filename: "/usr/bin/rm".to_owned(),
+        exe: "/usr/bin/rm".to_owned(),
+        argv: vec![
+            "/usr/bin/rm".to_owned(),
+            "-rf".to_owned(),
+            "/tmp/demo".to_owned(),
+        ],
+        cwd: "/workspace/fixture".to_owned(),
     };
     let (
         normalized_process_deny,

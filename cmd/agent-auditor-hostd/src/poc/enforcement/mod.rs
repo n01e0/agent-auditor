@@ -347,6 +347,9 @@ mod tests {
                 gid: 1000,
                 command: command.to_owned(),
                 filename: filename.to_owned(),
+                exe: filename.to_owned(),
+                argv: vec![filename.to_owned(), "--fixture".to_owned()],
+                cwd: "/workspace/fixture".to_owned(),
             },
             &session,
         );

@@ -25,6 +25,9 @@ pub struct ExecEvent {
     pub gid: u32,
     pub command: String,
     pub filename: String,
+    pub exe: String,
+    pub argv: Vec<String>,
+    pub cwd: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -231,10 +234,7 @@ impl EventPathPlan {
         host_id: Option<&str>,
     ) -> EventEnvelope {
         let mut attributes = process_attributes(event.pid, event.ppid);
-        attributes.insert("uid".to_owned(), json!(event.uid));
-        attributes.insert("gid".to_owned(), json!(event.gid));
-        attributes.insert("command".to_owned(), json!(event.command));
-        attributes.insert("filename".to_owned(), json!(event.filename));
+        insert_exec_attribution(&mut attributes, event);
 
         EventEnvelope::new(
             format!("poc_process_exec_{}_{}", event.pid, event.ppid),
@@ -283,8 +283,7 @@ impl EventPathPlan {
         let mut attributes = process_attributes(event.pid, event.ppid);
         attributes.insert("exit_code".to_owned(), json!(event.exit_code));
         if let Some(lifecycle) = lifecycle {
-            attributes.insert("command".to_owned(), json!(lifecycle.exec.command));
-            attributes.insert("filename".to_owned(), json!(lifecycle.exec.filename));
+            insert_exec_attribution(&mut attributes, &lifecycle.exec);
             attributes.insert(
                 "correlation_key_kind".to_owned(),
                 json!("ProcessLifecycleKey { pid, ppid }"),
@@ -347,8 +346,11 @@ impl ExecEvent {
             ppid,
             uid,
             gid,
-            command,
-            filename,
+            command: command.clone(),
+            filename: filename.clone(),
+            exe: filename,
+            argv: vec![command],
+            cwd: "/workspace/fixture".to_owned(),
         })
     }
 
@@ -440,6 +442,16 @@ fn process_attributes(pid: u32, ppid: u32) -> JsonMap {
     attributes
 }
 
+fn insert_exec_attribution(attributes: &mut JsonMap, event: &ExecEvent) {
+    attributes.insert("uid".to_owned(), json!(event.uid));
+    attributes.insert("gid".to_owned(), json!(event.gid));
+    attributes.insert("command".to_owned(), json!(event.command));
+    attributes.insert("filename".to_owned(), json!(event.filename));
+    attributes.insert("exe".to_owned(), json!(event.exe));
+    attributes.insert("argv".to_owned(), json!(event.argv));
+    attributes.insert("cwd".to_owned(), json!(event.cwd));
+}
+
 fn read_u32(bytes: &[u8], start: usize) -> u32 {
     u32::from_le_bytes(
         bytes[start..start + 4]
@@ -489,6 +501,9 @@ mod tests {
         assert_eq!(event.gid, 1000);
         assert_eq!(event.command, "cargo");
         assert_eq!(event.filename, "/usr/bin/cargo");
+        assert_eq!(event.exe, "/usr/bin/cargo");
+        assert_eq!(event.argv, vec!["cargo"]);
+        assert_eq!(event.cwd, "/workspace/fixture");
     }
 
     #[test]
@@ -511,6 +526,9 @@ mod tests {
         assert_eq!(delivered.raw_len, poc_ebpf::EXEC_EVENT_LEN);
         assert_eq!(delivered.event.command, "cargo");
         assert_eq!(delivered.event.filename, "/usr/bin/cargo");
+        assert_eq!(delivered.event.exe, "/usr/bin/cargo");
+        assert_eq!(delivered.event.argv, vec!["cargo"]);
+        assert_eq!(delivered.event.cwd, "/workspace/fixture");
         assert_eq!(delivered.event.pid, 4242);
         assert!(delivered.log_line.contains("event=process.exec"));
         assert!(delivered.log_line.contains("transport=ring_buffer"));
@@ -645,6 +663,18 @@ mod tests {
             Some(&json!("cargo"))
         );
         assert_eq!(
+            envelope.action.attributes.get("exe"),
+            Some(&json!("/usr/bin/cargo"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("argv"),
+            Some(&json!(["cargo"]))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("cwd"),
+            Some(&json!("/workspace/fixture"))
+        );
+        assert_eq!(
             envelope.action.attributes.get("lifecycle_key"),
             Some(&json!("4242:1337"))
         );
@@ -670,6 +700,20 @@ mod tests {
         assert_eq!(
             envelope.action.attributes.get("command"),
             Some(&json!("cargo"))
+        );
+        assert_eq!(envelope.action.attributes.get("uid"), Some(&json!(1000)));
+        assert_eq!(envelope.action.attributes.get("gid"), Some(&json!(1000)));
+        assert_eq!(
+            envelope.action.attributes.get("exe"),
+            Some(&json!("/usr/bin/cargo"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("argv"),
+            Some(&json!(["cargo"]))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("cwd"),
+            Some(&json!("/workspace/fixture"))
         );
         assert_eq!(
             envelope.action.attributes.get("correlation_key_kind"),

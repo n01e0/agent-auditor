@@ -28,6 +28,9 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
             gid: 1000,
             command: "sleep".to_owned(),
             filename: "/usr/bin/sleep".to_owned(),
+            exe: "/usr/bin/sleep".to_owned(),
+            argv: vec!["/usr/bin/sleep".to_owned(), "5".to_owned()],
+            cwd: "/tmp/live-process-integration".to_owned(),
         }),
         LiveProcessEvent::Exit(ExitEvent {
             pid: 5151,
@@ -54,6 +57,30 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
             .get("filename")
             .and_then(|value| value.as_str()),
         Some("/usr/bin/sleep")
+    );
+    assert_eq!(
+        envelopes[0]
+            .action
+            .attributes
+            .get("exe")
+            .and_then(|value| value.as_str()),
+        Some("/usr/bin/sleep")
+    );
+    assert_eq!(
+        envelopes[0]
+            .action
+            .attributes
+            .get("cwd")
+            .and_then(|value| value.as_str()),
+        Some("/tmp/live-process-integration")
+    );
+    assert_eq!(
+        envelopes[0].action.attributes.get("argv"),
+        Some(&serde_json::json!(["/usr/bin/sleep", "5"]))
+    );
+    assert_eq!(
+        envelopes[0].source.host_id.as_deref(),
+        Some("host-integration")
     );
 
     let audit_log = fs::read_to_string(store.paths().audit_log.clone())
