@@ -3,15 +3,20 @@ use std::{
     fs, io,
     mem::{MaybeUninit, size_of},
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
-    path::Path,
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
+use agent_auditor_hostd_ebpf as poc_ebpf;
 use agenta_core::{CollectorKind, EventEnvelope, SessionRecord};
 use thiserror::Error;
 
 use crate::poc::{
     contract::LoaderBoundary,
-    event_path::{EventPathPlan, ExecEvent, ExitEvent, OpenClawLineage},
+    event_path::{
+        EventCorrelationError, EventDecodeError, EventPathPlan, ExecEvent, ExitEvent,
+        OpenClawLineage, ProcessLifecycleRecord,
+    },
     filesystem::persist::FilesystemPocStore,
     persistence::PersistenceError,
 };
@@ -159,6 +164,17 @@ impl ProcessEventSource for FixtureProcessEventSource {
 }
 
 #[derive(Debug, Clone)]
+pub struct SyntheticProcessPreview {
+    pub exec_event: ExecEvent,
+    pub exit_event: ExitEvent,
+    pub exec_log_line: String,
+    pub exit_log_line: String,
+    pub lifecycle_record: ProcessLifecycleRecord,
+    pub normalized_exec: EventEnvelope,
+    pub normalized_exit: EventEnvelope,
+}
+
+#[derive(Debug, Clone)]
 pub struct LiveProcessRecorder {
     event_path: EventPathPlan,
     session: SessionRecord,
@@ -244,6 +260,43 @@ impl LiveProcessRecorder {
     }
 }
 
+pub fn preview_fixture_process_slice(
+    session: &SessionRecord,
+) -> Result<SyntheticProcessPreview, SyntheticProcessPreviewError> {
+    let event_path = EventPathPlan::from_loader_boundary(LoaderBoundary::exec_exit_ring_buffer());
+    let exec_event = ExecEvent::from_bytes(&poc_ebpf::fixture_exec_event_bytes())?;
+    let exit_event = ExitEvent::from_bytes(&poc_ebpf::fixture_exit_event_bytes())?;
+    let lifecycle_record = event_path
+        .correlate_exec_and_exit(&exec_event, &exit_event)
+        .ok_or(EventCorrelationError::MismatchedLifecycleKey {
+            exec_pid: exec_event.pid,
+            exec_ppid: exec_event.ppid,
+            exit_pid: exit_event.pid,
+            exit_ppid: exit_event.ppid,
+        })?;
+
+    let store = FilesystemPocStore::fresh(unique_preview_store_root())?;
+    let mut recorder =
+        LiveProcessRecorder::new(session.clone(), store, CollectorKind::Ebpf, "hostd-poc");
+    let mut source = FixtureProcessEventSource::new([
+        LiveProcessEvent::Exec(Box::new(exec_event.clone())),
+        LiveProcessEvent::Exit(exit_event.clone()),
+    ]);
+    let mut envelopes = recorder.drain_available(&mut source)?;
+    let normalized_exec = envelopes.remove(0);
+    let normalized_exit = envelopes.remove(0);
+
+    Ok(SyntheticProcessPreview {
+        exec_log_line: exec_event.log_line(event_path.transport),
+        exit_log_line: exit_event.log_line(event_path.transport),
+        exec_event,
+        exit_event,
+        lifecycle_record,
+        normalized_exec,
+        normalized_exit,
+    })
+}
+
 pub fn current_host_id() -> String {
     fs::read_to_string("/proc/sys/kernel/hostname")
         .ok()
@@ -252,6 +305,18 @@ pub fn current_host_id() -> String {
         .or_else(|| std::env::var("HOSTNAME").ok())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "unknown".to_owned())
+}
+
+#[derive(Debug, Error)]
+pub enum SyntheticProcessPreviewError {
+    #[error(transparent)]
+    Decode(#[from] EventDecodeError),
+    #[error(transparent)]
+    Correlate(#[from] EventCorrelationError),
+    #[error(transparent)]
+    Persistence(#[from] PersistenceError),
+    #[error(transparent)]
+    Drain(#[from] ProcessDrainError),
 }
 
 #[derive(Debug, Error)]
@@ -491,6 +556,14 @@ fn proc_path(pid: u32, suffix: &str) -> impl AsRef<Path> {
     format!("/proc/{pid}/{suffix}")
 }
 
+fn unique_preview_store_root() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("time should advance")
+        .as_nanos();
+    std::env::temp_dir().join(format!("agent-auditor-hostd-preview-process-store-{nonce}"))
+}
+
 fn parse_status_value<T>(status: &str, key: &str) -> Option<T>
 where
     T: std::str::FromStr,
@@ -610,8 +683,8 @@ mod tests {
         ProcConnectorSource, ProcEventHeader, ProcInput, current_host_id,
         parse_container_id_from_cgroup, parse_first_status_list_value,
         parse_openclaw_lineage_from_environ, parse_proc_cmdline_bytes,
-        parse_proc_connector_message, parse_status_value, proc_connector_membership_message,
-        write_copy,
+        parse_proc_connector_message, parse_status_value, preview_fixture_process_slice,
+        proc_connector_membership_message, write_copy,
     };
     use crate::poc::{
         event_path::{ExecEvent, ExitEvent, OpenClawLineage},
@@ -668,6 +741,30 @@ mod tests {
 
         let missing = "0::/user.slice/user-1000.slice/session-2.scope\n";
         assert_eq!(parse_container_id_from_cgroup(missing), None);
+    }
+
+    #[test]
+    fn preview_fixture_process_slice_reuses_live_recorder_pipeline() {
+        let session = agenta_core::SessionRecord::placeholder("openclaw-main", "sess_preview");
+        let preview = preview_fixture_process_slice(&session)
+            .expect("fixture preview should flow through the live recorder pipeline");
+
+        assert_eq!(preview.normalized_exec.event_type, EventType::ProcessExec);
+        assert_eq!(preview.normalized_exit.event_type, EventType::ProcessExit);
+        assert_eq!(
+            preview.normalized_exec.source.collector,
+            CollectorKind::Ebpf
+        );
+        assert_eq!(
+            preview.normalized_exec.source.host_id.as_deref(),
+            Some("hostd-poc")
+        );
+        assert_eq!(preview.exec_event.pid, 4242);
+        assert_eq!(preview.lifecycle_record.exec.pid, 4242);
+        assert_eq!(
+            preview.normalized_exit.action.target.as_deref(),
+            Some("/usr/bin/cargo")
+        );
     }
 
     #[test]
