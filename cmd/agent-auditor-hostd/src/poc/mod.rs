@@ -8,6 +8,7 @@ pub mod live_proxy;
 pub mod loader;
 pub mod messaging;
 pub mod network;
+pub(crate) mod persistence;
 pub mod rest;
 pub mod secret;
 
