@@ -16,6 +16,7 @@ use agent_auditor_hostd::{
             contract::{ClassifiedNetworkConnect, DestinationScope},
             persist::NetworkPocStore,
         },
+        process_live::{LiveProcessRecorder, ProcConnectorSource, current_host_id},
         rest::persist::GenericRestPocStore,
         secret::{
             contract::{BrokeredSecretRequest, ClassifiedSecretAccess, SecretPathAccess},
@@ -65,12 +66,67 @@ fn main() {
     match cli.mode {
         daemon::CliMode::Preview => run_preview_or_exit(),
         daemon::CliMode::Daemon(config) => {
-            if let Err(error) = daemon::run_foreground_daemon(config, run_preview_or_exit) {
+            if let Err(error) = run_daemon_or_exit(config) {
                 eprintln!("daemon_error={error}");
                 std::process::exit(1);
             }
         }
     }
+}
+
+fn run_daemon_or_exit(
+    config: daemon::ForegroundDaemonConfig,
+) -> Result<(), daemon::DaemonRunError> {
+    run_preview_or_exit();
+
+    println!("live_process_source={}", ProcConnectorSource::SOURCE_LABEL);
+
+    let source = match ProcConnectorSource::listen() {
+        Ok(source) => source,
+        Err(error) => {
+            println!("live_process_source_status=disabled");
+            println!("live_process_source_error={error}");
+            return daemon::run_foreground_daemon(config, || {}, || Ok(()));
+        }
+    };
+
+    run_live_process_daemon(config, source)
+}
+
+fn run_live_process_daemon(
+    config: daemon::ForegroundDaemonConfig,
+    mut source: ProcConnectorSource,
+) -> Result<(), daemon::DaemonRunError> {
+    let mut recorder = LiveProcessRecorder::new(
+        SessionRecord::placeholder("agent-auditor-hostd", "sess_live_process"),
+        FilesystemPocStore::bootstrap().map_err(daemon::DaemonRunError::tick)?,
+        CollectorKind::RuntimeHint,
+        current_host_id(),
+    );
+
+    println!("live_process_source_status=enabled");
+    println!("live_process_host_id={}", recorder.host_id());
+    println!(
+        "live_process_store_root={}",
+        recorder.store().paths().root.display()
+    );
+
+    daemon::run_foreground_daemon(
+        config,
+        || {},
+        || {
+            for envelope in recorder
+                .drain_available(&mut source)
+                .map_err(daemon::DaemonRunError::tick)?
+            {
+                println!(
+                    "live_process_audit={}",
+                    serde_json::to_string(&envelope).map_err(daemon::DaemonRunError::tick)?
+                );
+            }
+            Ok(())
+        },
+    )
 }
 
 fn run_preview_or_exit() {
