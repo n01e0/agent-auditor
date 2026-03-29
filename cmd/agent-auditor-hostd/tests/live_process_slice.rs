@@ -21,7 +21,7 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
         "host-integration",
     );
     let mut source = FixtureProcessEventSource::new([
-        LiveProcessEvent::Exec(ExecEvent {
+        LiveProcessEvent::Exec(Box::new(ExecEvent {
             pid: 5151,
             ppid: 2020,
             uid: 1000,
@@ -31,12 +31,14 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
             exe: "/usr/bin/sleep".to_owned(),
             argv: vec!["/usr/bin/sleep".to_owned(), "5".to_owned()],
             cwd: "/tmp/live-process-integration".to_owned(),
+            container_id: "feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface"
+                .to_owned(),
             openclaw_lineage: Some(OpenClawLineage {
                 agent_id: "openclaw-main".to_owned(),
                 session_id: "sess_live_process_integration".to_owned(),
                 request_id: Some("req_live_process_sleep".to_owned()),
             }),
-        }),
+        })),
         LiveProcessEvent::Exit(ExitEvent {
             pid: 5151,
             ppid: 2020,
@@ -80,6 +82,14 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
         Some("/tmp/live-process-integration")
     );
     assert_eq!(
+        envelopes[0]
+            .action
+            .attributes
+            .get("container_id")
+            .and_then(|value| value.as_str()),
+        Some("feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface")
+    );
+    assert_eq!(
         envelopes[0].action.attributes.get("argv"),
         Some(&serde_json::json!(["/usr/bin/sleep", "5"]))
     );
@@ -100,8 +110,18 @@ fn synthetic_live_process_source_flows_through_normalize_and_persist() {
         Some(&serde_json::json!("req_live_process_sleep"))
     );
     assert_eq!(
+        envelopes[1].action.attributes.get("container_id"),
+        Some(&serde_json::json!(
+            "feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface"
+        ))
+    );
+    assert_eq!(
         envelopes[0].source.host_id.as_deref(),
         Some("host-integration")
+    );
+    assert_eq!(
+        envelopes[0].source.container_id.as_deref(),
+        Some("feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface")
     );
 
     let audit_log = fs::read_to_string(store.paths().audit_log.clone())
