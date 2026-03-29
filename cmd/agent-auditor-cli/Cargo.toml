@@ -9,3 +9,4 @@ license.workspace = true
 agenta-core = { path = "../../crates/agenta-core" }
 chrono.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
