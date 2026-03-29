@@ -350,6 +350,7 @@ mod tests {
                 exe: filename.to_owned(),
                 argv: vec![filename.to_owned(), "--fixture".to_owned()],
                 cwd: "/workspace/fixture".to_owned(),
+                container_id: "unknown".to_owned(),
                 openclaw_lineage: None,
             },
             &session,

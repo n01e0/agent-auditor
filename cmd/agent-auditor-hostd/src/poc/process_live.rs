@@ -18,7 +18,7 @@ use crate::poc::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LiveProcessEvent {
-    Exec(ExecEvent),
+    Exec(Box<ExecEvent>),
     Exit(ExitEvent),
 }
 
@@ -188,9 +188,9 @@ impl LiveProcessRecorder {
     pub fn record(&mut self, event: LiveProcessEvent) -> Result<EventEnvelope, ProcessRecordError> {
         match event {
             LiveProcessEvent::Exec(exec) => {
-                self.lifecycle.insert(exec.pid, exec.clone());
+                self.lifecycle.insert(exec.pid, (*exec).clone());
                 let envelope = self.event_path.normalize_exec_event_with_source(
-                    &exec,
+                    exec.as_ref(),
                     &self.session,
                     self.collector,
                     Some(self.host_id.as_str()),
@@ -369,7 +369,7 @@ fn parse_proc_connector_message(
         value if value == libc::PROC_EVENT_EXEC => {
             let exec = read_copy::<ExecProcEvent>(bytes, event_offset)?;
             let pid = exec.process_tgid as u32;
-            Ok(Some(LiveProcessEvent::Exec(read_exec_event(pid))))
+            Ok(Some(LiveProcessEvent::Exec(Box::new(read_exec_event(pid)))))
         }
         value if value == libc::PROC_EVENT_EXIT => {
             let exit = read_copy::<ExitProcEvent>(bytes, event_offset)?;
@@ -458,6 +458,10 @@ fn read_exec_event(pid: u32) -> ExecEvent {
     let openclaw_lineage = fs::read(proc_path(pid, "environ"))
         .ok()
         .and_then(|bytes| parse_openclaw_lineage_from_environ(&bytes));
+    let container_id = fs::read_to_string(proc_path(pid, "cgroup"))
+        .ok()
+        .and_then(|cgroup| parse_container_id_from_cgroup(&cgroup))
+        .unwrap_or_else(|| "unknown".to_owned());
 
     ExecEvent {
         pid,
@@ -478,6 +482,7 @@ fn read_exec_event(pid: u32) -> ExecEvent {
         exe,
         argv,
         cwd,
+        container_id,
         openclaw_lineage,
     }
 }
@@ -544,6 +549,30 @@ fn parse_openclaw_lineage_from_environ(bytes: &[u8]) -> Option<OpenClawLineage> 
     })
 }
 
+fn parse_container_id_from_cgroup(cgroup: &str) -> Option<String> {
+    cgroup.lines().find_map(|line| {
+        let mut parts = line.splitn(3, ':');
+        let _hierarchy = parts.next()?;
+        let _controllers = parts.next()?;
+        let path = parts.next()?;
+        for segment in path.split('/') {
+            let trimmed = segment
+                .trim_end_matches(".scope")
+                .trim_start_matches("docker-")
+                .trim_start_matches("cri-containerd-")
+                .trim_start_matches("crio-");
+            if looks_like_container_id(trimmed) {
+                return Some(trimmed.to_owned());
+            }
+        }
+        None
+    })
+}
+
+fn looks_like_container_id(value: &str) -> bool {
+    value.len() >= 12 && value.chars().all(|ch| ch.is_ascii_hexdigit() || ch == '-')
+}
+
 fn read_copy<T: Copy>(bytes: &[u8], offset: usize) -> Result<T, ProcessEventSourceError> {
     let end = offset + size_of::<T>();
     let Some(slice) = bytes.get(offset..end) else {
@@ -579,9 +608,10 @@ mod tests {
     use super::{
         CbId, CnMsg, FixtureProcessEventSource, LiveProcessEvent, LiveProcessRecorder,
         ProcConnectorSource, ProcEventHeader, ProcInput, current_host_id,
-        parse_first_status_list_value, parse_openclaw_lineage_from_environ,
-        parse_proc_cmdline_bytes, parse_proc_connector_message, parse_status_value,
-        proc_connector_membership_message, write_copy,
+        parse_container_id_from_cgroup, parse_first_status_list_value,
+        parse_openclaw_lineage_from_environ, parse_proc_cmdline_bytes,
+        parse_proc_connector_message, parse_status_value, proc_connector_membership_message,
+        write_copy,
     };
     use crate::poc::{
         event_path::{ExecEvent, ExitEvent, OpenClawLineage},
@@ -629,6 +659,18 @@ mod tests {
     }
 
     #[test]
+    fn proc_cgroup_parser_extracts_container_id_when_present() {
+        let docker = "0::/system.slice/docker-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.scope\n";
+        assert_eq!(
+            parse_container_id_from_cgroup(docker).as_deref(),
+            Some("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        );
+
+        let missing = "0::/user.slice/user-1000.slice/session-2.scope\n";
+        assert_eq!(parse_container_id_from_cgroup(missing), None);
+    }
+
+    #[test]
     fn live_process_recorder_persists_synthetic_exec_and_exit_events() {
         let store = FilesystemPocStore::fresh(unique_test_root()).expect("store should init");
         let mut recorder = LiveProcessRecorder::new(
@@ -638,7 +680,7 @@ mod tests {
             "host-live",
         );
         let mut source = FixtureProcessEventSource::new([
-            LiveProcessEvent::Exec(ExecEvent {
+            LiveProcessEvent::Exec(Box::new(ExecEvent {
                 pid: 4242,
                 ppid: 1337,
                 uid: 1000,
@@ -652,12 +694,14 @@ mod tests {
                     "echo hi".to_owned(),
                 ],
                 cwd: "/tmp/live-process".to_owned(),
+                container_id: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    .to_owned(),
                 openclaw_lineage: Some(OpenClawLineage {
                     agent_id: "openclaw-main".to_owned(),
                     session_id: "sess_live_process".to_owned(),
                     request_id: Some("req_live_process_4242".to_owned()),
                 }),
-            }),
+            })),
             LiveProcessEvent::Exit(ExitEvent {
                 pid: 4242,
                 ppid: 1337,
@@ -674,6 +718,10 @@ mod tests {
         assert_eq!(persisted[1].event_type, EventType::ProcessExit);
         assert_eq!(persisted[0].source.collector, CollectorKind::RuntimeHint);
         assert_eq!(persisted[0].source.host_id.as_deref(), Some("host-live"));
+        assert_eq!(
+            persisted[0].source.container_id.as_deref(),
+            Some("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+        );
         assert_eq!(persisted[1].action.target.as_deref(), Some("/usr/bin/bash"));
         assert_eq!(
             persisted[0].action.attributes.get("exe"),
@@ -686,6 +734,12 @@ mod tests {
         assert_eq!(
             persisted[0].action.attributes.get("cwd"),
             Some(&serde_json::json!("/tmp/live-process"))
+        );
+        assert_eq!(
+            persisted[0].action.attributes.get("container_id"),
+            Some(&serde_json::json!(
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ))
         );
         assert_eq!(
             persisted[0].action.attributes.get("lineage_agent_id"),
@@ -718,6 +772,12 @@ mod tests {
         assert_eq!(
             persisted[1].action.attributes.get("cwd"),
             Some(&serde_json::json!("/tmp/live-process"))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("container_id"),
+            Some(&serde_json::json!(
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ))
         );
         assert_eq!(
             persisted[1].action.attributes.get("lineage_agent_id"),

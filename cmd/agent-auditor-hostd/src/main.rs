@@ -1924,6 +1924,7 @@ fn run_preview_or_exit() {
         exe: "/usr/bin/ssh".to_owned(),
         argv: vec!["/usr/bin/ssh".to_owned(), "user@example.com".to_owned()],
         cwd: "/workspace/fixture".to_owned(),
+        container_id: "unknown".to_owned(),
         openclaw_lineage: None,
     };
     let (
@@ -1985,6 +1986,7 @@ fn run_preview_or_exit() {
             "/tmp/demo".to_owned(),
         ],
         cwd: "/workspace/fixture".to_owned(),
+        container_id: "unknown".to_owned(),
         openclaw_lineage: None,
     };
     let (

@@ -35,6 +35,7 @@ pub struct ExecEvent {
     pub exe: String,
     pub argv: Vec<String>,
     pub cwd: String,
+    pub container_id: String,
     pub openclaw_lineage: Option<OpenClawLineage>,
 }
 
@@ -261,7 +262,13 @@ impl EventPathPlan {
                 exit_code: None,
                 error: None,
             },
-            source_info(event.pid, event.ppid, collector, host_id),
+            source_info(
+                event.pid,
+                event.ppid,
+                collector,
+                host_id,
+                Some(event.container_id.as_str()),
+            ),
         )
     }
 
@@ -290,6 +297,10 @@ impl EventPathPlan {
     ) -> EventEnvelope {
         let mut attributes = process_attributes(event.pid, event.ppid);
         attributes.insert("exit_code".to_owned(), json!(event.exit_code));
+        attributes.insert(
+            "container_id".to_owned(),
+            json!(container_id_for_exit(lifecycle)),
+        );
         if let Some(lifecycle) = lifecycle {
             insert_exec_attribution(&mut attributes, &lifecycle.exec);
             attributes.insert(
@@ -315,7 +326,13 @@ impl EventPathPlan {
                 exit_code: Some(event.exit_code),
                 error: None,
             },
-            source_info(event.pid, event.ppid, collector, host_id),
+            source_info(
+                event.pid,
+                event.ppid,
+                collector,
+                host_id,
+                Some(container_id_for_exit(lifecycle)),
+            ),
         )
     }
 
@@ -359,6 +376,7 @@ impl ExecEvent {
             exe: filename,
             argv: vec![command],
             cwd: "/workspace/fixture".to_owned(),
+            container_id: "unknown".to_owned(),
             openclaw_lineage: None,
         })
     }
@@ -432,11 +450,17 @@ fn hostd_actor() -> Actor {
     }
 }
 
-fn source_info(pid: u32, ppid: u32, collector: CollectorKind, host_id: Option<&str>) -> SourceInfo {
+fn source_info(
+    pid: u32,
+    ppid: u32,
+    collector: CollectorKind,
+    host_id: Option<&str>,
+    container_id: Option<&str>,
+) -> SourceInfo {
     SourceInfo {
         collector,
         host_id: host_id.map(str::to_owned),
-        container_id: None,
+        container_id: container_id.map(str::to_owned),
         pod_uid: None,
         pid: Some(pid as i32),
         ppid: Some(ppid as i32),
@@ -451,6 +475,12 @@ fn process_attributes(pid: u32, ppid: u32) -> JsonMap {
     attributes
 }
 
+fn container_id_for_exit(lifecycle: Option<&ProcessLifecycleRecord>) -> &str {
+    lifecycle
+        .map(|record| record.exec.container_id.as_str())
+        .unwrap_or("unknown")
+}
+
 fn insert_exec_attribution(attributes: &mut JsonMap, event: &ExecEvent) {
     attributes.insert("uid".to_owned(), json!(event.uid));
     attributes.insert("gid".to_owned(), json!(event.gid));
@@ -459,6 +489,7 @@ fn insert_exec_attribution(attributes: &mut JsonMap, event: &ExecEvent) {
     attributes.insert("exe".to_owned(), json!(event.exe));
     attributes.insert("argv".to_owned(), json!(event.argv));
     attributes.insert("cwd".to_owned(), json!(event.cwd));
+    attributes.insert("container_id".to_owned(), json!(event.container_id));
     if let Some(lineage) = &event.openclaw_lineage {
         attributes.insert("lineage_agent_id".to_owned(), json!(lineage.agent_id));
         attributes.insert("lineage_session_id".to_owned(), json!(lineage.session_id));
@@ -521,6 +552,7 @@ mod tests {
         assert_eq!(event.exe, "/usr/bin/cargo");
         assert_eq!(event.argv, vec!["cargo"]);
         assert_eq!(event.cwd, "/workspace/fixture");
+        assert_eq!(event.container_id, "unknown");
     }
 
     #[test]
@@ -546,6 +578,7 @@ mod tests {
         assert_eq!(delivered.event.exe, "/usr/bin/cargo");
         assert_eq!(delivered.event.argv, vec!["cargo"]);
         assert_eq!(delivered.event.cwd, "/workspace/fixture");
+        assert_eq!(delivered.event.container_id, "unknown");
         assert_eq!(delivered.event.pid, 4242);
         assert!(delivered.log_line.contains("event=process.exec"));
         assert!(delivered.log_line.contains("transport=ring_buffer"));
@@ -673,6 +706,7 @@ mod tests {
         assert_eq!(envelope.result.status, ResultStatus::Observed);
         assert_eq!(envelope.result.exit_code, None);
         assert_eq!(envelope.source.collector, CollectorKind::Ebpf);
+        assert_eq!(envelope.source.container_id.as_deref(), Some("unknown"));
         assert_eq!(envelope.source.pid, Some(4242));
         assert_eq!(envelope.source.ppid, Some(1337));
         assert_eq!(
@@ -690,6 +724,10 @@ mod tests {
         assert_eq!(
             envelope.action.attributes.get("cwd"),
             Some(&json!("/workspace/fixture"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("container_id"),
+            Some(&json!("unknown"))
         );
         assert_eq!(
             envelope.action.attributes.get("lifecycle_key"),
@@ -714,6 +752,7 @@ mod tests {
         assert_eq!(envelope.result.status, ResultStatus::Observed);
         assert_eq!(envelope.result.exit_code, Some(0));
         assert_eq!(envelope.source.collector, CollectorKind::Ebpf);
+        assert_eq!(envelope.source.container_id.as_deref(), Some("unknown"));
         assert_eq!(
             envelope.action.attributes.get("command"),
             Some(&json!("cargo"))
@@ -731,6 +770,10 @@ mod tests {
         assert_eq!(
             envelope.action.attributes.get("cwd"),
             Some(&json!("/workspace/fixture"))
+        );
+        assert_eq!(
+            envelope.action.attributes.get("container_id"),
+            Some(&json!("unknown"))
         );
         assert_eq!(
             envelope.action.attributes.get("correlation_key_kind"),
@@ -753,11 +796,16 @@ mod tests {
         assert_eq!(envelope.event_type, EventType::ProcessExit);
         assert_eq!(envelope.action.target, None);
         assert_eq!(envelope.result.exit_code, Some(0));
+        assert_eq!(envelope.source.container_id.as_deref(), Some("unknown"));
         assert_eq!(
             envelope.action.attributes.get("lifecycle_key"),
             Some(&json!("4242:1337"))
         );
         assert_eq!(envelope.action.attributes.get("command"), None);
+        assert_eq!(
+            envelope.action.attributes.get("container_id"),
+            Some(&json!("unknown"))
+        );
         assert_eq!(envelope.action.attributes.get("correlation_key_kind"), None);
     }
 }

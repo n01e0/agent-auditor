@@ -52,7 +52,7 @@
     "source": {
       "collector": "ebpf",
       "host_id": "hostd-poc",
-      "container_id": null,
+      "container_id": "unknown",
       "pod_uid": null,
       "pid": 4242,
       "ppid": 1337
@@ -134,7 +134,7 @@
     "source": {
       "collector": "ebpf",
       "host_id": "hostd-poc",
-      "container_id": null,
+      "container_id": "unknown",
       "pod_uid": null,
       "pid": 4545,
       "ppid": 1337
@@ -264,7 +264,7 @@
     "source": {
       "collector": "ebpf",
       "host_id": "hostd-poc",
-      "container_id": null,
+      "container_id": "unknown",
       "pod_uid": null,
       "pid": 4646,
       "ppid": 1337
