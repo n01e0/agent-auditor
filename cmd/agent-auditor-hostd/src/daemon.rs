@@ -127,14 +127,24 @@ pub enum DaemonRunError {
     SignalListenerStopped,
     #[error("unsupported shutdown signal `{0}`")]
     UnsupportedSignal(i32),
+    #[error("daemon tick failed: {0}")]
+    Tick(String),
 }
 
-pub fn run_foreground_daemon<F>(
+impl DaemonRunError {
+    pub fn tick(error: impl std::fmt::Display) -> Self {
+        Self::Tick(error.to_string())
+    }
+}
+
+pub fn run_foreground_daemon<F, P>(
     config: ForegroundDaemonConfig,
     bootstrap: F,
+    mut tick: P,
 ) -> Result<(), DaemonRunError>
 where
     F: FnOnce(),
+    P: FnMut() -> Result<(), DaemonRunError>,
 {
     bootstrap();
 
@@ -160,7 +170,7 @@ where
     let signal = loop {
         match signal_rx.recv_timeout(config.poll_interval) {
             Ok(signal) => break signal,
-            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Timeout) => tick()?,
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 handle.close();
                 let _ = listener.join();

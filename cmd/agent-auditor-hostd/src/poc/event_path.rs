@@ -215,6 +215,21 @@ impl EventPathPlan {
         event: &ExecEvent,
         session: &SessionRecord,
     ) -> EventEnvelope {
+        self.normalize_exec_event_with_source(
+            event,
+            session,
+            CollectorKind::Ebpf,
+            Some("hostd-poc"),
+        )
+    }
+
+    pub fn normalize_exec_event_with_source(
+        &self,
+        event: &ExecEvent,
+        session: &SessionRecord,
+        collector: CollectorKind,
+        host_id: Option<&str>,
+    ) -> EventEnvelope {
         let mut attributes = process_attributes(event.pid, event.ppid);
         attributes.insert("uid".to_owned(), json!(event.uid));
         attributes.insert("gid".to_owned(), json!(event.gid));
@@ -238,7 +253,7 @@ impl EventPathPlan {
                 exit_code: None,
                 error: None,
             },
-            source_info(event.pid, event.ppid),
+            source_info(event.pid, event.ppid, collector, host_id),
         )
     }
 
@@ -247,6 +262,23 @@ impl EventPathPlan {
         event: &ExitEvent,
         lifecycle: Option<&ProcessLifecycleRecord>,
         session: &SessionRecord,
+    ) -> EventEnvelope {
+        self.normalize_exit_event_with_source(
+            event,
+            lifecycle,
+            session,
+            CollectorKind::Ebpf,
+            Some("hostd-poc"),
+        )
+    }
+
+    pub fn normalize_exit_event_with_source(
+        &self,
+        event: &ExitEvent,
+        lifecycle: Option<&ProcessLifecycleRecord>,
+        session: &SessionRecord,
+        collector: CollectorKind,
+        host_id: Option<&str>,
     ) -> EventEnvelope {
         let mut attributes = process_attributes(event.pid, event.ppid);
         attributes.insert("exit_code".to_owned(), json!(event.exit_code));
@@ -276,7 +308,7 @@ impl EventPathPlan {
                 exit_code: Some(event.exit_code),
                 error: None,
             },
-            source_info(event.pid, event.ppid),
+            source_info(event.pid, event.ppid, collector, host_id),
         )
     }
 
@@ -389,10 +421,10 @@ fn hostd_actor() -> Actor {
     }
 }
 
-fn source_info(pid: u32, ppid: u32) -> SourceInfo {
+fn source_info(pid: u32, ppid: u32, collector: CollectorKind, host_id: Option<&str>) -> SourceInfo {
     SourceInfo {
-        collector: CollectorKind::Ebpf,
-        host_id: Some("hostd-poc".to_owned()),
+        collector,
+        host_id: host_id.map(str::to_owned),
         container_id: None,
         pod_uid: None,
         pid: Some(pid as i32),

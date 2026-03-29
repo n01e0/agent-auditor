@@ -9,6 +9,7 @@ pub mod loader;
 pub mod messaging;
 pub mod network;
 pub(crate) mod persistence;
+pub mod process_live;
 pub mod rest;
 pub mod secret;
 
