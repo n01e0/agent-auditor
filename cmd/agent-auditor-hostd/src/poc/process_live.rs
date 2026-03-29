@@ -11,7 +11,7 @@ use thiserror::Error;
 
 use crate::poc::{
     contract::LoaderBoundary,
-    event_path::{EventPathPlan, ExecEvent, ExitEvent},
+    event_path::{EventPathPlan, ExecEvent, ExitEvent, OpenClawLineage},
     filesystem::persist::FilesystemPocStore,
     persistence::PersistenceError,
 };
@@ -455,6 +455,9 @@ fn read_exec_event(pid: u32) -> ExecEvent {
         .map(|path| path.display().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "/".to_owned());
+    let openclaw_lineage = fs::read(proc_path(pid, "environ"))
+        .ok()
+        .and_then(|bytes| parse_openclaw_lineage_from_environ(&bytes));
 
     ExecEvent {
         pid,
@@ -475,6 +478,7 @@ fn read_exec_event(pid: u32) -> ExecEvent {
         exe,
         argv,
         cwd,
+        openclaw_lineage,
     }
 }
 
@@ -507,6 +511,37 @@ fn parse_proc_cmdline_bytes(bytes: &[u8]) -> Vec<String> {
         .filter(|segment| !segment.is_empty())
         .map(|segment| String::from_utf8_lossy(segment).into_owned())
         .collect()
+}
+
+fn parse_openclaw_lineage_from_environ(bytes: &[u8]) -> Option<OpenClawLineage> {
+    let mut agent_id = None;
+    let mut session_id = None;
+    let mut request_id = None;
+
+    for entry in bytes
+        .split(|byte| *byte == 0)
+        .filter(|segment| !segment.is_empty())
+    {
+        let text = String::from_utf8_lossy(entry);
+        let Some((key, value)) = text.split_once('=') else {
+            continue;
+        };
+        if value.trim().is_empty() {
+            continue;
+        }
+        match key {
+            "OPENCLAW_AGENT_ID" => agent_id = Some(value.to_owned()),
+            "OPENCLAW_SESSION_ID" => session_id = Some(value.to_owned()),
+            "OPENCLAW_REQUEST_ID" => request_id = Some(value.to_owned()),
+            _ => {}
+        }
+    }
+
+    Some(OpenClawLineage {
+        agent_id: agent_id?,
+        session_id: session_id?,
+        request_id,
+    })
 }
 
 fn read_copy<T: Copy>(bytes: &[u8], offset: usize) -> Result<T, ProcessEventSourceError> {
@@ -544,11 +579,12 @@ mod tests {
     use super::{
         CbId, CnMsg, FixtureProcessEventSource, LiveProcessEvent, LiveProcessRecorder,
         ProcConnectorSource, ProcEventHeader, ProcInput, current_host_id,
-        parse_first_status_list_value, parse_proc_cmdline_bytes, parse_proc_connector_message,
-        parse_status_value, proc_connector_membership_message, write_copy,
+        parse_first_status_list_value, parse_openclaw_lineage_from_environ,
+        parse_proc_cmdline_bytes, parse_proc_connector_message, parse_status_value,
+        proc_connector_membership_message, write_copy,
     };
     use crate::poc::{
-        event_path::{ExecEvent, ExitEvent},
+        event_path::{ExecEvent, ExitEvent, OpenClawLineage},
         filesystem::persist::FilesystemPocStore,
     };
 
@@ -581,6 +617,18 @@ mod tests {
     }
 
     #[test]
+    fn proc_environ_parser_extracts_openclaw_lineage_when_present() {
+        let lineage = parse_openclaw_lineage_from_environ(
+            b"PATH=/usr/bin\0OPENCLAW_AGENT_ID=openclaw-main\0OPENCLAW_SESSION_ID=sess_123\0OPENCLAW_REQUEST_ID=req_456\0",
+        )
+        .expect("openclaw lineage should parse");
+
+        assert_eq!(lineage.agent_id, "openclaw-main");
+        assert_eq!(lineage.session_id, "sess_123");
+        assert_eq!(lineage.request_id.as_deref(), Some("req_456"));
+    }
+
+    #[test]
     fn live_process_recorder_persists_synthetic_exec_and_exit_events() {
         let store = FilesystemPocStore::fresh(unique_test_root()).expect("store should init");
         let mut recorder = LiveProcessRecorder::new(
@@ -604,6 +652,11 @@ mod tests {
                     "echo hi".to_owned(),
                 ],
                 cwd: "/tmp/live-process".to_owned(),
+                openclaw_lineage: Some(OpenClawLineage {
+                    agent_id: "openclaw-main".to_owned(),
+                    session_id: "sess_live_process".to_owned(),
+                    request_id: Some("req_live_process_4242".to_owned()),
+                }),
             }),
             LiveProcessEvent::Exit(ExitEvent {
                 pid: 4242,
@@ -635,6 +688,18 @@ mod tests {
             Some(&serde_json::json!("/tmp/live-process"))
         );
         assert_eq!(
+            persisted[0].action.attributes.get("lineage_agent_id"),
+            Some(&serde_json::json!("openclaw-main"))
+        );
+        assert_eq!(
+            persisted[0].action.attributes.get("lineage_session_id"),
+            Some(&serde_json::json!("sess_live_process"))
+        );
+        assert_eq!(
+            persisted[0].action.attributes.get("lineage_request_id"),
+            Some(&serde_json::json!("req_live_process_4242"))
+        );
+        assert_eq!(
             persisted[1].action.attributes.get("uid"),
             Some(&serde_json::json!(1000))
         );
@@ -653,6 +718,18 @@ mod tests {
         assert_eq!(
             persisted[1].action.attributes.get("cwd"),
             Some(&serde_json::json!("/tmp/live-process"))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("lineage_agent_id"),
+            Some(&serde_json::json!("openclaw-main"))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("lineage_session_id"),
+            Some(&serde_json::json!("sess_live_process"))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("lineage_request_id"),
+            Some(&serde_json::json!("req_live_process_4242"))
         );
         assert_eq!(persisted[1].result.status, ResultStatus::Observed);
         assert_eq!(
