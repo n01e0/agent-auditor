@@ -1,24 +1,28 @@
 mod daemon;
 
-use agent_auditor_hostd::poc::{
-    HostdPocPlan,
-    enforcement::contract::{EnforcementOutcome, EnforcementScope},
-    event_path::ExecEvent,
-    filesystem::persist::FilesystemPocStore,
-    github::persist::GitHubPocStore,
-    gws::{
-        contract::ApiRequestObservation, persist::GwsPocStore, preview_provider_metadata_catalog,
+use agent_auditor_hostd::{
+    poc::{
+        HostdPocPlan,
+        enforcement::contract::{EnforcementOutcome, EnforcementScope},
+        event_path::ExecEvent,
+        filesystem::persist::FilesystemPocStore,
+        github::persist::GitHubPocStore,
+        gws::{
+            contract::ApiRequestObservation, persist::GwsPocStore,
+            preview_provider_metadata_catalog,
+        },
+        messaging::persist::MessagingPocStore,
+        network::{
+            contract::{ClassifiedNetworkConnect, DestinationScope},
+            persist::NetworkPocStore,
+        },
+        rest::persist::GenericRestPocStore,
+        secret::{
+            contract::{BrokeredSecretRequest, ClassifiedSecretAccess, SecretPathAccess},
+            persist::SecretPocStore,
+        },
     },
-    messaging::persist::MessagingPocStore,
-    network::{
-        contract::{ClassifiedNetworkConnect, DestinationScope},
-        persist::NetworkPocStore,
-    },
-    rest::persist::GenericRestPocStore,
-    secret::{
-        contract::{BrokeredSecretRequest, ClassifiedSecretAccess, SecretPathAccess},
-        persist::SecretPocStore,
-    },
+    runtime,
 };
 use agenta_core::{
     Action, ActionClass, Actor, ActorKind, ApprovalRequest, CollectorKind, EventEnvelope,
@@ -45,17 +49,26 @@ fn print_local_jsonl_inspection_line(key: &str, request: &ApprovalRequest) {
 }
 
 fn main() {
-    match daemon::CliMode::parse(std::env::args().skip(1)) {
-        Ok(daemon::CliMode::Preview) => run_preview_or_exit(),
-        Ok(daemon::CliMode::Daemon(config)) => {
+    let cli = match daemon::CliConfig::parse(std::env::args().skip(1)) {
+        Ok(cli) => cli,
+        Err(error) => {
+            eprintln!("cli_error={error}");
+            std::process::exit(2);
+        }
+    };
+
+    if let Err(error) = runtime::configure_state_dir(cli.state_dir.clone()) {
+        eprintln!("runtime_state_dir_error={error}");
+        std::process::exit(2);
+    }
+
+    match cli.mode {
+        daemon::CliMode::Preview => run_preview_or_exit(),
+        daemon::CliMode::Daemon(config) => {
             if let Err(error) = daemon::run_foreground_daemon(config, run_preview_or_exit) {
                 eprintln!("daemon_error={error}");
                 std::process::exit(1);
             }
-        }
-        Err(error) => {
-            eprintln!("cli_error={error}");
-            std::process::exit(2);
         }
     }
 }
@@ -68,6 +81,12 @@ fn run_preview_or_exit() {
     println!(
         "session_id={} agent_id={}",
         session.session_id, session.agent_id
+    );
+    println!(
+        "runtime_state_dir={}",
+        runtime::configured_state_dir()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "none".to_owned())
     );
     println!("loader={}", plan.loader.summary());
     match plan.loader.load_embedded_object() {
@@ -369,6 +388,7 @@ fn run_preview_or_exit() {
             std::process::exit(1);
         }
     };
+    println!("gws_store_root={}", gws_store.paths().root.display());
     if let Err(error) = gws_store.append_audit_record(&gws_enriched_api) {
         eprintln!("persisted_gws_audit_record_require_approval_error={error}");
         std::process::exit(1);
@@ -2132,6 +2152,7 @@ fn run_preview_or_exit() {
             std::process::exit(1);
         }
     };
+    println!("filesystem_store_root={}", store.paths().root.display());
     if let Err(error) = store.append_audit_record(&normalized_filesystem) {
         eprintln!("persisted_audit_record_error={error}");
         std::process::exit(1);

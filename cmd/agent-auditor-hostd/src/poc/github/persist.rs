@@ -1,55 +1,13 @@
-use std::{
-    fs::{self, OpenOptions},
-    io::{BufRead, BufReader, Write},
-    path::{Path, PathBuf},
-};
+use std::path::PathBuf;
 
 use agenta_core::{ApprovalRequest, EventEnvelope};
-use thiserror::Error;
 
-const AUDIT_LOG_FILENAME: &str = "audit-records.jsonl";
-const APPROVAL_LOG_FILENAME: &str = "approval-requests.jsonl";
+use crate::poc::persistence::{
+    PersistenceError, PersistencePaths, append_json_line, bootstrap_paths, fresh_paths,
+    read_last_json_line,
+};
 
-#[derive(Debug, Error)]
-pub enum PersistenceError {
-    #[error("failed to prepare persistence root `{path}`: {source}")]
-    PrepareRoot {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-    #[error("failed to append record to `{path}`: {source}")]
-    Append {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-    #[error("failed to read record from `{path}`: {source}")]
-    Read {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-    #[error("failed to serialize record for `{path}`: {source}")]
-    Serialize {
-        path: PathBuf,
-        #[source]
-        source: serde_json::Error,
-    },
-    #[error("failed to deserialize record from `{path}`: {source}")]
-    Deserialize {
-        path: PathBuf,
-        #[source]
-        source: serde_json::Error,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PersistencePaths {
-    pub root: PathBuf,
-    pub audit_log: PathBuf,
-    pub approval_log: PathBuf,
-}
+const STORE_DIR_NAME: &str = "agent-auditor-hostd-github-poc-store";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitHubPocStore {
@@ -58,30 +16,14 @@ pub struct GitHubPocStore {
 
 impl GitHubPocStore {
     pub fn bootstrap() -> Result<Self, PersistenceError> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../target/agent-auditor-hostd-github-poc-store");
-        Self::fresh(root)
+        Ok(Self {
+            paths: bootstrap_paths(STORE_DIR_NAME)?,
+        })
     }
 
     pub fn fresh(root: impl Into<PathBuf>) -> Result<Self, PersistenceError> {
-        let root = root.into();
-        if root.exists() {
-            fs::remove_dir_all(&root).map_err(|source| PersistenceError::PrepareRoot {
-                path: root.clone(),
-                source,
-            })?;
-        }
-        fs::create_dir_all(&root).map_err(|source| PersistenceError::PrepareRoot {
-            path: root.clone(),
-            source,
-        })?;
-
         Ok(Self {
-            paths: PersistencePaths {
-                audit_log: root.join(AUDIT_LOG_FILENAME),
-                approval_log: root.join(APPROVAL_LOG_FILENAME),
-                root,
-            },
+            paths: fresh_paths(root)?,
         })
     }
 
@@ -106,65 +48,6 @@ impl GitHubPocStore {
 
     pub fn latest_approval_request(&self) -> Result<Option<ApprovalRequest>, PersistenceError> {
         read_last_json_line(&self.paths.approval_log)
-    }
-}
-
-fn append_json_line<T: serde::Serialize>(path: &Path, value: &T) -> Result<(), PersistenceError> {
-    let json = serde_json::to_string(value).map_err(|source| PersistenceError::Serialize {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map_err(|source| PersistenceError::Append {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    writeln!(file, "{json}").map_err(|source| PersistenceError::Append {
-        path: path.to_path_buf(),
-        source,
-    })
-}
-
-fn read_last_json_line<T: for<'de> serde::Deserialize<'de>>(
-    path: &Path,
-) -> Result<Option<T>, PersistenceError> {
-    if !path.exists() {
-        return Ok(None);
-    }
-
-    let file =
-        OpenOptions::new()
-            .read(true)
-            .open(path)
-            .map_err(|source| PersistenceError::Read {
-                path: path.to_path_buf(),
-                source,
-            })?;
-    let reader = BufReader::new(file);
-    let mut last = None;
-    for line in reader.lines() {
-        let line = line.map_err(|source| PersistenceError::Read {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        if !line.trim().is_empty() {
-            last = Some(line);
-        }
-    }
-
-    match last {
-        Some(line) => {
-            serde_json::from_str(&line)
-                .map(Some)
-                .map_err(|source| PersistenceError::Deserialize {
-                    path: path.to_path_buf(),
-                    source,
-                })
-        }
-        None => Ok(None),
     }
 }
 

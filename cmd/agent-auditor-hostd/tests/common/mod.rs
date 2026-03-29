@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, process::Command};
 
 use serde_json::Value;
 
+#[allow(dead_code)]
 pub fn run_hostd_bootstrap() -> BTreeMap<String, String> {
     let output = Command::new(env!("CARGO_BIN_EXE_agent-auditor-hostd"))
         .output()
@@ -36,6 +37,7 @@ pub fn keyed_lines(stdout: &str) -> BTreeMap<String, String> {
         .collect()
 }
 
+#[allow(dead_code)]
 pub fn assert_json_subset(expected: &Value, actual: &Value) {
     match (expected, actual) {
         (Value::Object(expected_map), Value::Object(actual_map)) => {

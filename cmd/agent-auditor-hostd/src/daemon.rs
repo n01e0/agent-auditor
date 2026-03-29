@@ -1,4 +1,4 @@
-use std::{sync::mpsc, thread, time::Duration};
+use std::{path::PathBuf, sync::mpsc, thread, time::Duration};
 
 use signal_hook::{
     consts::signal::{SIGINT, SIGTERM},
@@ -6,42 +6,63 @@ use signal_hook::{
 };
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CliMode {
-    Preview,
-    Daemon(ForegroundDaemonConfig),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CliConfig {
+    pub mode: CliMode,
+    pub state_dir: Option<PathBuf>,
 }
 
-impl CliMode {
+impl CliConfig {
     pub fn parse<I>(args: I) -> Result<Self, CliParseError>
     where
         I: IntoIterator<Item = String>,
     {
-        let mut args = args.into_iter();
-        let Some(first) = args.next() else {
-            return Ok(Self::Preview);
-        };
+        let mut args = args.into_iter().peekable();
+        let mut mode = CliMode::Preview;
+        let mut state_dir = None;
 
-        if first != "daemon" {
-            return Err(CliParseError::UnknownMode(first));
+        if matches!(args.peek().map(String::as_str), Some("daemon")) {
+            args.next();
+            mode = CliMode::Daemon(ForegroundDaemonConfig::default());
         }
 
-        let mut config = ForegroundDaemonConfig::default();
         while let Some(arg) = args.next() {
             match arg.as_str() {
-                "--foreground" => {}
-                "--poll-interval-ms" => {
-                    let value = args.next().ok_or(CliParseError::MissingPollIntervalValue)?;
-                    config = ForegroundDaemonConfig {
-                        poll_interval: parse_poll_interval_ms(&value)?,
-                    };
+                "--state-dir" => {
+                    let value = args.next().ok_or(CliParseError::MissingStateDirValue)?;
+                    state_dir = Some(PathBuf::from(value));
                 }
-                unknown => return Err(CliParseError::UnknownFlag(unknown.to_owned())),
+                "--foreground" => {
+                    if !matches!(mode, CliMode::Daemon(_)) {
+                        return Err(CliParseError::FlagRequiresDaemon("--foreground".to_owned()));
+                    }
+                }
+                "--poll-interval-ms" => {
+                    if !matches!(mode, CliMode::Daemon(_)) {
+                        return Err(CliParseError::FlagRequiresDaemon(
+                            "--poll-interval-ms".to_owned(),
+                        ));
+                    }
+                    let value = args.next().ok_or(CliParseError::MissingPollIntervalValue)?;
+                    mode = CliMode::Daemon(ForegroundDaemonConfig {
+                        poll_interval: parse_poll_interval_ms(&value)?,
+                    });
+                }
+                unknown if unknown.starts_with('-') => {
+                    return Err(CliParseError::UnknownFlag(unknown.to_owned()));
+                }
+                unknown => return Err(CliParseError::UnknownMode(unknown.to_owned())),
             }
         }
 
-        Ok(Self::Daemon(config))
+        Ok(Self { mode, state_dir })
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CliMode {
+    Preview,
+    Daemon(ForegroundDaemonConfig),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,13 +104,17 @@ impl ShutdownSignal {
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CliParseError {
     #[error(
-        "unknown mode `{0}`; use no args for preview or `daemon [--foreground] [--poll-interval-ms <ms>]`"
+        "unknown mode `{0}`; use no args for preview or `daemon [--foreground] [--poll-interval-ms <ms>] [--state-dir <path>]`"
     )]
     UnknownMode(String),
     #[error("unknown daemon flag `{0}`")]
     UnknownFlag(String),
+    #[error("flag `{0}` requires the `daemon` subcommand")]
+    FlagRequiresDaemon(String),
     #[error("missing value for `--poll-interval-ms`")]
     MissingPollIntervalValue,
+    #[error("missing value for `--state-dir`")]
+    MissingStateDirValue,
     #[error("invalid `--poll-interval-ms` value `{value}`: {reason}")]
     InvalidPollIntervalValue { value: String, reason: String },
 }
@@ -176,54 +201,88 @@ fn parse_poll_interval_ms(value: &str) -> Result<Duration, CliParseError> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{path::PathBuf, time::Duration};
 
-    use super::{CliMode, CliParseError, ForegroundDaemonConfig};
+    use super::{CliConfig, CliMode, CliParseError, ForegroundDaemonConfig};
 
     #[test]
     fn parse_defaults_to_preview_without_args() {
         assert_eq!(
-            CliMode::parse(Vec::<String>::new()).unwrap(),
-            CliMode::Preview
+            CliConfig::parse(Vec::<String>::new()).unwrap(),
+            CliConfig {
+                mode: CliMode::Preview,
+                state_dir: None,
+            }
+        );
+    }
+
+    #[test]
+    fn parse_accepts_preview_state_dir() {
+        assert_eq!(
+            CliConfig::parse(vec![
+                "--state-dir".to_owned(),
+                "/tmp/hostd-state".to_owned(),
+            ])
+            .unwrap(),
+            CliConfig {
+                mode: CliMode::Preview,
+                state_dir: Some(PathBuf::from("/tmp/hostd-state")),
+            }
         );
     }
 
     #[test]
     fn parse_accepts_daemon_subcommand() {
         assert_eq!(
-            CliMode::parse(vec!["daemon".to_owned()]).unwrap(),
-            CliMode::Daemon(ForegroundDaemonConfig::default())
+            CliConfig::parse(vec!["daemon".to_owned()]).unwrap(),
+            CliConfig {
+                mode: CliMode::Daemon(ForegroundDaemonConfig::default()),
+                state_dir: None,
+            }
         );
     }
 
     #[test]
-    fn parse_accepts_foreground_and_custom_poll_interval() {
+    fn parse_accepts_daemon_state_dir_and_custom_poll_interval() {
         assert_eq!(
-            CliMode::parse(vec![
+            CliConfig::parse(vec![
                 "daemon".to_owned(),
                 "--foreground".to_owned(),
+                "--state-dir".to_owned(),
+                "/tmp/hostd-state".to_owned(),
                 "--poll-interval-ms".to_owned(),
                 "25".to_owned(),
             ])
             .unwrap(),
-            CliMode::Daemon(ForegroundDaemonConfig {
-                poll_interval: Duration::from_millis(25),
-            })
+            CliConfig {
+                mode: CliMode::Daemon(ForegroundDaemonConfig {
+                    poll_interval: Duration::from_millis(25),
+                }),
+                state_dir: Some(PathBuf::from("/tmp/hostd-state")),
+            }
         );
     }
 
     #[test]
     fn parse_rejects_unknown_mode() {
         assert_eq!(
-            CliMode::parse(vec!["weird".to_owned()]).unwrap_err(),
+            CliConfig::parse(vec!["weird".to_owned()]).unwrap_err(),
             CliParseError::UnknownMode("weird".to_owned())
+        );
+    }
+
+    #[test]
+    fn parse_rejects_daemon_only_flag_without_subcommand() {
+        assert_eq!(
+            CliConfig::parse(vec!["--foreground".to_owned()]).unwrap_err(),
+            CliParseError::FlagRequiresDaemon("--foreground".to_owned())
         );
     }
 
     #[test]
     fn parse_rejects_invalid_poll_interval() {
         assert_eq!(
-            CliMode::parse(vec![
+            CliConfig::parse(vec![
                 "daemon".to_owned(),
                 "--poll-interval-ms".to_owned(),
                 "0".to_owned(),
