@@ -1,3 +1,5 @@
+mod daemon;
+
 use agent_auditor_hostd::poc::{
     HostdPocPlan,
     enforcement::contract::{EnforcementOutcome, EnforcementScope},
@@ -43,6 +45,22 @@ fn print_local_jsonl_inspection_line(key: &str, request: &ApprovalRequest) {
 }
 
 fn main() {
+    match daemon::CliMode::parse(std::env::args().skip(1)) {
+        Ok(daemon::CliMode::Preview) => run_preview_or_exit(),
+        Ok(daemon::CliMode::Daemon(config)) => {
+            if let Err(error) = daemon::run_foreground_daemon(config, run_preview_or_exit) {
+                eprintln!("daemon_error={error}");
+                std::process::exit(1);
+            }
+        }
+        Err(error) => {
+            eprintln!("cli_error={error}");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn run_preview_or_exit() {
     let session = SessionRecord::placeholder("openclaw-main", "sess_bootstrap_hostd");
     let plan = HostdPocPlan::bootstrap();
 
