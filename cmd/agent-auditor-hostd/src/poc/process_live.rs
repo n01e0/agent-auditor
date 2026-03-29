@@ -440,11 +440,21 @@ fn read_exec_event(pid: u32) -> ExecEvent {
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "unknown".to_owned());
-    let filename = fs::read_link(proc_path(pid, "exe"))
+    let exe = fs::read_link(proc_path(pid, "exe"))
         .ok()
         .map(|path| path.display().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| command.clone());
+    let argv = fs::read(proc_path(pid, "cmdline"))
+        .ok()
+        .map(|bytes| parse_proc_cmdline_bytes(&bytes))
+        .filter(|argv| !argv.is_empty())
+        .unwrap_or_else(|| vec![command.clone()]);
+    let cwd = fs::read_link(proc_path(pid, "cwd"))
+        .ok()
+        .map(|path| path.display().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "/".to_owned());
 
     ExecEvent {
         pid,
@@ -461,7 +471,10 @@ fn read_exec_event(pid: u32) -> ExecEvent {
             .and_then(|status| parse_first_status_list_value(status, "Gid:"))
             .unwrap_or(0),
         command,
-        filename,
+        filename: exe.clone(),
+        exe,
+        argv,
+        cwd,
     }
 }
 
@@ -486,6 +499,14 @@ fn parse_first_status_list_value(status: &str, key: &str) -> Option<u32> {
         .find_map(|line| line.strip_prefix(key))
         .and_then(|value| value.split_whitespace().next())
         .and_then(|value| value.parse().ok())
+}
+
+fn parse_proc_cmdline_bytes(bytes: &[u8]) -> Vec<String> {
+    bytes
+        .split(|byte| *byte == 0)
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| String::from_utf8_lossy(segment).into_owned())
+        .collect()
 }
 
 fn read_copy<T: Copy>(bytes: &[u8], offset: usize) -> Result<T, ProcessEventSourceError> {
@@ -523,8 +544,8 @@ mod tests {
     use super::{
         CbId, CnMsg, FixtureProcessEventSource, LiveProcessEvent, LiveProcessRecorder,
         ProcConnectorSource, ProcEventHeader, ProcInput, current_host_id,
-        parse_first_status_list_value, parse_proc_connector_message, parse_status_value,
-        proc_connector_membership_message, write_copy,
+        parse_first_status_list_value, parse_proc_cmdline_bytes, parse_proc_connector_message,
+        parse_status_value, proc_connector_membership_message, write_copy,
     };
     use crate::poc::{
         event_path::{ExecEvent, ExitEvent},
@@ -552,6 +573,14 @@ mod tests {
     }
 
     #[test]
+    fn proc_cmdline_parser_extracts_argv_segments() {
+        assert_eq!(
+            parse_proc_cmdline_bytes(b"/usr/bin/bash\0-c\0echo hi\0"),
+            vec!["/usr/bin/bash", "-c", "echo hi"]
+        );
+    }
+
+    #[test]
     fn live_process_recorder_persists_synthetic_exec_and_exit_events() {
         let store = FilesystemPocStore::fresh(unique_test_root()).expect("store should init");
         let mut recorder = LiveProcessRecorder::new(
@@ -568,6 +597,13 @@ mod tests {
                 gid: 1000,
                 command: "bash".to_owned(),
                 filename: "/usr/bin/bash".to_owned(),
+                exe: "/usr/bin/bash".to_owned(),
+                argv: vec![
+                    "/usr/bin/bash".to_owned(),
+                    "-lc".to_owned(),
+                    "echo hi".to_owned(),
+                ],
+                cwd: "/tmp/live-process".to_owned(),
             }),
             LiveProcessEvent::Exit(ExitEvent {
                 pid: 4242,
@@ -586,6 +622,38 @@ mod tests {
         assert_eq!(persisted[0].source.collector, CollectorKind::RuntimeHint);
         assert_eq!(persisted[0].source.host_id.as_deref(), Some("host-live"));
         assert_eq!(persisted[1].action.target.as_deref(), Some("/usr/bin/bash"));
+        assert_eq!(
+            persisted[0].action.attributes.get("exe"),
+            Some(&serde_json::json!("/usr/bin/bash"))
+        );
+        assert_eq!(
+            persisted[0].action.attributes.get("argv"),
+            Some(&serde_json::json!(["/usr/bin/bash", "-lc", "echo hi"]))
+        );
+        assert_eq!(
+            persisted[0].action.attributes.get("cwd"),
+            Some(&serde_json::json!("/tmp/live-process"))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("uid"),
+            Some(&serde_json::json!(1000))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("gid"),
+            Some(&serde_json::json!(1000))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("exe"),
+            Some(&serde_json::json!("/usr/bin/bash"))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("argv"),
+            Some(&serde_json::json!(["/usr/bin/bash", "-lc", "echo hi"]))
+        );
+        assert_eq!(
+            persisted[1].action.attributes.get("cwd"),
+            Some(&serde_json::json!("/tmp/live-process"))
+        );
         assert_eq!(persisted[1].result.status, ResultStatus::Observed);
         assert_eq!(
             store
