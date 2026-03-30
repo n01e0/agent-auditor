@@ -14,6 +14,9 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/runbooks/separate-machine-audit-preview-local.md`](../docs/runbooks/separate-machine-audit-preview-local.md)
 - local developer runbooks under:
   - [`../docs/runbooks/README.md`](../docs/runbooks/README.md)
+- a systemd service artifact + sample environment config for source-tree-independent hostd startup:
+  - [`systemd/agent-auditor-hostd.service`](systemd/agent-auditor-hostd.service)
+  - [`systemd/agent-auditor-hostd.env.sample`](systemd/agent-auditor-hostd.env.sample)
 
 ## Planned contents
 

@@ -1,0 +1,33 @@
+[Unit]
+Description=agent-auditor host daemon
+Documentation=https://github.com/n01e0/agent-auditor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agent-auditor
+Group=agent-auditor
+Environment=AGENT_AUDITOR_HOSTD_BIN=/usr/local/bin/agent-auditor-hostd
+Environment=AGENT_AUDITOR_HOSTD_STATE_DIR=%S/agent-auditor-hostd
+Environment=AGENT_AUDITOR_HOSTD_POLL_INTERVAL_MS=250
+EnvironmentFile=-/etc/agent-auditor/agent-auditor-hostd.env
+WorkingDirectory=/
+StateDirectory=agent-auditor-hostd
+StateDirectoryMode=0750
+RuntimeDirectory=agent-auditor-hostd
+RuntimeDirectoryMode=0750
+LogsDirectory=agent-auditor-hostd
+LogsDirectoryMode=0750
+ExecStart=${AGENT_AUDITOR_HOSTD_BIN} daemon --foreground --state-dir ${AGENT_AUDITOR_HOSTD_STATE_DIR} --poll-interval-ms ${AGENT_AUDITOR_HOSTD_POLL_INTERVAL_MS}
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%S/agent-auditor-hostd
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

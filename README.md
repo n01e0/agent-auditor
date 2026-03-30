@@ -34,6 +34,11 @@ What is still missing:
 
 For the current separate-machine audit-preview target, see [`docs/architecture/preview-readiness-boundary.md`](docs/architecture/preview-readiness-boundary.md).
 
+For a source-tree-independent systemd startup artifact and sample hostd environment config, see:
+
+- [`deploy/systemd/agent-auditor-hostd.service`](deploy/systemd/agent-auditor-hostd.service)
+- [`deploy/systemd/agent-auditor-hostd.env.sample`](deploy/systemd/agent-auditor-hostd.env.sample)
+
 ## Repository layout
 
 ```text
@@ -42,7 +47,7 @@ agent-auditor/
   crates/             shared Rust crates
   docs/               architecture, schemas, runbooks, roadmaps
   examples/policies/  sample Rego policy fragments
-  deploy/             deployment notes (still minimal)
+  deploy/             deployment notes and service artifacts
 ```
 
 ## Binaries
