@@ -11,7 +11,10 @@ use agent_auditor_hostd::{
             contract::ApiRequestObservation, persist::GwsPocStore,
             preview_provider_metadata_catalog,
         },
-        live_proxy::forward_proxy::{ForwardProxyIngressInbox, ForwardProxyIngressRuntime},
+        live_proxy::{
+            forward_proxy::{ForwardProxyIngressInbox, ForwardProxyIngressRuntime},
+            session_correlation::{ObservedRuntimePath, RuntimeSessionLineage},
+        },
         messaging::persist::MessagingPocStore,
         network::{
             contract::{ClassifiedNetworkConnect, DestinationScope},
@@ -149,6 +152,12 @@ fn run_hostd_daemon(
             for record in forward_proxy
                 .drain_available()
                 .map_err(daemon::DaemonRunError::tick)?
+                .into_iter()
+                .chain(
+                    forward_proxy
+                        .drain_observed_available()
+                        .map_err(daemon::DaemonRunError::tick)?,
+                )
             {
                 println!(
                     "forward_proxy_ingress_record={}",
@@ -2807,6 +2816,14 @@ fn run_forward_proxy_ingress_preview_or_exit() {
         runtime.inbox().paths().root.display()
     );
     println!(
+        "forward_proxy_observed_runtime_source={}",
+        ObservedRuntimePath::SOURCE_LABEL
+    );
+    println!(
+        "forward_proxy_observed_runtime_root={}",
+        runtime.observed_runtime().paths().root.display()
+    );
+    println!(
         "forward_proxy_ingress_inbox={}",
         runtime.inbox().paths().inbox.display()
     );
@@ -2819,12 +2836,47 @@ fn run_forward_proxy_ingress_preview_or_exit() {
         serde_json::to_string(&envelope).expect("forward proxy preview envelope should serialize")
     );
 
+    let observed_lineage = RuntimeSessionLineage::new(
+        envelope.session_id.clone(),
+        envelope
+            .agent_id
+            .clone()
+            .expect("preview envelope should carry agent lineage"),
+        envelope.workspace_id.clone(),
+    );
+    let observed_session = match runtime
+        .observed_runtime()
+        .session_path(observed_lineage.clone())
+    {
+        Ok(session) => session,
+        Err(error) => {
+            eprintln!("forward_proxy_observed_runtime_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "forward_proxy_observed_session_root={}",
+        observed_session.paths().root.display()
+    );
+    println!(
+        "forward_proxy_observed_session_inbox={}",
+        observed_session.paths().inbox.display()
+    );
+    println!(
+        "forward_proxy_observed_session_cursor={}",
+        observed_session.paths().cursor.display()
+    );
+
     if let Err(error) = runtime.inbox().append(&envelope) {
         eprintln!("forward_proxy_ingress_append_error={error}");
         std::process::exit(1);
     }
+    if let Err(error) = observed_session.append(&envelope) {
+        eprintln!("forward_proxy_observed_append_error={error}");
+        std::process::exit(1);
+    }
 
-    let mut records = match runtime.drain_available() {
+    let mut records = match runtime.drain_observed_available() {
         Ok(records) => records,
         Err(error) => {
             eprintln!("forward_proxy_ingress_drain_error={error}");
@@ -2842,6 +2894,10 @@ fn run_forward_proxy_ingress_preview_or_exit() {
     println!(
         "forward_proxy_request_summary={}",
         record.request.summary_line()
+    );
+    println!(
+        "forward_proxy_source_kind={}",
+        record.correlated.source_kind()
     );
     println!(
         "forward_proxy_normalized_event={}",
