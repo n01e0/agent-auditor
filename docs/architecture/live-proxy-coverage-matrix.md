@@ -2,6 +2,8 @@
 
 This note fixes the current coverage matrix for the planned live proxy path from the shared proxy seam into generic REST, GWS, GitHub, and messaging semantic layers.
 
+Unless stated otherwise, this matrix still describes the repository's fixture-preview / preview-policy posture rather than a validated real-traffic claim. The evidence boundary between fixture preview, observed request, and validated observation is fixed separately in [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md).
+
 ## Goal of P13-4
 
 Document what is currently true for each downstream slice once the live proxy seam exists:
@@ -161,6 +163,7 @@ If someone asks "what does the live proxy path actually cover today?", the hones
 - the repository now fixes the **shared live contracts** and the **per-slice semantic expectations**
 - it proves checked-in **generic REST** and **provider-specific semantic** live preview adapters plus **preview policy / approval / audit shapes** for generic REST, GWS, GitHub, and messaging slices
 - it does **not yet** prove an end-to-end live proxy adapter that can safely hold or deny traffic inline for any of those slices
+- it also does **not yet** by itself prove `observed request` or `validated observation`; those require non-fixture ingress evidence and stronger end-to-end verification
 
 That is exactly why the next task now focuses on final live-mode semantics (`P13-8`) rather than broader coverage claims.
 
@@ -168,6 +171,7 @@ That is exactly why the next task now focuses on final live-mode semantics (`P13
 
 - general architecture coverage matrix: [`coverage-matrix.md`](coverage-matrix.md)
 - live proxy phase boundary: [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md)
+- real-traffic evidence boundary: [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md)
 - live proxy request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - generic REST live preview adapter: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
