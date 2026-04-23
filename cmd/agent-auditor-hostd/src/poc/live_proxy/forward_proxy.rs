@@ -632,6 +632,128 @@ mod tests {
     }
 
     #[test]
+    fn fixtureless_harness_locks_preview_only_boundary_against_observed_runtime_path() {
+        let runtime = ForwardProxyIngressRuntime::fresh(unique_state_dir())
+            .expect("runtime should bootstrap");
+        let envelope =
+            ForwardProxyIngressRuntime::preview_fixture("sess_forward_proxy_boundary_harness");
+        let lineage = RuntimeSessionLineage::new(
+            envelope.session_id.clone(),
+            envelope
+                .agent_id
+                .clone()
+                .expect("preview envelope should carry agent lineage"),
+            envelope.workspace_id.clone(),
+        );
+
+        let preview_record = runtime
+            .record(&envelope)
+            .expect("preview-only record should materialize");
+        let observed_record = runtime
+            .record_observed(&envelope, &lineage)
+            .expect("observed record should materialize");
+
+        assert_eq!(
+            preview_record.request.summary_line(),
+            observed_record.request.summary_line()
+        );
+        assert_eq!(
+            preview_record.normalized_event.action.verb,
+            observed_record.normalized_event.action.verb
+        );
+        assert_eq!(
+            preview_record.normalized_event.action.target,
+            observed_record.normalized_event.action.target
+        );
+        assert_eq!(
+            preview_record.policy_decision.decision,
+            observed_record.policy_decision.decision
+        );
+        assert_eq!(
+            preview_record.correlated.source_kind(),
+            "live_proxy_preview"
+        );
+        assert_eq!(
+            observed_record.correlated.source_kind(),
+            "live_proxy_observed"
+        );
+        assert_eq!(preview_record.correlated.event_suffix(), "preview");
+        assert_eq!(observed_record.correlated.event_suffix(), "observed");
+        assert_eq!(
+            preview_record
+                .normalized_event
+                .action
+                .attributes
+                .get("observation_provenance")
+                .and_then(|value| value.as_str()),
+            Some("fixture_preview")
+        );
+        assert_eq!(
+            observed_record
+                .normalized_event
+                .action
+                .attributes
+                .get("observation_provenance")
+                .and_then(|value| value.as_str()),
+            Some("observed_request")
+        );
+        assert_eq!(
+            preview_record
+                .normalized_event
+                .action
+                .attributes
+                .get("validation_status")
+                .and_then(|value| value.as_str()),
+            Some("fixture_preview")
+        );
+        assert_eq!(
+            observed_record
+                .normalized_event
+                .action
+                .attributes
+                .get("validation_status")
+                .and_then(|value| value.as_str()),
+            Some("observed_request")
+        );
+        assert_eq!(
+            preview_record
+                .normalized_event
+                .action
+                .attributes
+                .get("session_correlation_status")
+                .and_then(|value| value.as_str()),
+            Some("fixture_lineage")
+        );
+        assert_eq!(
+            observed_record
+                .normalized_event
+                .action
+                .attributes
+                .get("session_correlation_status")
+                .and_then(|value| value.as_str()),
+            Some("runtime_path_confirmed")
+        );
+        assert_eq!(
+            preview_record
+                .approval
+                .approval_request
+                .as_ref()
+                .and_then(|request| request.request.attributes.get("observation_provenance"))
+                .and_then(|value| value.as_str()),
+            Some("fixture_preview")
+        );
+        assert_eq!(
+            observed_record
+                .approval
+                .approval_request
+                .as_ref()
+                .and_then(|request| request.request.attributes.get("observation_provenance"))
+                .and_then(|value| value.as_str()),
+            Some("observed_request")
+        );
+    }
+
+    #[test]
     fn observed_runtime_drain_records_non_fixture_source_kind() {
         let runtime = ForwardProxyIngressRuntime::fresh(unique_state_dir())
             .expect("runtime should bootstrap");

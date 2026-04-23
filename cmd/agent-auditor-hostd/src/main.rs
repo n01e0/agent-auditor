@@ -3064,6 +3064,58 @@ fn run_forward_proxy_ingress_preview_or_exit() {
         serde_json::to_string(&envelope).expect("forward proxy preview envelope should serialize")
     );
 
+    let preview_record = match runtime.record(&envelope) {
+        Ok(record) => record,
+        Err(error) => {
+            eprintln!("forward_proxy_preview_record_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "forward_proxy_preview_request_summary={}",
+        preview_record.request.summary_line()
+    );
+    println!(
+        "forward_proxy_preview_source_kind={}",
+        preview_record.correlated.source_kind()
+    );
+    println!(
+        "forward_proxy_preview_normalized_event={}",
+        serde_json::to_string(&preview_record.normalized_event)
+            .expect("forward proxy preview normalized event should serialize")
+    );
+    println!(
+        "forward_proxy_preview_policy_decision={}",
+        serde_json::to_string(&preview_record.policy_decision)
+            .expect("forward proxy preview policy decision should serialize")
+    );
+    println!(
+        "forward_proxy_preview_approval_summary={}",
+        preview_record.approval.summary()
+    );
+    println!(
+        "forward_proxy_preview_reflection_summary={}",
+        preview_record.reflection.summary()
+    );
+    let preview_approval_request = match preview_record.approval.approval_request.as_ref() {
+        Some(approval_request) => {
+            println!(
+                "forward_proxy_preview_approval_request={}",
+                serde_json::to_string(approval_request)
+                    .expect("forward proxy preview approval request should serialize")
+            );
+            approval_request
+        }
+        None => {
+            eprintln!("forward_proxy_preview_approval_request_error=missing approval request");
+            std::process::exit(1);
+        }
+    };
+    print_observation_local_jsonl_inspection_for_request(
+        "forward_proxy_preview_observation_local_jsonl_inspection",
+        preview_approval_request,
+    );
+
     let observed_lineage = RuntimeSessionLineage::new(
         envelope.session_id.clone(),
         envelope
@@ -3146,17 +3198,24 @@ fn run_forward_proxy_ingress_preview_or_exit() {
         record.reflection.summary()
     );
 
-    match record.approval.approval_request.as_ref() {
-        Some(approval_request) => println!(
-            "forward_proxy_approval_request={}",
-            serde_json::to_string(approval_request)
-                .expect("forward proxy approval request should serialize")
-        ),
+    let observed_approval_request = match record.approval.approval_request.as_ref() {
+        Some(approval_request) => {
+            println!(
+                "forward_proxy_approval_request={}",
+                serde_json::to_string(approval_request)
+                    .expect("forward proxy approval request should serialize")
+            );
+            approval_request
+        }
         None => {
             eprintln!("forward_proxy_approval_request_error=missing approval request");
             std::process::exit(1);
         }
-    }
+    };
+    print_observation_local_jsonl_inspection_for_request(
+        "forward_proxy_observed_observation_local_jsonl_inspection",
+        observed_approval_request,
+    );
 
     match runtime.store().latest_audit_record() {
         Ok(Some(record)) => println!(
