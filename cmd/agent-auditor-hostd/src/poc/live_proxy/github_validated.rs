@@ -237,6 +237,10 @@ fn session_record_from_correlated(
 
 fn annotate_validated_observation(event: &mut EventEnvelope, correlated: &CorrelatedLiveRequest) {
     event.action.attributes.insert(
+        "observation_provenance".to_owned(),
+        json!(correlated.provenance.observation_provenance()),
+    );
+    event.action.attributes.insert(
         "validation_status".to_owned(),
         json!("validated_observation"),
     );
@@ -336,6 +340,14 @@ mod tests {
                 .normalized_event
                 .action
                 .attributes
+                .get("observation_provenance"),
+            Some(&json!("observed_request"))
+        );
+        assert_eq!(
+            record
+                .normalized_event
+                .action
+                .attributes
                 .get("validation_status"),
             Some(&json!("validated_observation"))
         );
@@ -361,14 +373,27 @@ mod tests {
                 .store()
                 .latest_audit_record()
                 .expect("audit record should read")
-                .is_some()
+                .is_some_and(|audit_record| {
+                    audit_record.action.attributes.get("observation_provenance")
+                        == Some(&json!("observed_request"))
+                        && audit_record.action.attributes.get("validation_status")
+                            == Some(&json!("validated_observation"))
+                })
         );
         assert!(
             runtime
                 .store()
                 .latest_approval_request()
                 .expect("approval request should read")
-                .is_some()
+                .is_some_and(|approval_request| {
+                    approval_request
+                        .request
+                        .attributes
+                        .get("observation_provenance")
+                        == Some(&json!("observed_request"))
+                        && approval_request.request.attributes.get("validation_status")
+                            == Some(&json!("validated_observation"))
+                })
         );
     }
 

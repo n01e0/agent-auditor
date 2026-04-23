@@ -32,6 +32,20 @@ pub enum LiveRequestProvenance {
 }
 
 impl LiveRequestProvenance {
+    pub fn observation_provenance(self) -> &'static str {
+        match self {
+            Self::FixturePreview => "fixture_preview",
+            Self::ObservedRuntimePath => "observed_request",
+        }
+    }
+
+    pub fn validation_status(self) -> &'static str {
+        match self {
+            Self::FixturePreview => "fixture_preview",
+            Self::ObservedRuntimePath => "observed_request",
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::FixturePreview => "live_proxy_preview",

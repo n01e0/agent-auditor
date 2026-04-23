@@ -501,6 +501,12 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
             .expect("smoke output should include approval_local_jsonl_inspection_model")
             .contains("consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_hint")
     );
+    assert!(
+        lines
+            .get("observation_local_jsonl_inspection_model")
+            .expect("smoke output should include observation_local_jsonl_inspection_model")
+            .contains("fields=observation_provenance,validation_status,evidence_tier")
+    );
 
     let persisted_messaging_local_jsonl_inspection_require_approval: Value =
         serde_json::from_str(
@@ -530,5 +536,31 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     assert_eq!(
         persisted_messaging_local_jsonl_inspection_require_approval["explanation_summary"],
         "Messaging membership expansion requires approval"
+    );
+
+    let persisted_messaging_observation_local_jsonl_inspection_require_approval: Value =
+        serde_json::from_str(
+            lines
+                .get("persisted_messaging_observation_local_jsonl_inspection_require_approval")
+                .expect(
+                    "smoke output should include persisted_messaging_observation_local_jsonl_inspection_require_approval"
+                ),
+        )
+        .expect("persisted messaging observation local jsonl inspection should be valid json");
+    assert_eq!(
+        persisted_messaging_observation_local_jsonl_inspection_require_approval["observation_provenance"],
+        Value::Null
+    );
+    assert_eq!(
+        persisted_messaging_observation_local_jsonl_inspection_require_approval["validation_status"],
+        Value::Null
+    );
+    assert_eq!(
+        persisted_messaging_observation_local_jsonl_inspection_require_approval["evidence_tier"],
+        Value::Null
+    );
+    assert_eq!(
+        persisted_messaging_observation_local_jsonl_inspection_require_approval["explanation_summary"],
+        "record is missing durable observation_provenance and validation_status"
     );
 }

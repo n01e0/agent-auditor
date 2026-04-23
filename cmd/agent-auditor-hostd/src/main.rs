@@ -37,7 +37,10 @@ use agenta_core::{
     Action, ActionClass, Actor, ActorKind, ApprovalRequest, CollectorKind, EventEnvelope,
     EventType, JsonMap, PolicyDecision, PolicyDecisionKind, ResultInfo, ResultStatus,
     SessionRecord, SessionRef, Severity, SourceInfo,
-    controlplane::{ApprovalLocalJsonlInspectionRecord, ApprovalQueueItem},
+    controlplane::{
+        ApprovalLocalJsonlInspectionRecord, ApprovalQueueItem,
+        ObservationLocalJsonlInspectionRecord,
+    },
     provider::{ProviderAbstractionPlan, ProviderMetadataCatalog},
 };
 use agenta_policy::{
@@ -54,6 +57,26 @@ fn print_local_jsonl_inspection_line(key: &str, request: &ApprovalRequest) {
         key,
         serde_json::to_string(&inspection)
             .expect("approval local jsonl inspection record should serialize")
+    );
+}
+
+fn print_observation_local_jsonl_inspection_for_event(key: &str, event: &EventEnvelope) {
+    let inspection = ObservationLocalJsonlInspectionRecord::from_event(event);
+    println!(
+        "{}={}",
+        key,
+        serde_json::to_string(&inspection)
+            .expect("observation local jsonl inspection record should serialize")
+    );
+}
+
+fn print_observation_local_jsonl_inspection_for_request(key: &str, request: &ApprovalRequest) {
+    let inspection = ObservationLocalJsonlInspectionRecord::from_request(request);
+    println!(
+        "{}={}",
+        key,
+        serde_json::to_string(&inspection)
+            .expect("observation local jsonl inspection record should serialize")
     );
 }
 
@@ -1507,14 +1530,24 @@ fn run_preview_or_exit() {
     println!(
         "approval_local_jsonl_inspection_model=components=approval_local_jsonl_inspection_record linkage=approval_id,event_id,rule_id consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_hint explanation=redaction_safe_summary"
     );
-    match messaging_store.latest_approval_request() {
-        Ok(Some(record)) => match serde_json::to_string(&record) {
-            Ok(json) => println!("persisted_messaging_approval_request_require_approval={json}"),
-            Err(error) => {
-                eprintln!("persisted_messaging_approval_request_require_approval_error={error}");
-                std::process::exit(1);
+    println!(
+        "observation_local_jsonl_inspection_model=components=observation_local_jsonl_inspection_record linkage=session_id,event_id,approval_id fields=observation_provenance,validation_status,evidence_tier classification=fixture_preview,observed_request,validated_observation"
+    );
+    let persisted_messaging_approval_request = match messaging_store.latest_approval_request() {
+        Ok(Some(record)) => {
+            match serde_json::to_string(&record) {
+                Ok(json) => {
+                    println!("persisted_messaging_approval_request_require_approval={json}")
+                }
+                Err(error) => {
+                    eprintln!(
+                        "persisted_messaging_approval_request_require_approval_error={error}"
+                    );
+                    std::process::exit(1);
+                }
             }
-        },
+            record
+        }
         Ok(None) => {
             eprintln!(
                 "persisted_messaging_approval_request_require_approval_error=missing persisted messaging approval request"
@@ -1525,10 +1558,14 @@ fn run_preview_or_exit() {
             eprintln!("persisted_messaging_approval_request_require_approval_error={error}");
             std::process::exit(1);
         }
-    }
+    };
     print_local_jsonl_inspection_line(
         "persisted_messaging_local_jsonl_inspection_require_approval",
         &messaging_approval_request_require_approval,
+    );
+    print_observation_local_jsonl_inspection_for_request(
+        "persisted_messaging_observation_local_jsonl_inspection_require_approval",
+        &persisted_messaging_approval_request,
     );
     if let Err(error) = messaging_store.append_audit_record(&messaging_enriched_deny) {
         eprintln!("persisted_messaging_audit_record_deny_error={error}");
@@ -2930,12 +2967,18 @@ fn run_github_validated_observation_preview_or_exit() {
         None => println!("github_validated_approval_request=null"),
     }
 
-    match github_validated.store().latest_audit_record() {
-        Ok(Some(audit_record)) => println!(
-            "persisted_github_validated_audit_record={}",
-            serde_json::to_string(&audit_record)
-                .expect("persisted github validated audit record should serialize")
-        ),
+    let persisted_github_validated_audit_record = match github_validated
+        .store()
+        .latest_audit_record()
+    {
+        Ok(Some(audit_record)) => {
+            println!(
+                "persisted_github_validated_audit_record={}",
+                serde_json::to_string(&audit_record)
+                    .expect("persisted github validated audit record should serialize")
+            );
+            audit_record
+        }
         Ok(None) => {
             eprintln!(
                 "persisted_github_validated_audit_record_error=missing persisted github validated audit record"
@@ -2946,14 +2989,24 @@ fn run_github_validated_observation_preview_or_exit() {
             eprintln!("persisted_github_validated_audit_record_error={error}");
             std::process::exit(1);
         }
-    }
+    };
+    print_observation_local_jsonl_inspection_for_event(
+        "persisted_github_validated_audit_observation_local_jsonl_inspection",
+        &persisted_github_validated_audit_record,
+    );
 
-    match github_validated.store().latest_approval_request() {
-        Ok(Some(approval_request)) => println!(
-            "persisted_github_validated_approval_request={}",
-            serde_json::to_string(&approval_request)
-                .expect("persisted github validated approval request should serialize")
-        ),
+    let persisted_github_validated_approval_request = match github_validated
+        .store()
+        .latest_approval_request()
+    {
+        Ok(Some(approval_request)) => {
+            println!(
+                "persisted_github_validated_approval_request={}",
+                serde_json::to_string(&approval_request)
+                    .expect("persisted github validated approval request should serialize")
+            );
+            approval_request
+        }
         Ok(None) => {
             eprintln!(
                 "persisted_github_validated_approval_request_error=missing persisted github validated approval request"
@@ -2964,7 +3017,11 @@ fn run_github_validated_observation_preview_or_exit() {
             eprintln!("persisted_github_validated_approval_request_error={error}");
             std::process::exit(1);
         }
-    }
+    };
+    print_observation_local_jsonl_inspection_for_request(
+        "persisted_github_validated_approval_observation_local_jsonl_inspection",
+        &persisted_github_validated_approval_request,
+    );
 }
 
 fn run_forward_proxy_ingress_preview_or_exit() {
