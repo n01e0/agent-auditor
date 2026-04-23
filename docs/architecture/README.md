@@ -33,6 +33,7 @@ This directory contains design notes for the current `agent-auditor` architectur
 
 ## Live preview / proxy seam
 
+- real-runtime audit readiness boundary: [`real-runtime-audit-readiness-boundary.md`](real-runtime-audit-readiness-boundary.md)
 - real-traffic observation boundary: [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md)
 - live proxy interception foundation: [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md)
 - live proxy HTTP request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
