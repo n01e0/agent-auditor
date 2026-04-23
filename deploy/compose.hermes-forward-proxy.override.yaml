@@ -1,0 +1,16 @@
+services:
+  # Real Hermes runtime for topology A / forward proxy.
+  # Start this service instead of the checked-in `hermes-runtime` stand-in when you want to wire a real container.
+  hermes-runtime-real:
+    image: ${HERMES_RUNTIME_IMAGE:?set HERMES_RUNTIME_IMAGE in deploy/hermes-forward-proxy.env}
+    pull_policy: ${HERMES_RUNTIME_PULL_POLICY:-missing}
+    init: true
+    restart: unless-stopped
+    depends_on:
+      - hermes-forward-proxy
+    env_file:
+      - ${HERMES_RUNTIME_ENV_FILE:-./hermes-forward-proxy.runtime.env.sample}
+    environment:
+      HTTP_PROXY: ${HERMES_RUNTIME_HTTP_PROXY:-http://hermes-forward-proxy:8080}
+      HTTPS_PROXY: ${HERMES_RUNTIME_HTTPS_PROXY:-http://hermes-forward-proxy:8080}
+      NO_PROXY: ${HERMES_RUNTIME_NO_PROXY:-hostd,localhost,127.0.0.1}
