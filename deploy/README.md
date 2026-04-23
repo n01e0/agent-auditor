@@ -24,6 +24,9 @@ Deployment packaging is still minimal. The repository currently ships architectu
 - a container-first compose example for live proxy experimentation:
   - [`compose.yaml`](compose.yaml)
   - [`compose.env.sample`](compose.env.sample)
+  - [`compose.openclaw-forward-proxy.override.yaml`](compose.openclaw-forward-proxy.override.yaml)
+  - [`openclaw-forward-proxy.env.sample`](openclaw-forward-proxy.env.sample)
+  - [`openclaw-forward-proxy.runtime.env.sample`](openclaw-forward-proxy.runtime.env.sample)
   - [`proxy/mitmproxy-live-proxy.py`](proxy/mitmproxy-live-proxy.py)
 
 ## Compose topologies
@@ -60,6 +63,48 @@ The runtime services in the compose file are smoke-friendly stand-ins built with
 Replace their `image` / `command` with the real OpenClaw or Hermes container while keeping the same proxy env wiring.
 
 That swap should be read through [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md): the checked-in compose file currently proves stand-in topology smoke, while later P18 work is what makes the repository genuinely handoff-ready for human-run OpenClaw / Hermes verification.
+
+## OpenClaw real runtime on topology A / forward proxy
+
+P18-2 adds the first checked-in real-runtime replacement contract for OpenClaw on the default forward-proxy topology.
+
+Files:
+
+- compose override: [`compose.openclaw-forward-proxy.override.yaml`](compose.openclaw-forward-proxy.override.yaml)
+- compose interpolation env sample: [`openclaw-forward-proxy.env.sample`](openclaw-forward-proxy.env.sample)
+- runtime `env_file:` sample: [`openclaw-forward-proxy.runtime.env.sample`](openclaw-forward-proxy.runtime.env.sample)
+
+Use it like this:
+
+```bash
+cp deploy/openclaw-forward-proxy.env.sample deploy/openclaw-forward-proxy.env
+cp deploy/openclaw-forward-proxy.runtime.env.sample deploy/openclaw-forward-proxy.runtime.env
+
+# Edit at least:
+# - OPENCLAW_RUNTIME_IMAGE
+# - OPENCLAW_RUNTIME_ENV_FILE (if you renamed the runtime env file)
+# - runtime-specific secrets/config inside deploy/openclaw-forward-proxy.runtime.env
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.openclaw-forward-proxy.override.yaml \
+  --env-file deploy/openclaw-forward-proxy.env \
+  config
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.openclaw-forward-proxy.override.yaml \
+  --env-file deploy/openclaw-forward-proxy.env \
+  up hostd openclaw-forward-proxy openclaw-runtime-real
+```
+
+Contract notes:
+
+- `openclaw-runtime-real` is a new service name on purpose; it lets the checked-in `openclaw-runtime` stand-in stay available for smoke use while the real container wiring is tested separately.
+- `openclaw-runtime-real` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
+- the paired `openclaw-forward-proxy` service still owns `OPENCLAW_SESSION_ID`, `OPENCLAW_AGENT_ID`, and `OPENCLAW_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
+- `OPENCLAW_RUNTIME_HTTP_PROXY` / `OPENCLAW_RUNTIME_HTTPS_PROXY` default to `http://openclaw-forward-proxy:8080` so the real container stays on topology A.
+- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
 
 ## Planned contents
 
