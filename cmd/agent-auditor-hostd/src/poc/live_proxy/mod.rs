@@ -5,6 +5,7 @@ pub mod fixtures;
 pub mod forward_proxy;
 pub mod generic_rest;
 pub mod github;
+pub mod github_validated;
 pub mod gws;
 pub mod messaging;
 pub mod mode;
