@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{ActionClass, ApprovalRequest, ApprovalScope, ApprovalStatus, JsonMap, Severity};
+use crate::{
+    ActionClass, ApprovalRequest, ApprovalScope, ApprovalStatus, EventEnvelope, JsonMap, Severity,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalDecisionSummary {
@@ -632,6 +634,53 @@ pub struct ApprovalLocalJsonlInspectionRecord {
     pub explanation_source: ApprovalLocalExplanationSource,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservationLocalRecordKind {
+    Audit,
+    Approval,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservationProvenance {
+    FixturePreview,
+    ObservedRequest,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservationValidationStatus {
+    FixturePreview,
+    ObservedRequest,
+    ValidatedObservation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservationEvidenceTier {
+    FixturePreview,
+    ObservedRequest,
+    ValidatedObservation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ObservationLocalJsonlInspectionRecord {
+    pub record_kind: ObservationLocalRecordKind,
+    pub session_id: String,
+    pub event_id: Option<String>,
+    pub approval_id: Option<String>,
+    pub action_class: ActionClass,
+    pub action_verb: String,
+    pub target_hint: Option<String>,
+    pub observation_provenance: Option<ObservationProvenance>,
+    pub validation_status: Option<ObservationValidationStatus>,
+    pub evidence_tier: Option<ObservationEvidenceTier>,
+    pub capture_source: Option<String>,
+    pub session_correlation_status: Option<String>,
+    pub explanation_summary: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalControlPlaneProjection {
     pub ops_status: ApprovalOpsHardeningStatus,
@@ -768,6 +817,77 @@ impl ApprovalLocalJsonlInspectionRecord {
     }
 }
 
+impl ObservationLocalJsonlInspectionRecord {
+    pub fn from_event(event: &EventEnvelope) -> Self {
+        let provenance = observation_provenance_from_attributes(&event.action.attributes);
+        let validation_status =
+            validation_status_from_attributes(&event.action.attributes, provenance);
+        let evidence_tier = observation_evidence_tier(provenance, validation_status);
+        let capture_source =
+            string_attribute(&event.action.attributes, "validation_capture_source");
+        let session_correlation_status =
+            string_attribute(&event.action.attributes, "session_correlation_status");
+
+        Self {
+            record_kind: ObservationLocalRecordKind::Audit,
+            session_id: event.session.session_id.clone(),
+            event_id: Some(event.event_id.clone()),
+            approval_id: event
+                .enforcement
+                .as_ref()
+                .and_then(|enforcement| enforcement.approval_id.clone()),
+            action_class: event.action.class,
+            action_verb: action_verb_from_event(event),
+            target_hint: event.action.target.clone(),
+            observation_provenance: provenance,
+            validation_status,
+            evidence_tier,
+            capture_source: capture_source.clone(),
+            session_correlation_status: session_correlation_status.clone(),
+            explanation_summary: observation_explanation_summary(
+                evidence_tier,
+                provenance,
+                validation_status,
+                capture_source.as_deref(),
+                session_correlation_status.as_deref(),
+            ),
+        }
+    }
+
+    pub fn from_request(request: &ApprovalRequest) -> Self {
+        let provenance = observation_provenance_from_attributes(&request.request.attributes);
+        let validation_status =
+            validation_status_from_attributes(&request.request.attributes, provenance);
+        let evidence_tier = observation_evidence_tier(provenance, validation_status);
+        let capture_source =
+            string_attribute(&request.request.attributes, "validation_capture_source");
+        let session_correlation_status =
+            string_attribute(&request.request.attributes, "session_correlation_status");
+
+        Self {
+            record_kind: ObservationLocalRecordKind::Approval,
+            session_id: request.session_id.clone(),
+            event_id: request.event_id.clone(),
+            approval_id: Some(request.approval_id.clone()),
+            action_class: request.request.action_class,
+            action_verb: request.request.action_verb.clone(),
+            target_hint: request.request.target.clone(),
+            observation_provenance: provenance,
+            validation_status,
+            evidence_tier,
+            capture_source: capture_source.clone(),
+            session_correlation_status: session_correlation_status.clone(),
+            explanation_summary: observation_explanation_summary(
+                evidence_tier,
+                provenance,
+                validation_status,
+                capture_source.as_deref(),
+                session_correlation_status.as_deref(),
+            ),
+        }
+    }
+}
+
 impl ApprovalControlPlaneProjection {
     pub fn derive(queue_item: &ApprovalQueueItem, signals: &ApprovalOpsSignals) -> Self {
         let ops_status = ApprovalOpsHardeningStatus::derive(queue_item, signals);
@@ -851,6 +971,124 @@ fn requester_context_for_queue_item(queue_item: &ApprovalQueueItem) -> Option<St
     }
 }
 
+fn action_verb_from_event(event: &EventEnvelope) -> String {
+    event
+        .action
+        .verb
+        .clone()
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn observation_provenance_from_attributes(attributes: &JsonMap) -> Option<ObservationProvenance> {
+    string_attribute(attributes, "observation_provenance")
+        .or_else(|| string_attribute(attributes, "live_request_source_kind"))
+        .or_else(|| string_attribute(attributes, "source_kind"))
+        .as_deref()
+        .and_then(parse_observation_provenance)
+}
+
+fn parse_observation_provenance(value: &str) -> Option<ObservationProvenance> {
+    match value {
+        "fixture_preview" | "live_proxy_preview" => Some(ObservationProvenance::FixturePreview),
+        "observed_request" | "live_proxy_observed" => Some(ObservationProvenance::ObservedRequest),
+        _ => None,
+    }
+}
+
+fn validation_status_from_attributes(
+    attributes: &JsonMap,
+    provenance: Option<ObservationProvenance>,
+) -> Option<ObservationValidationStatus> {
+    string_attribute(attributes, "validation_status")
+        .as_deref()
+        .and_then(parse_validation_status)
+        .or_else(|| {
+            provenance.map(|provenance| match provenance {
+                ObservationProvenance::FixturePreview => {
+                    ObservationValidationStatus::FixturePreview
+                }
+                ObservationProvenance::ObservedRequest => {
+                    ObservationValidationStatus::ObservedRequest
+                }
+            })
+        })
+}
+
+fn parse_validation_status(value: &str) -> Option<ObservationValidationStatus> {
+    match value {
+        "fixture_preview" => Some(ObservationValidationStatus::FixturePreview),
+        "observed_request" => Some(ObservationValidationStatus::ObservedRequest),
+        "validated_observation" => Some(ObservationValidationStatus::ValidatedObservation),
+        _ => None,
+    }
+}
+
+fn observation_evidence_tier(
+    provenance: Option<ObservationProvenance>,
+    validation_status: Option<ObservationValidationStatus>,
+) -> Option<ObservationEvidenceTier> {
+    match validation_status {
+        Some(ObservationValidationStatus::FixturePreview) => {
+            Some(ObservationEvidenceTier::FixturePreview)
+        }
+        Some(ObservationValidationStatus::ObservedRequest) => {
+            Some(ObservationEvidenceTier::ObservedRequest)
+        }
+        Some(ObservationValidationStatus::ValidatedObservation) => {
+            Some(ObservationEvidenceTier::ValidatedObservation)
+        }
+        None => provenance.map(|provenance| match provenance {
+            ObservationProvenance::FixturePreview => ObservationEvidenceTier::FixturePreview,
+            ObservationProvenance::ObservedRequest => ObservationEvidenceTier::ObservedRequest,
+        }),
+    }
+}
+
+fn observation_explanation_summary(
+    evidence_tier: Option<ObservationEvidenceTier>,
+    provenance: Option<ObservationProvenance>,
+    validation_status: Option<ObservationValidationStatus>,
+    capture_source: Option<&str>,
+    session_correlation_status: Option<&str>,
+) -> String {
+    let correlation_suffix = session_correlation_status
+        .map(|status| format!(" (session_correlation_status={status})"))
+        .unwrap_or_default();
+    match evidence_tier {
+        Some(ObservationEvidenceTier::FixturePreview) => format!(
+            "fixture preview record stays distinct from observed request and validated observation{}",
+            correlation_suffix
+        ),
+        Some(ObservationEvidenceTier::ObservedRequest) => format!(
+            "observed request record keeps non-fixture provenance without validated observation status{}",
+            correlation_suffix
+        ),
+        Some(ObservationEvidenceTier::ValidatedObservation) => {
+            let capture_suffix = capture_source
+                .map(|source| format!(" via {source}"))
+                .unwrap_or_default();
+            format!(
+                "validated observation record keeps observed request provenance{}{}",
+                capture_suffix, correlation_suffix
+            )
+        }
+        None => {
+            let mut missing = Vec::new();
+            if provenance.is_none() {
+                missing.push("observation_provenance");
+            }
+            if validation_status.is_none() {
+                missing.push("validation_status");
+            }
+            if missing.is_empty() {
+                "observation inspection did not derive an evidence tier".to_owned()
+            } else {
+                format!("record is missing durable {}", missing.join(" and "))
+            }
+        }
+    }
+}
+
 fn string_attribute(attributes: &JsonMap, key: &str) -> Option<String> {
     attributes
         .get(key)
@@ -892,8 +1130,10 @@ fn action_summary_for_request(request: &ApprovalRequest) -> String {
 mod tests {
     use super::*;
     use crate::{
-        ApprovalDecisionRecord, ApprovalPolicy, ApprovalRecordPresentation, ApprovalRequestAction,
-        ApprovalStatus, RequesterContext,
+        Action, Actor, ActorKind, ApprovalDecisionRecord, ApprovalPolicy,
+        ApprovalRecordPresentation, ApprovalRequestAction, ApprovalStatus, CollectorKind,
+        EventEnvelope, EventType, RequesterContext, ResultInfo, ResultStatus, SessionRef,
+        SourceInfo,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -902,6 +1142,15 @@ mod tests {
         let mut attributes = JsonMap::new();
         attributes.insert("provider_id".to_owned(), json!("discord"));
         attributes.insert("action_family".to_owned(), json!("channel.invite"));
+        attributes.insert(
+            "observation_provenance".to_owned(),
+            json!("fixture_preview"),
+        );
+        attributes.insert("validation_status".to_owned(), json!("fixture_preview"));
+        attributes.insert(
+            "session_correlation_status".to_owned(),
+            json!("fixture_lineage"),
+        );
 
         ApprovalRequest {
             approval_id: "apr_controld_bootstrap".to_owned(),
@@ -949,6 +1198,72 @@ mod tests {
                 outcome: Some(ApprovalStatus::Approved),
             }),
             enforcement: None,
+        }
+    }
+
+    fn sample_validated_event() -> EventEnvelope {
+        let mut attributes = JsonMap::new();
+        attributes.insert("provider_id".to_owned(), json!("github"));
+        attributes.insert(
+            "live_request_source_kind".to_owned(),
+            json!("live_proxy_observed"),
+        );
+        attributes.insert(
+            "validation_status".to_owned(),
+            json!("validated_observation"),
+        );
+        attributes.insert(
+            "validation_capture_source".to_owned(),
+            json!("forward_proxy_observed_runtime_path"),
+        );
+        attributes.insert(
+            "session_correlation_status".to_owned(),
+            json!("runtime_path_confirmed"),
+        );
+
+        EventEnvelope {
+            event_id: "evt_github_validated_observation".to_owned(),
+            timestamp: Utc
+                .with_ymd_and_hms(2026, 3, 21, 19, 45, 0)
+                .single()
+                .expect("fixed timestamp should be valid"),
+            event_type: EventType::GithubAction,
+            session: SessionRef {
+                session_id: "sess_controld_bootstrap".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: Some("ws_controld_bootstrap".to_owned()),
+                policy_bundle_version: Some("bundle-live-proxy-observed".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            actor: Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("hostd".to_owned()),
+            },
+            action: Action {
+                class: ActionClass::Github,
+                verb: Some("repos.update_visibility".to_owned()),
+                target: Some("repos/n01e0/agent-auditor/visibility".to_owned()),
+                attributes,
+            },
+            result: ResultInfo {
+                status: ResultStatus::ApprovalRequired,
+                reason: Some("Repository visibility changes require approval".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            policy: None,
+            enforcement: None,
+            source: SourceInfo {
+                collector: CollectorKind::RuntimeHint,
+                host_id: Some("hostd-live-proxy-observed".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: None,
+                ppid: None,
+            },
+            integrity: None,
         }
     }
 
@@ -1036,6 +1351,67 @@ mod tests {
         assert_eq!(
             queue_item.rationale_capture.outcome,
             Some(ApprovalStatus::Approved)
+        );
+    }
+
+    #[test]
+    fn observation_local_jsonl_inspection_reports_fixture_preview_from_approval_request() {
+        let inspection = ObservationLocalJsonlInspectionRecord::from_request(&sample_request());
+
+        assert_eq!(inspection.record_kind, ObservationLocalRecordKind::Approval);
+        assert_eq!(
+            inspection.observation_provenance,
+            Some(ObservationProvenance::FixturePreview)
+        );
+        assert_eq!(
+            inspection.validation_status,
+            Some(ObservationValidationStatus::FixturePreview)
+        );
+        assert_eq!(
+            inspection.evidence_tier,
+            Some(ObservationEvidenceTier::FixturePreview)
+        );
+        assert_eq!(
+            inspection.session_correlation_status.as_deref(),
+            Some("fixture_lineage")
+        );
+        assert!(
+            inspection
+                .explanation_summary
+                .contains("fixture preview record")
+        );
+    }
+
+    #[test]
+    fn observation_local_jsonl_inspection_backfills_observed_provenance_for_validated_events() {
+        let inspection =
+            ObservationLocalJsonlInspectionRecord::from_event(&sample_validated_event());
+
+        assert_eq!(inspection.record_kind, ObservationLocalRecordKind::Audit);
+        assert_eq!(
+            inspection.observation_provenance,
+            Some(ObservationProvenance::ObservedRequest)
+        );
+        assert_eq!(
+            inspection.validation_status,
+            Some(ObservationValidationStatus::ValidatedObservation)
+        );
+        assert_eq!(
+            inspection.evidence_tier,
+            Some(ObservationEvidenceTier::ValidatedObservation)
+        );
+        assert_eq!(
+            inspection.capture_source.as_deref(),
+            Some("forward_proxy_observed_runtime_path")
+        );
+        assert_eq!(
+            inspection.session_correlation_status.as_deref(),
+            Some("runtime_path_confirmed")
+        );
+        assert!(
+            inspection
+                .explanation_summary
+                .contains("validated observation record")
         );
     }
 

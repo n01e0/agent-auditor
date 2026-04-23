@@ -11,6 +11,7 @@ use agenta_core::{
     ResultStatus, SessionRef, SourceInfo,
 };
 use chrono::TimeZone;
+use serde_json::json;
 
 #[test]
 fn audit_list_tail_and_show_read_durable_store_records() {
@@ -78,6 +79,20 @@ fn audit_list_tail_and_show_read_durable_store_records() {
     assert!(show_output.contains("\"kind\": \"approval\""));
     assert!(show_output.contains("\"approval_id\": \"apr-1\""));
     assert!(show_output.contains("\"local_inspection\""));
+    assert!(show_output.contains("\"observation_local_inspection\""));
+    assert!(show_output.contains("\"evidence_tier\": \"fixture_preview\""));
+
+    let audit_show_output = run_cli([
+        "audit",
+        "show",
+        "--state-dir",
+        state_dir.to_str().expect("state dir should be utf-8"),
+        "evt-newer",
+    ]);
+    assert!(audit_show_output.contains("\"kind\": \"audit\""));
+    assert!(audit_show_output.contains("\"observation_local_inspection\""));
+    assert!(audit_show_output.contains("\"validation_status\": \"validated_observation\""));
+    assert!(audit_show_output.contains("\"observation_provenance\": \"observed_request\""));
 }
 
 fn run_cli<const N: usize>(args: [&str; N]) -> String {
@@ -97,6 +112,24 @@ fn run_cli<const N: usize>(args: [&str; N]) -> String {
 }
 
 fn sample_audit_record(event_id: &str, second: i64) -> EventEnvelope {
+    let mut attributes = agenta_core::JsonMap::new();
+    attributes.insert(
+        "live_request_source_kind".to_owned(),
+        json!("live_proxy_observed"),
+    );
+    attributes.insert(
+        "validation_status".to_owned(),
+        json!("validated_observation"),
+    );
+    attributes.insert(
+        "validation_capture_source".to_owned(),
+        json!("forward_proxy_observed_runtime_path"),
+    );
+    attributes.insert(
+        "session_correlation_status".to_owned(),
+        json!("runtime_path_confirmed"),
+    );
+
     EventEnvelope {
         event_id: event_id.to_owned(),
         timestamp: chrono::Utc
@@ -120,7 +153,7 @@ fn sample_audit_record(event_id: &str, second: i64) -> EventEnvelope {
             class: ActionClass::Filesystem,
             verb: Some("read".to_owned()),
             target: Some("/tmp/file.txt".to_owned()),
-            attributes: Default::default(),
+            attributes,
         },
         result: ResultInfo {
             status: ResultStatus::Observed,
@@ -143,6 +176,17 @@ fn sample_audit_record(event_id: &str, second: i64) -> EventEnvelope {
 }
 
 fn sample_approval_record(approval_id: &str, second: i64) -> ApprovalRequest {
+    let mut attributes = agenta_core::JsonMap::new();
+    attributes.insert(
+        "observation_provenance".to_owned(),
+        json!("fixture_preview"),
+    );
+    attributes.insert("validation_status".to_owned(), json!("fixture_preview"));
+    attributes.insert(
+        "session_correlation_status".to_owned(),
+        json!("fixture_lineage"),
+    );
+
     ApprovalRequest {
         approval_id: approval_id.to_owned(),
         status: ApprovalStatus::Pending,
@@ -158,7 +202,7 @@ fn sample_approval_record(approval_id: &str, second: i64) -> ApprovalRequest {
             action_verb: "read".to_owned(),
             target: Some("/tmp/file.txt".to_owned()),
             summary: Some("read /tmp/file.txt".to_owned()),
-            attributes: Default::default(),
+            attributes,
         },
         policy: ApprovalPolicy {
             rule_id: "rule.fs.approval".to_owned(),

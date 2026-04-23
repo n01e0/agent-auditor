@@ -7,7 +7,10 @@ use std::{
 
 use agenta_core::{
     ApprovalRequest, EventEnvelope,
-    controlplane::{ApprovalLocalJsonlInspectionRecord, ApprovalQueueItem},
+    controlplane::{
+        ApprovalLocalJsonlInspectionRecord, ApprovalQueueItem,
+        ObservationLocalJsonlInspectionRecord,
+    },
 };
 use chrono::{DateTime, Utc};
 use serde_json::json;
@@ -232,6 +235,7 @@ pub fn run(command: AuditCommand) -> Result<(), AuditCliError> {
                             "path": entry.source_path,
                             "line": entry.line_number,
                             "record": record,
+                            "observation_local_inspection": ObservationLocalJsonlInspectionRecord::from_event(&record),
                         }))?
                     );
                 }
@@ -247,6 +251,7 @@ pub fn run(command: AuditCommand) -> Result<(), AuditCliError> {
                             "local_inspection": ApprovalLocalJsonlInspectionRecord::derive(
                                 &ApprovalQueueItem::from_request(&record),
                             ),
+                            "observation_local_inspection": ObservationLocalJsonlInspectionRecord::from_request(&record),
                         }))?
                     );
                 }

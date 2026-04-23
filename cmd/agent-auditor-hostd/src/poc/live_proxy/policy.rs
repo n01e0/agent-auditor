@@ -11,6 +11,7 @@ use super::{
         ApprovalEligibility, LiveCoverageDisplayRule, LiveCoveragePosture, LiveMode,
         LiveModeBehavior,
     },
+    session_correlation::LiveRequestProvenance,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,11 +69,23 @@ impl PolicyPlan {
         let mut event = event.clone();
         let mode = mode.into();
         let live_request_summary = live_request_summary.into();
+        let observation_provenance = preview_observation_provenance(&event);
+        let validation_status = preview_validation_status(&event);
 
         event
             .action
             .attributes
             .insert("live_preview_consumer".to_owned(), json!(consumer.label()));
+        event
+            .action
+            .attributes
+            .entry("observation_provenance".to_owned())
+            .or_insert_with(|| json!(observation_provenance));
+        event
+            .action
+            .attributes
+            .entry("validation_status".to_owned())
+            .or_insert_with(|| json!(validation_status));
         event
             .action
             .attributes
@@ -153,6 +166,34 @@ impl PolicyPlan {
             self.decision_fields.join(","),
             self.stages.join("->")
         )
+    }
+}
+
+fn preview_observation_provenance(event: &EventEnvelope) -> &'static str {
+    match event
+        .action
+        .attributes
+        .get("source_kind")
+        .and_then(|value| value.as_str())
+    {
+        Some("live_proxy_observed") => {
+            LiveRequestProvenance::ObservedRuntimePath.observation_provenance()
+        }
+        _ => LiveRequestProvenance::FixturePreview.observation_provenance(),
+    }
+}
+
+fn preview_validation_status(event: &EventEnvelope) -> &'static str {
+    match event
+        .action
+        .attributes
+        .get("source_kind")
+        .and_then(|value| value.as_str())
+    {
+        Some("live_proxy_observed") => {
+            LiveRequestProvenance::ObservedRuntimePath.validation_status()
+        }
+        _ => LiveRequestProvenance::FixturePreview.validation_status(),
     }
 }
 

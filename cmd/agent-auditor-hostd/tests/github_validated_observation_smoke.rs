@@ -83,6 +83,10 @@ fn hostd_github_validated_observation_smoke_runs_observed_runtime_path_end_to_en
         json!("validated_observation")
     );
     assert_eq!(
+        normalized_event["action"]["attributes"]["observation_provenance"],
+        json!("observed_request")
+    );
+    assert_eq!(
         normalized_event["action"]["attributes"]["validation_capture_source"],
         json!("forward_proxy_observed_runtime_path")
     );
@@ -113,6 +117,10 @@ fn hostd_github_validated_observation_smoke_runs_observed_runtime_path_end_to_en
         json!("repos.update_visibility")
     );
     assert_eq!(
+        approval_request["request"]["attributes"]["observation_provenance"],
+        json!("observed_request")
+    );
+    assert_eq!(
         approval_request["request"]["attributes"]["validation_status"],
         json!("validated_observation")
     );
@@ -126,6 +134,10 @@ fn hostd_github_validated_observation_smoke_runs_observed_runtime_path_end_to_en
     assert_eq!(
         persisted_audit["action"]["attributes"]["validation_status"],
         json!("validated_observation")
+    );
+    assert_eq!(
+        persisted_audit["action"]["attributes"]["observation_provenance"],
+        json!("observed_request")
     );
     assert_eq!(
         persisted_audit["action"]["attributes"]["live_request_source_kind"],
@@ -142,10 +154,48 @@ fn hostd_github_validated_observation_smoke_runs_observed_runtime_path_end_to_en
         json!("repos.update_visibility")
     );
     assert_eq!(
+        persisted_approval["request"]["attributes"]["observation_provenance"],
+        json!("observed_request")
+    );
+    assert_eq!(
         persisted_approval["request"]["attributes"]["session_correlation_status"],
         json!("runtime_path_confirmed")
     );
     assert!(persisted_approval["requested_at"].is_string());
+
+    let persisted_audit_observation_local_inspection = json_line(
+        &lines,
+        "persisted_github_validated_audit_observation_local_jsonl_inspection",
+    );
+    assert_eq!(
+        persisted_audit_observation_local_inspection["observation_provenance"],
+        json!("observed_request")
+    );
+    assert_eq!(
+        persisted_audit_observation_local_inspection["validation_status"],
+        json!("validated_observation")
+    );
+    assert_eq!(
+        persisted_audit_observation_local_inspection["evidence_tier"],
+        json!("validated_observation")
+    );
+
+    let persisted_approval_observation_local_inspection = json_line(
+        &lines,
+        "persisted_github_validated_approval_observation_local_jsonl_inspection",
+    );
+    assert_eq!(
+        persisted_approval_observation_local_inspection["observation_provenance"],
+        json!("observed_request")
+    );
+    assert_eq!(
+        persisted_approval_observation_local_inspection["validation_status"],
+        json!("validated_observation")
+    );
+    assert_eq!(
+        persisted_approval_observation_local_inspection["evidence_tier"],
+        json!("validated_observation")
+    );
 
     let _ignored: Value = persisted_approval;
 }

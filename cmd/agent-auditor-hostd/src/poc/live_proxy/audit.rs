@@ -638,6 +638,22 @@ mod tests {
                 .and_then(|value| value.as_str()),
             Some(LIVE_PREVIEW_REDACTION_STATUS)
         );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("observation_provenance")
+                .and_then(|value| value.as_str()),
+            Some("fixture_preview")
+        );
+        assert_eq!(
+            persisted_audit
+                .action
+                .attributes
+                .get("validation_status")
+                .and_then(|value| value.as_str()),
+            Some("fixture_preview")
+        );
     }
 
     #[test]
@@ -798,6 +814,22 @@ mod tests {
                 .as_ref()
                 .map(|info| info.status),
             Some(EnforcementStatus::ObserveOnlyFallback)
+        );
+        assert_eq!(
+            persisted_request
+                .request
+                .attributes
+                .get("observation_provenance")
+                .and_then(|value| value.as_str()),
+            Some("fixture_preview")
+        );
+        assert_eq!(
+            persisted_request
+                .request
+                .attributes
+                .get("validation_status")
+                .and_then(|value| value.as_str()),
+            Some("fixture_preview")
         );
     }
 

@@ -671,6 +671,24 @@ mod tests {
                 .normalized_event
                 .action
                 .attributes
+                .get("observation_provenance")
+                .and_then(|value| value.as_str()),
+            Some("observed_request")
+        );
+        assert_eq!(
+            record
+                .normalized_event
+                .action
+                .attributes
+                .get("validation_status")
+                .and_then(|value| value.as_str()),
+            Some("observed_request")
+        );
+        assert_eq!(
+            record
+                .normalized_event
+                .action
+                .attributes
                 .get("session_correlation_status")
                 .and_then(|value| value.as_str()),
             Some("runtime_path_confirmed")
