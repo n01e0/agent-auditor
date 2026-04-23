@@ -13,6 +13,7 @@ use agent_auditor_hostd::{
         },
         live_proxy::{
             forward_proxy::{ForwardProxyIngressInbox, ForwardProxyIngressRuntime},
+            github_validated::GitHubValidatedObservationRuntime,
             session_correlation::{ObservedRuntimePath, RuntimeSessionLineage},
         },
         messaging::persist::MessagingPocStore,
@@ -152,12 +153,6 @@ fn run_hostd_daemon(
             for record in forward_proxy
                 .drain_available()
                 .map_err(daemon::DaemonRunError::tick)?
-                .into_iter()
-                .chain(
-                    forward_proxy
-                        .drain_observed_available()
-                        .map_err(daemon::DaemonRunError::tick)?,
-                )
             {
                 println!(
                     "forward_proxy_ingress_record={}",
@@ -1167,6 +1162,7 @@ fn run_preview_or_exit() {
         }
     }
 
+    run_github_validated_observation_preview_or_exit();
     run_forward_proxy_ingress_preview_or_exit();
 
     let preview_messaging_policy = |normalized: &EventEnvelope| {
@@ -2794,6 +2790,181 @@ fn messaging_preview_event(
         );
     }
     event
+}
+
+fn run_github_validated_observation_preview_or_exit() {
+    let forward_proxy = match ForwardProxyIngressRuntime::bootstrap() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("github_validated_bootstrap_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let github_validated = match GitHubValidatedObservationRuntime::bootstrap() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("github_validated_bootstrap_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let mut envelope = GitHubValidatedObservationRuntime::preview_fixture(
+        "sess_live_proxy_github_validated_observation",
+    );
+    envelope.workspace_id = Some("ws_live_proxy_github_validated_observation".to_owned());
+
+    println!(
+        "github_validated_runtime_source={}",
+        ObservedRuntimePath::SOURCE_LABEL
+    );
+    println!(
+        "github_validated_store_root={}",
+        github_validated.store().paths().root.display()
+    );
+    println!(
+        "github_validated_observed_runtime_root={}",
+        forward_proxy.observed_runtime().paths().root.display()
+    );
+
+    let observed_lineage = RuntimeSessionLineage::new(
+        envelope.session_id.clone(),
+        envelope
+            .agent_id
+            .clone()
+            .expect("github validated preview envelope should carry agent lineage"),
+        envelope.workspace_id.clone(),
+    );
+    let observed_session = match forward_proxy
+        .observed_runtime()
+        .session_path(observed_lineage.clone())
+    {
+        Ok(session) => session,
+        Err(error) => {
+            eprintln!("github_validated_runtime_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "github_validated_observed_session_root={}",
+        observed_session.paths().root.display()
+    );
+    println!(
+        "github_validated_observed_session_inbox={}",
+        observed_session.paths().inbox.display()
+    );
+    println!(
+        "github_validated_observed_session_cursor={}",
+        observed_session.paths().cursor.display()
+    );
+    println!(
+        "github_validated_envelope={}",
+        serde_json::to_string(&envelope)
+            .expect("github validated preview envelope should serialize")
+    );
+
+    if let Err(error) = observed_session.append(&envelope) {
+        eprintln!("github_validated_append_error={error}");
+        std::process::exit(1);
+    }
+
+    let observed = match observed_session.drain_available() {
+        Ok(records) => records
+            .into_iter()
+            .find(|record| record.request_id == envelope.request_id),
+        Err(error) => {
+            eprintln!("github_validated_drain_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let observed = match observed {
+        Some(record) => record,
+        None => {
+            eprintln!("github_validated_drain_error=missing observed github envelope");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "github_validated_capture_summary={}",
+        observed.summary_line()
+    );
+
+    let record = match github_validated.record_observed(&observed, &observed_lineage) {
+        Ok(Some(record)) => record,
+        Ok(None) => {
+            eprintln!("github_validated_classify_error=observed github request did not classify");
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("github_validated_record_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    println!(
+        "github_validated_classified={}",
+        record.classified.log_line()
+    );
+    println!(
+        "github_validated_source_kind={}",
+        record.correlated.source_kind()
+    );
+    println!(
+        "github_validated_session_correlation_status={}",
+        record.correlated.session_correlation_status
+    );
+    println!(
+        "github_validated_normalized_event={}",
+        serde_json::to_string(&record.normalized_event)
+            .expect("github validated normalized event should serialize")
+    );
+    println!(
+        "github_validated_policy_decision={}",
+        serde_json::to_string(&record.policy_decision)
+            .expect("github validated policy decision should serialize")
+    );
+    match record.approval_request.as_ref() {
+        Some(approval_request) => println!(
+            "github_validated_approval_request={}",
+            serde_json::to_string(approval_request)
+                .expect("github validated approval request should serialize")
+        ),
+        None => println!("github_validated_approval_request=null"),
+    }
+
+    match github_validated.store().latest_audit_record() {
+        Ok(Some(audit_record)) => println!(
+            "persisted_github_validated_audit_record={}",
+            serde_json::to_string(&audit_record)
+                .expect("persisted github validated audit record should serialize")
+        ),
+        Ok(None) => {
+            eprintln!(
+                "persisted_github_validated_audit_record_error=missing persisted github validated audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_github_validated_audit_record_error={error}");
+            std::process::exit(1);
+        }
+    }
+
+    match github_validated.store().latest_approval_request() {
+        Ok(Some(approval_request)) => println!(
+            "persisted_github_validated_approval_request={}",
+            serde_json::to_string(&approval_request)
+                .expect("persisted github validated approval request should serialize")
+        ),
+        Ok(None) => {
+            eprintln!(
+                "persisted_github_validated_approval_request_error=missing persisted github validated approval request"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_github_validated_approval_request_error={error}");
+            std::process::exit(1);
+        }
+    }
 }
 
 fn run_forward_proxy_ingress_preview_or_exit() {
