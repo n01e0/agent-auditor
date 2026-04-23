@@ -1,0 +1,16 @@
+services:
+  # Real OpenClaw runtime for topology A / forward proxy.
+  # Start this service instead of the checked-in `openclaw-runtime` stand-in when you want to wire a real container.
+  openclaw-runtime-real:
+    image: ${OPENCLAW_RUNTIME_IMAGE:?set OPENCLAW_RUNTIME_IMAGE in deploy/openclaw-forward-proxy.env}
+    pull_policy: ${OPENCLAW_RUNTIME_PULL_POLICY:-missing}
+    init: true
+    restart: unless-stopped
+    depends_on:
+      - openclaw-forward-proxy
+    env_file:
+      - ${OPENCLAW_RUNTIME_ENV_FILE:-./openclaw-forward-proxy.runtime.env.sample}
+    environment:
+      HTTP_PROXY: ${OPENCLAW_RUNTIME_HTTP_PROXY:-http://openclaw-forward-proxy:8080}
+      HTTPS_PROXY: ${OPENCLAW_RUNTIME_HTTPS_PROXY:-http://openclaw-forward-proxy:8080}
+      NO_PROXY: ${OPENCLAW_RUNTIME_NO_PROXY:-hostd,localhost,127.0.0.1}
