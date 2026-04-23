@@ -165,3 +165,4 @@ If the answer is blurry, the PR is mixing preparation and evidence too loosely.
 - dev trust bootstrap runbook: [`../runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../runbooks/real-runtime-proxy-trust-bootstrap-dev.md)
 - audit inspection runbook: [`../runbooks/real-runtime-audit-inspection-local.md`](../runbooks/real-runtime-audit-inspection-local.md)
 - OpenClaw handoff runbook: [`../runbooks/openclaw-real-runtime-handoff-local.md`](../runbooks/openclaw-real-runtime-handoff-local.md)
+- Hermes handoff runbook: [`../runbooks/hermes-real-runtime-handoff-local.md`](../runbooks/hermes-real-runtime-handoff-local.md)

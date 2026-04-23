@@ -24,7 +24,7 @@ If you are new to the repository:
 4. [`architecture/real-runtime-audit-readiness-boundary.md`](architecture/real-runtime-audit-readiness-boundary.md)
 5. [`architecture/preview-readiness-gap-matrix.md`](architecture/preview-readiness-gap-matrix.md)
 6. [`architecture/coverage-matrix.md`](architecture/coverage-matrix.md)
-7. the capability-specific runbook you care about under [`runbooks/`](runbooks/README.md), especially [`runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](runbooks/real-runtime-proxy-trust-bootstrap-dev.md), [`runbooks/real-runtime-audit-inspection-local.md`](runbooks/real-runtime-audit-inspection-local.md), and [`runbooks/openclaw-real-runtime-handoff-local.md`](runbooks/openclaw-real-runtime-handoff-local.md) for P18 real-runtime prep
+7. the capability-specific runbook you care about under [`runbooks/`](runbooks/README.md), especially [`runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](runbooks/real-runtime-proxy-trust-bootstrap-dev.md), [`runbooks/real-runtime-audit-inspection-local.md`](runbooks/real-runtime-audit-inspection-local.md), [`runbooks/openclaw-real-runtime-handoff-local.md`](runbooks/openclaw-real-runtime-handoff-local.md), and [`runbooks/hermes-real-runtime-handoff-local.md`](runbooks/hermes-real-runtime-handoff-local.md) for P18 real-runtime prep
 8. the deeper architecture notes under [`architecture/`](architecture/README.md)
 
 ## Sections
