@@ -18,6 +18,8 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/runbooks/separate-machine-audit-preview-local.md`](../docs/runbooks/separate-machine-audit-preview-local.md)
 - the current source-of-truth runbook for dev proxy trust bootstrap before real HTTPS traffic:
   - [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md)
+- the current source-of-truth runbook for inspecting observed-runtime envelopes, audit records, and local inspection output during the real-runtime handoff:
+  - [`../docs/runbooks/real-runtime-audit-inspection-local.md`](../docs/runbooks/real-runtime-audit-inspection-local.md)
 - local developer runbooks under:
   - [`../docs/runbooks/README.md`](../docs/runbooks/README.md)
 - a systemd service artifact + sample environment config for source-tree-independent hostd startup:
@@ -87,6 +89,17 @@ Important contract points:
 - the forward-proxy and sidecar-proxy services for the same runtime intentionally share that CA volume
 - the repository-owned path stops after CA mint/export, trust installation planning, and runtime env prep; the later handoff task is what actually starts real OpenClaw / Hermes traffic
 - only `mitmproxy-ca-cert.pem` should be distributed to runtime trust stores; the private-key bundle is not part of the trust-distribution handoff
+
+## Inspecting observed-runtime and audit output
+
+P18-6 adds the inspection runbook for the real-runtime handoff in [`../docs/runbooks/real-runtime-audit-inspection-local.md`](../docs/runbooks/real-runtime-audit-inspection-local.md).
+
+It fixes the minimum path for:
+
+- finding `/state/agent-auditor-hostd-live-proxy-observed-runtime/.../requests.jsonl`
+- locating the durable `/state/agent-auditor-hostd*-store/` audit and approval files
+- using `agent-auditor-cli audit ... --state-dir /state` to derive the checked-in local inspection view
+- distinguishing plain wiring success from `observed_request` and `validated_observation`
 
 ## OpenClaw real runtime on topology A / forward proxy
 

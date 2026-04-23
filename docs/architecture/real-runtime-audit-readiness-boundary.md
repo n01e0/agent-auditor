@@ -163,3 +163,4 @@ If the answer is blurry, the PR is mixing preparation and evidence too loosely.
 - live proxy coverage matrix: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
 - deployment notes: [`../../deploy/README.md`](../../deploy/README.md)
 - dev trust bootstrap runbook: [`../runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../runbooks/real-runtime-proxy-trust-bootstrap-dev.md)
+- audit inspection runbook: [`../runbooks/real-runtime-audit-inspection-local.md`](../runbooks/real-runtime-audit-inspection-local.md)
