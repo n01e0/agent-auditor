@@ -46,7 +46,7 @@ For a source-tree-independent systemd startup artifact and sample hostd environm
 agent-auditor/
   cmd/                binaries
   crates/             shared Rust crates
-  docs/               architecture, schemas, runbooks, roadmaps
+  docs/               architecture, schemas, runbooks
   examples/policies/  sample Rego policy fragments
   deploy/             deployment notes and service artifacts
 ```

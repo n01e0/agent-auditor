@@ -54,6 +54,3 @@ JSON schema contracts for events, sessions, approvals, and policy decisions:
 - [`schemas/approval-request.schema.json`](schemas/approval-request.schema.json)
 - [`schemas/policy-decision.schema.json`](schemas/policy-decision.schema.json)
 
-### Roadmaps
-
-Historical phase tasklists live under `docs/roadmaps/`. These are useful for understanding how the repository evolved, but they are not the best first stop for learning how to use the current codebase.

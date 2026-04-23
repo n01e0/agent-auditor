@@ -1,0 +1,209 @@
+name: agent-auditor-proxy-stack
+
+x-hostd-base: &hostd-base
+  image: rust:1.86-bookworm
+  init: true
+  restart: unless-stopped
+  working_dir: /workspace
+  environment:
+    CARGO_TARGET_DIR: /workspace/target
+    RUST_LOG: ${HOSTD_RUST_LOG:-info}
+  volumes:
+    - ..:/workspace
+    - agent-auditor-cargo-registry:/usr/local/cargo/registry
+    - agent-auditor-cargo-git:/usr/local/cargo/git
+    - agent-auditor-state:/state
+
+x-proxy-base: &proxy-base
+  image: mitmproxy/mitmproxy:11.0.2
+  init: true
+  restart: unless-stopped
+  environment:
+    AUDITOR_STATE_DIR: /state
+    AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
+    PYTHONUNBUFFERED: "1"
+  volumes:
+    - agent-auditor-state:/state
+    - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+  entrypoint:
+    - mitmdump
+  command:
+    - --mode
+    - regular
+    - --listen-host
+    - 0.0.0.0
+    - --listen-port
+    - "8080"
+    - --set
+    - block_global=false
+    - --set
+    - connection_strategy=lazy
+    - --set
+    - ssl_insecure=true
+    - -s
+    - /opt/agent-auditor/mitmproxy-live-proxy.py
+
+x-runtime-base: &runtime-base
+  image: curlimages/curl:8.7.1
+  init: true
+  restart: unless-stopped
+  entrypoint:
+    - /bin/sh
+    - -lc
+
+services:
+  hostd:
+    <<: *hostd-base
+    command:
+      - bash
+      - -lc
+      - >-
+        cargo run -p agent-auditor-hostd --
+        daemon --foreground
+        --poll-interval-ms ${HOSTD_POLL_INTERVAL_MS:-1000}
+        --state-dir /state
+
+  openclaw-forward-proxy:
+    <<: *proxy-base
+    depends_on:
+      - hostd
+    environment:
+      AUDITOR_STATE_DIR: /state
+      AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
+      AUDITOR_SESSION_ID: ${OPENCLAW_SESSION_ID:-sess_openclaw_forward_proxy}
+      AUDITOR_AGENT_ID: ${OPENCLAW_AGENT_ID:-openclaw-main}
+      AUDITOR_WORKSPACE_ID: ${OPENCLAW_WORKSPACE_ID:-agent-auditor}
+    ports:
+      - ${OPENCLAW_FORWARD_PROXY_PORT:-18080}:8080
+
+  hermes-forward-proxy:
+    <<: *proxy-base
+    depends_on:
+      - hostd
+    environment:
+      AUDITOR_STATE_DIR: /state
+      AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
+      AUDITOR_SESSION_ID: ${HERMES_SESSION_ID:-sess_hermes_forward_proxy}
+      AUDITOR_AGENT_ID: ${HERMES_AGENT_ID:-hermes-main}
+      AUDITOR_WORKSPACE_ID: ${HERMES_WORKSPACE_ID:-agent-auditor}
+    ports:
+      - ${HERMES_FORWARD_PROXY_PORT:-18081}:8080
+
+  # Replace image / command with the real OpenClaw runtime.
+  # The important contract here is HTTP(S)_PROXY + stable session lineage on the paired proxy.
+  openclaw-runtime:
+    <<: *runtime-base
+    depends_on:
+      - openclaw-forward-proxy
+    environment:
+      HTTP_PROXY: http://openclaw-forward-proxy:8080
+      HTTPS_PROXY: http://openclaw-forward-proxy:8080
+      NO_PROXY: hostd,localhost,127.0.0.1
+      OPENCLAW_GITHUB_REPO: ${OPENCLAW_GITHUB_REPO:-n01e0/agent-auditor}
+      OPENCLAW_PROBE_INTERVAL_SEC: ${OPENCLAW_PROBE_INTERVAL_SEC:-30}
+    command: >-
+      while true; do
+        curl -kfsS -o /dev/null \
+          -X PATCH \
+          -H "Authorization: Bearer dummy-openclaw-token" \
+          -H "Content-Type: application/json" \
+          --data '{"visibility":"private"}' \
+          "https://api.github.com/repos/$${OPENCLAW_GITHUB_REPO}" || true;
+        sleep "$${OPENCLAW_PROBE_INTERVAL_SEC}";
+      done
+
+  # Replace image / command with the real Hermes runtime.
+  hermes-runtime:
+    <<: *runtime-base
+    depends_on:
+      - hermes-forward-proxy
+    environment:
+      HTTP_PROXY: http://hermes-forward-proxy:8080
+      HTTPS_PROXY: http://hermes-forward-proxy:8080
+      NO_PROXY: hostd,localhost,127.0.0.1
+      HERMES_GMAIL_USER: ${HERMES_GMAIL_USER:-me}
+      HERMES_PROBE_INTERVAL_SEC: ${HERMES_PROBE_INTERVAL_SEC:-30}
+    command: >-
+      while true; do
+        curl -kfsS -o /dev/null \
+          -X POST \
+          -H "Authorization: Bearer dummy-hermes-token" \
+          -H "Content-Type: application/json" \
+          --data '{"raw":"dGVzdA=="}' \
+          "https://gmail.googleapis.com/gmail/v1/users/$${HERMES_GMAIL_USER}/messages/send" || true;
+        sleep "$${HERMES_PROBE_INTERVAL_SEC}";
+      done
+
+  # B: per-agent sidecar proxy profile. The runtime talks to localhost:8080 inside the shared network namespace.
+  openclaw-runtime-sidecar:
+    <<: *runtime-base
+    profiles: ["sidecar"]
+    environment:
+      HTTP_PROXY: http://127.0.0.1:8080
+      HTTPS_PROXY: http://127.0.0.1:8080
+      NO_PROXY: hostd,localhost,127.0.0.1
+      OPENCLAW_GITHUB_REPO: ${SIDECAR_OPENCLAW_GITHUB_REPO:-n01e0/agent-auditor}
+      OPENCLAW_PROBE_INTERVAL_SEC: ${SIDECAR_OPENCLAW_PROBE_INTERVAL_SEC:-30}
+    command: >-
+      while true; do
+        curl -kfsS -o /dev/null \
+          -X PATCH \
+          -H "Authorization: Bearer dummy-openclaw-token" \
+          -H "Content-Type: application/json" \
+          --data '{"visibility":"private"}' \
+          "https://api.github.com/repos/$${OPENCLAW_GITHUB_REPO}" || true;
+        sleep "$${OPENCLAW_PROBE_INTERVAL_SEC}";
+      done
+
+  openclaw-proxy-sidecar:
+    <<: *proxy-base
+    profiles: ["sidecar"]
+    depends_on:
+      - hostd
+      - openclaw-runtime-sidecar
+    network_mode: service:openclaw-runtime-sidecar
+    environment:
+      AUDITOR_STATE_DIR: /state
+      AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
+      AUDITOR_SESSION_ID: ${SIDECAR_OPENCLAW_SESSION_ID:-sess_openclaw_sidecar_proxy}
+      AUDITOR_AGENT_ID: ${SIDECAR_OPENCLAW_AGENT_ID:-openclaw-main}
+      AUDITOR_WORKSPACE_ID: ${SIDECAR_OPENCLAW_WORKSPACE_ID:-agent-auditor}
+
+  hermes-runtime-sidecar:
+    <<: *runtime-base
+    profiles: ["sidecar"]
+    environment:
+      HTTP_PROXY: http://127.0.0.1:8080
+      HTTPS_PROXY: http://127.0.0.1:8080
+      NO_PROXY: hostd,localhost,127.0.0.1
+      HERMES_GMAIL_USER: ${SIDECAR_HERMES_GMAIL_USER:-me}
+      HERMES_PROBE_INTERVAL_SEC: ${SIDECAR_HERMES_PROBE_INTERVAL_SEC:-30}
+    command: >-
+      while true; do
+        curl -kfsS -o /dev/null \
+          -X POST \
+          -H "Authorization: Bearer dummy-hermes-token" \
+          -H "Content-Type: application/json" \
+          --data '{"raw":"dGVzdA=="}' \
+          "https://gmail.googleapis.com/gmail/v1/users/$${HERMES_GMAIL_USER}/messages/send" || true;
+        sleep "$${HERMES_PROBE_INTERVAL_SEC}";
+      done
+
+  hermes-proxy-sidecar:
+    <<: *proxy-base
+    profiles: ["sidecar"]
+    depends_on:
+      - hostd
+      - hermes-runtime-sidecar
+    network_mode: service:hermes-runtime-sidecar
+    environment:
+      AUDITOR_STATE_DIR: /state
+      AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
+      AUDITOR_SESSION_ID: ${SIDECAR_HERMES_SESSION_ID:-sess_hermes_sidecar_proxy}
+      AUDITOR_AGENT_ID: ${SIDECAR_HERMES_AGENT_ID:-hermes-main}
+      AUDITOR_WORKSPACE_ID: ${SIDECAR_HERMES_WORKSPACE_ID:-agent-auditor}
+
+volumes:
+  agent-auditor-cargo-registry: {}
+  agent-auditor-cargo-git: {}
+  agent-auditor-state: {}
