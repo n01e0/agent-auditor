@@ -33,6 +33,7 @@ What is still missing:
 - end-to-end integration with external runtimes at production confidence
 
 For the current separate-machine audit-preview target, see [`docs/architecture/preview-readiness-boundary.md`](docs/architecture/preview-readiness-boundary.md).
+For the current boundary between stand-in Compose smoke and handoff-ready OpenClaw / Hermes verification, see [`docs/architecture/real-runtime-audit-readiness-boundary.md`](docs/architecture/real-runtime-audit-readiness-boundary.md).
 For the current real-traffic evidence boundary between fixture preview, observed request, and validated observation, see [`docs/architecture/real-traffic-observation-boundary.md`](docs/architecture/real-traffic-observation-boundary.md).
 
 For a source-tree-independent systemd startup artifact and sample hostd environment config, see:

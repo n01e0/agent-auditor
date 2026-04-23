@@ -12,6 +12,8 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/architecture/deployment-hardening-minimums.md`](../docs/architecture/deployment-hardening-minimums.md)
 - container proxy topology boundary for OpenClaw / Hermes:
   - [`../docs/architecture/container-proxy-topologies.md`](../docs/architecture/container-proxy-topologies.md)
+- real-runtime audit readiness boundary for the handoff from stand-in runtimes to real OpenClaw / Hermes verification:
+  - [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md)
 - the current source-of-truth runbook for a separate-machine audit preview setup:
   - [`../docs/runbooks/separate-machine-audit-preview-local.md`](../docs/runbooks/separate-machine-audit-preview-local.md)
 - local developer runbooks under:
@@ -56,6 +58,8 @@ docker compose -f deploy/compose.yaml --env-file deploy/compose.env --profile si
 
 The runtime services in the compose file are smoke-friendly stand-ins built with `curlimages/curl`.
 Replace their `image` / `command` with the real OpenClaw or Hermes container while keeping the same proxy env wiring.
+
+That swap should be read through [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md): the checked-in compose file currently proves stand-in topology smoke, while later P18 work is what makes the repository genuinely handoff-ready for human-run OpenClaw / Hermes verification.
 
 ## Planned contents
 

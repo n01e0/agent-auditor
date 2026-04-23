@@ -33,6 +33,7 @@ English version: [`README.md`](README.md)
 - 外部 runtime との end-to-end integration の高信頼実装
 
 別実機での現状の audit preview 目標は [`docs/architecture/preview-readiness-boundary.md`](docs/architecture/preview-readiness-boundary.md) を参照。
+stand-in Compose smoke と OpenClaw / Hermes 実 runtime 確認の handoff-ready 境界は [`docs/architecture/real-runtime-audit-readiness-boundary.md`](docs/architecture/real-runtime-audit-readiness-boundary.md) を参照。
 fixture preview / observed request / validated observation の境界は [`docs/architecture/real-traffic-observation-boundary.md`](docs/architecture/real-traffic-observation-boundary.md) を参照。
 
 ## リポジトリ構成
