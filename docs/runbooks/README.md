@@ -2,6 +2,8 @@
 
 This directory contains local developer runbooks for reproducing the current PoCs and preview paths.
 
+Most runbooks are still preview-first. For the current repository-wide boundary between `fixture preview`, `observed request`, and `validated observation`, cross-check [`../architecture/real-traffic-observation-boundary.md`](../architecture/real-traffic-observation-boundary.md) and the operator checklist in [`separate-machine-preview-checklist.md`](separate-machine-preview-checklist.md) before reading any single runbook as a blanket real-traffic claim.
+
 ## Recommended starting points
 
 - separate-machine audit preview: [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md)
