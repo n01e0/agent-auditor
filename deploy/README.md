@@ -24,6 +24,8 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/runbooks/openclaw-real-runtime-handoff-local.md`](../docs/runbooks/openclaw-real-runtime-handoff-local.md)
 - the current source-of-truth handoff for `n01e0` to run one real Hermes verification and collect the expected evidence:
   - [`../docs/runbooks/hermes-real-runtime-handoff-local.md`](../docs/runbooks/hermes-real-runtime-handoff-local.md)
+- the current source-of-truth runbook for the Compose-based end-to-end verification order and first troubleshooting cuts during the real-runtime handoff:
+  - [`../docs/runbooks/compose-real-runtime-end-to-end-local.md`](../docs/runbooks/compose-real-runtime-end-to-end-local.md)
 - local developer runbooks under:
   - [`../docs/runbooks/README.md`](../docs/runbooks/README.md)
 - a systemd service artifact + sample environment config for source-tree-independent hostd startup:
@@ -126,6 +128,17 @@ That runbook fixes:
 - the preferred first real action (`gmail.users.messages.send` to a test inbox you control)
 - the minimum evidence bundle `n01e0` should save
 - the decision rule for `wiring success` vs the current Hermes `observed_request` tier
+
+## Compose-based end-to-end verification and troubleshooting
+
+P18-9 adds the Compose-first operator verification flow in [`../docs/runbooks/compose-real-runtime-end-to-end-local.md`](../docs/runbooks/compose-real-runtime-end-to-end-local.md).
+
+That runbook fixes:
+
+- the exact preflight order from baseline Compose render to real runtime startup
+- the layer-by-layer inspection order from container health to `observation_local_inspection`
+- the shortest repeatable verification order for one runtime/topology pair
+- the first troubleshooting cut for config, startup, trust, ingress, normalization, and local-inspection failures
 
 ## OpenClaw real runtime on topology A / forward proxy
 

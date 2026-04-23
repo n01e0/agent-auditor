@@ -10,6 +10,7 @@ Most runbooks are still preview-first. For the current repository-wide boundary 
 - separate-machine preview checklist: [`separate-machine-preview-checklist.md`](separate-machine-preview-checklist.md)
 - real-runtime proxy trust bootstrap (dev minimum): [`real-runtime-proxy-trust-bootstrap-dev.md`](real-runtime-proxy-trust-bootstrap-dev.md)
 - real-runtime audit inspection (observed-runtime path + audit/local inspection): [`real-runtime-audit-inspection-local.md`](real-runtime-audit-inspection-local.md)
+- compose real-runtime end-to-end verification: [`compose-real-runtime-end-to-end-local.md`](compose-real-runtime-end-to-end-local.md)
 - OpenClaw real-runtime handoff: [`openclaw-real-runtime-handoff-local.md`](openclaw-real-runtime-handoff-local.md)
 - Hermes real-runtime handoff: [`hermes-real-runtime-handoff-local.md`](hermes-real-runtime-handoff-local.md)
 - runtime process observation: [`hostd-exec-exit-poc-local.md`](hostd-exec-exit-poc-local.md)
