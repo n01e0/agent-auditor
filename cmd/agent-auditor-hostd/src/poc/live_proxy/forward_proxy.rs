@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 use std::{
     fs::{self, OpenOptions},
     io::{BufRead, BufReader},
@@ -37,6 +39,9 @@ use super::{
     },
     generic_rest::{GenericRestLivePreviewPlan, LiveGenericRestPreviewError},
     policy::{LivePreviewConsumer, LivePreviewPolicyError},
+    session_correlation::{
+        CorrelatedLiveRequest, ObservedRuntimePath, RuntimeSessionLineage, SessionCorrelationError,
+    },
 };
 
 const INGRESS_DIR_NAME: &str = "agent-auditor-hostd-live-proxy-forward-proxy-ingress";
@@ -168,7 +173,7 @@ impl ForwardProxyIngressInbox {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ForwardProxyProcessedRecord {
     pub request: LiveHttpRequestContract,
-    pub envelope: GenericLiveActionEnvelope,
+    pub correlated: CorrelatedLiveRequest,
     pub normalized_event: EventEnvelope,
     pub policy_decision: PolicyDecision,
     pub approval: LivePreviewApprovalProjection,
@@ -178,8 +183,9 @@ pub struct ForwardProxyProcessedRecord {
 impl ForwardProxyProcessedRecord {
     pub fn summary(&self) -> String {
         format!(
-            "request_id={} event_id={} policy_decision={:?} approval_request={} mode_status={}",
+            "request_id={} source_kind={} event_id={} policy_decision={:?} approval_request={} mode_status={}",
             self.request.request_id,
+            self.correlated.source_kind(),
             self.reflection.audit_record.event_id,
             self.policy_decision.decision,
             self.approval
@@ -195,6 +201,7 @@ impl ForwardProxyProcessedRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForwardProxyIngressRuntime {
     inbox: ForwardProxyIngressInbox,
+    observed_runtime: ObservedRuntimePath,
     store: GenericRestPocStore,
     generic_rest: GenericRestLivePreviewPlan,
     live_proxy: LiveProxyInterceptionPlan,
@@ -202,17 +209,51 @@ pub struct ForwardProxyIngressRuntime {
 
 impl ForwardProxyIngressRuntime {
     pub fn bootstrap() -> Result<Self, ForwardProxyIngressRuntimeError> {
-        Ok(Self {
-            inbox: ForwardProxyIngressInbox::bootstrap()?,
-            store: GenericRestPocStore::bootstrap()
+        Self::build(
+            ForwardProxyIngressInbox::bootstrap()?,
+            GenericRestPocStore::bootstrap().map_err(ForwardProxyIngressRuntimeError::Store)?,
+            None,
+        )
+    }
+
+    #[cfg(test)]
+    fn fresh(root: impl Into<PathBuf>) -> Result<Self, ForwardProxyIngressRuntimeError> {
+        let root = root.into();
+        Self::build(
+            ForwardProxyIngressInbox::from_root(root.join("ingress"))?,
+            GenericRestPocStore::fresh(root.join("store"))
                 .map_err(ForwardProxyIngressRuntimeError::Store)?,
+            Some(root.join("observed")),
+        )
+    }
+
+    fn build(
+        inbox: ForwardProxyIngressInbox,
+        store: GenericRestPocStore,
+        observed_root: Option<PathBuf>,
+    ) -> Result<Self, ForwardProxyIngressRuntimeError> {
+        let live_proxy = LiveProxyInterceptionPlan::bootstrap();
+        let observed_runtime = match observed_root {
+            Some(root) => ObservedRuntimePath::from_root(root),
+            None => live_proxy.session_correlation.observed_runtime(),
+        }
+        .map_err(|error| ForwardProxyIngressRuntimeError::SessionCorrelation(Box::new(error)))?;
+
+        Ok(Self {
+            inbox,
+            observed_runtime,
+            store,
             generic_rest: GenericRestLivePreviewPlan::default(),
-            live_proxy: LiveProxyInterceptionPlan::bootstrap(),
+            live_proxy,
         })
     }
 
     pub fn inbox(&self) -> &ForwardProxyIngressInbox {
         &self.inbox
+    }
+
+    pub fn observed_runtime(&self) -> &ObservedRuntimePath {
+        &self.observed_runtime
     }
 
     pub fn store(&self) -> &GenericRestPocStore {
@@ -253,11 +294,60 @@ impl ForwardProxyIngressRuntime {
         &self,
         envelope: &GenericLiveActionEnvelope,
     ) -> Result<ForwardProxyProcessedRecord, ForwardProxyIngressRuntimeError> {
+        let correlated = self
+            .live_proxy
+            .session_correlation
+            .correlate_fixture(envelope)
+            .map_err(|error| {
+                ForwardProxyIngressRuntimeError::SessionCorrelation(Box::new(error))
+            })?;
+        self.record_correlated(correlated)
+    }
+
+    pub fn record_observed(
+        &self,
+        envelope: &GenericLiveActionEnvelope,
+        lineage: &RuntimeSessionLineage,
+    ) -> Result<ForwardProxyProcessedRecord, ForwardProxyIngressRuntimeError> {
+        let correlated = self
+            .live_proxy
+            .session_correlation
+            .correlate_observed_request(envelope, lineage)
+            .map_err(|error| {
+                ForwardProxyIngressRuntimeError::SessionCorrelation(Box::new(error))
+            })?;
+        self.record_correlated(correlated)
+    }
+
+    pub fn drain_observed_available(
+        &self,
+    ) -> Result<Vec<ForwardProxyProcessedRecord>, ForwardProxyIngressRuntimeError> {
+        let mut records = Vec::new();
+        for session_path in self
+            .observed_runtime
+            .discover_session_paths()
+            .map_err(|error| ForwardProxyIngressRuntimeError::SessionCorrelation(Box::new(error)))?
+        {
+            let lineage = session_path.lineage().clone();
+            for envelope in session_path.drain_available().map_err(|error| {
+                ForwardProxyIngressRuntimeError::SessionCorrelation(Box::new(error))
+            })? {
+                records.push(self.record_observed(&envelope, &lineage)?);
+            }
+        }
+        Ok(records)
+    }
+
+    fn record_correlated(
+        &self,
+        correlated: CorrelatedLiveRequest,
+    ) -> Result<ForwardProxyProcessedRecord, ForwardProxyIngressRuntimeError> {
+        let envelope = &correlated.envelope;
         validate_forward_proxy_envelope(envelope)?;
         let request = live_http_request_from_envelope(envelope)?;
         let normalized_event = self
             .generic_rest
-            .normalize_live_preview(envelope)
+            .normalize_live_request(&correlated)
             .map_err(ForwardProxyIngressRuntimeError::GenericRest)?;
         let annotated = self.live_proxy.policy.annotate_preview_event(
             LivePreviewConsumer::GenericRest,
@@ -286,7 +376,7 @@ impl ForwardProxyIngressRuntime {
 
         Ok(ForwardProxyProcessedRecord {
             request,
-            envelope: envelope.clone(),
+            correlated,
             normalized_event: evaluation.normalized_event,
             policy_decision: evaluation.policy_decision,
             approval,
@@ -355,6 +445,8 @@ pub enum ForwardProxyIngressRuntimeError {
     Inbox(#[from] ForwardProxyIngressError),
     #[error("failed to bootstrap forward-proxy generic REST store: {0}")]
     Store(#[source] PersistenceError),
+    #[error("forward-proxy session correlation failed: {0}")]
+    SessionCorrelation(#[source] Box<SessionCorrelationError>),
     #[error("forward-proxy ingress requires source=forward_proxy but received {0}")]
     WrongSource(LiveCaptureSource),
     #[error("forward-proxy ingress requires content_retained=false")]
@@ -487,8 +579,11 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    use crate::poc::live_proxy::contract::{
-        LiveHttpMethod, LiveInterceptionMode as ProxyInterceptionMode, LiveProxySource,
+    use crate::poc::live_proxy::{
+        contract::{
+            LiveHttpMethod, LiveInterceptionMode as ProxyInterceptionMode, LiveProxySource,
+        },
+        session_correlation::RuntimeSessionLineage,
     };
 
     use super::{
@@ -534,6 +629,52 @@ mod tests {
             vec!["authorization", "content_json"]
         );
         assert_eq!(request.mode, ProxyInterceptionMode::EnforcePreview);
+    }
+
+    #[test]
+    fn observed_runtime_drain_records_non_fixture_source_kind() {
+        let runtime = ForwardProxyIngressRuntime::fresh(unique_state_dir())
+            .expect("runtime should bootstrap");
+        let lineage = RuntimeSessionLineage::new(
+            "sess_forward_proxy_observed_runtime",
+            "openclaw-main",
+            Some("agent-auditor".to_owned()),
+        );
+        let session_path = runtime
+            .observed_runtime()
+            .session_path(lineage.clone())
+            .expect("observed session path should initialize");
+        let envelope = ForwardProxyIngressRuntime::preview_fixture(lineage.session_id.clone());
+
+        session_path
+            .append(&envelope)
+            .expect("observed envelope should append");
+
+        let mut records = runtime
+            .drain_observed_available()
+            .expect("observed runtime should drain");
+        let record = records.pop().expect("observed record should exist");
+
+        assert_eq!(record.correlated.source_kind(), "live_proxy_observed");
+        assert_eq!(record.correlated.event_suffix(), "observed");
+        assert_eq!(
+            record
+                .normalized_event
+                .action
+                .attributes
+                .get("source_kind")
+                .and_then(|value| value.as_str()),
+            Some("live_proxy_observed")
+        );
+        assert_eq!(
+            record
+                .normalized_event
+                .action
+                .attributes
+                .get("session_correlation_status")
+                .and_then(|value| value.as_str()),
+            Some("runtime_path_confirmed")
+        );
     }
 
     fn unique_state_dir() -> std::path::PathBuf {

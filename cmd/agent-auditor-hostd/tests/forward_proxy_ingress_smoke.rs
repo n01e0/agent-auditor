@@ -25,6 +25,22 @@ fn hostd_forward_proxy_ingress_smoke_persists_redaction_safe_live_request_metada
             .is_some_and(|path| path
                 .contains("agent-auditor-hostd-live-proxy-forward-proxy-ingress/requests.cursor"))
     );
+    assert_eq!(
+        lines
+            .get("forward_proxy_observed_runtime_source")
+            .map(String::as_str),
+        Some("forward_proxy_observed_runtime_path")
+    );
+    assert!(
+        lines
+            .get("forward_proxy_observed_runtime_root")
+            .is_some_and(|path| path.contains("agent-auditor-hostd-live-proxy-observed-runtime"))
+    );
+    assert!(
+        lines
+            .get("forward_proxy_observed_session_inbox")
+            .is_some_and(|path| path.ends_with("/requests.jsonl"))
+    );
 
     let envelope = json_line(&lines, "forward_proxy_envelope");
     assert_json_subset(
@@ -57,6 +73,11 @@ fn hostd_forward_proxy_ingress_smoke_persists_redaction_safe_live_request_metada
         )
     );
 
+    assert_eq!(
+        lines.get("forward_proxy_source_kind").map(String::as_str),
+        Some("live_proxy_observed")
+    );
+
     let normalized_event = json_line(&lines, "forward_proxy_normalized_event");
     assert_eq!(normalized_event["event_type"], json!("gws_action"));
     assert_eq!(
@@ -69,7 +90,11 @@ fn hostd_forward_proxy_ingress_smoke_persists_redaction_safe_live_request_metada
     );
     assert_eq!(
         normalized_event["action"]["attributes"]["source_kind"],
-        json!("live_proxy_preview")
+        json!("live_proxy_observed")
+    );
+    assert_eq!(
+        normalized_event["action"]["attributes"]["session_correlation_status"],
+        json!("runtime_path_confirmed")
     );
     assert_eq!(
         normalized_event["action"]["attributes"]["content_retained"],
@@ -113,9 +138,12 @@ fn hostd_forward_proxy_ingress_smoke_persists_redaction_safe_live_request_metada
                     && summary.contains("redaction_status=redaction_safe_preview_only")
             })
     );
-
     let persisted_audit = json_line(&lines, "persisted_forward_proxy_audit_record");
     assert_eq!(persisted_audit["event_type"], json!("gws_action"));
+    assert_eq!(
+        persisted_audit["action"]["attributes"]["source_kind"],
+        json!("live_proxy_observed")
+    );
     assert_eq!(
         persisted_audit["action"]["attributes"]["mode_status"],
         json!("enforce_preview_record_only")

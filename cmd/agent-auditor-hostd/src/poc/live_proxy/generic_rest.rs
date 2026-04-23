@@ -16,6 +16,8 @@ use agenta_core::{
 };
 use serde_json::json;
 
+use super::session_correlation::{CorrelatedLiveRequest, LiveRequestProvenance};
+
 const LIVE_PROXY_GENERIC_REST_REDACTION_RULE: &str = "live generic REST preview seams carry only redaction-safe live envelope lineage, route templates, authority labels, query classes, shared action identity, target hints, mode labels, and docs-backed auth/risk descriptors; raw header values, request bodies, response bodies, token values, message text, file bytes, and full query strings must not cross the seam";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,10 +72,11 @@ impl Default for GenericRestLivePreviewPlan {
 }
 
 impl GenericRestLivePreviewPlan {
-    pub fn normalize_live_preview(
+    pub fn normalize_live_request(
         &self,
-        envelope: &GenericLiveActionEnvelope,
+        correlated: &CorrelatedLiveRequest,
     ) -> Result<EventEnvelope, LiveGenericRestPreviewError> {
+        let envelope = &correlated.envelope;
         let route = preview_route_for(envelope)?;
         let metadata = self
             .metadata_catalog
@@ -96,9 +99,13 @@ impl GenericRestLivePreviewPlan {
         )?;
 
         Ok(EventEnvelope::new(
-            format!("evt_live_proxy_{}_preview", action.id()),
+            format!(
+                "evt_live_proxy_{}_{}",
+                action.id(),
+                correlated.event_suffix()
+            ),
             event_type_for(action.provider_id.clone()),
-            session_ref_from_live_envelope(envelope),
+            correlated.session.clone(),
             Actor {
                 kind: ActorKind::System,
                 id: Some("agent-auditor-hostd-live-proxy".to_owned()),
@@ -108,26 +115,42 @@ impl GenericRestLivePreviewPlan {
                 class: action_class_for(action.provider_id.clone()),
                 verb: Some(action.action_key.to_string()),
                 target: Some(action.target_hint.clone()),
-                attributes: action_attributes(envelope, &action, &route, metadata),
+                attributes: action_attributes(correlated, &action, &route, metadata),
             },
             ResultInfo {
                 status: ResultStatus::Observed,
-                reason: Some(
-                    "normalized from a live proxy envelope into the generic REST preview contract"
-                        .to_owned(),
-                ),
+                reason: Some(correlated.result_reason().to_owned()),
                 exit_code: None,
                 error: None,
             },
             SourceInfo {
                 collector: CollectorKind::RuntimeHint,
-                host_id: Some("hostd-live-proxy-preview".to_owned()),
+                host_id: Some(correlated.host_id().to_owned()),
                 container_id: None,
                 pod_uid: None,
                 pid: None,
                 ppid: None,
             },
         ))
+    }
+
+    pub fn normalize_live_preview(
+        &self,
+        envelope: &GenericLiveActionEnvelope,
+    ) -> Result<EventEnvelope, LiveGenericRestPreviewError> {
+        let correlated = CorrelatedLiveRequest {
+            envelope: envelope.clone(),
+            session: session_ref_from_live_envelope(
+                envelope,
+                LiveRequestProvenance::FixturePreview.policy_bundle_version(),
+            ),
+            provenance: LiveRequestProvenance::FixturePreview,
+            session_correlation_status: LiveRequestProvenance::FixturePreview
+                .session_correlation_status(),
+            session_correlation_reason: LiveRequestProvenance::FixturePreview
+                .session_correlation_reason(),
+        };
+        self.normalize_live_request(&correlated)
     }
 
     pub fn preview_allow_admin_reports_activities_list(&self) -> EventEnvelope {
@@ -295,13 +318,14 @@ fn preview_route_for(
 }
 
 fn action_attributes(
-    envelope: &GenericLiveActionEnvelope,
+    correlated: &CorrelatedLiveRequest,
     action: &GenericRestAction,
     route: &PreviewRouteMatch,
     metadata: &ProviderActionMetadata,
 ) -> JsonMap {
+    let envelope = &correlated.envelope;
     let mut attributes = JsonMap::new();
-    attributes.insert("source_kind".to_owned(), json!("live_proxy_preview"));
+    attributes.insert("source_kind".to_owned(), json!(correlated.source_kind()));
     attributes.insert(
         "live_source".to_owned(),
         json!(live_source_label(envelope.source)),
@@ -314,6 +338,14 @@ fn action_attributes(
     attributes.insert(
         "correlation_status".to_owned(),
         json!(live_correlation_status_label(envelope.correlation_status)),
+    );
+    attributes.insert(
+        "session_correlation_status".to_owned(),
+        json!(correlated.session_correlation_status),
+    );
+    attributes.insert(
+        "session_correlation_reason".to_owned(),
+        json!(correlated.session_correlation_reason),
     );
     attributes.insert(
         "live_surface".to_owned(),
@@ -381,13 +413,16 @@ fn action_attributes(
     attributes
 }
 
-fn session_ref_from_live_envelope(envelope: &GenericLiveActionEnvelope) -> SessionRef {
+fn session_ref_from_live_envelope(
+    envelope: &GenericLiveActionEnvelope,
+    policy_bundle_version: impl Into<String>,
+) -> SessionRef {
     SessionRef {
         session_id: envelope.session_id.clone(),
         agent_id: envelope.agent_id.clone(),
         initiator_id: None,
         workspace_id: envelope.workspace_id.clone(),
-        policy_bundle_version: Some("bundle-live-proxy-preview".to_owned()),
+        policy_bundle_version: Some(policy_bundle_version.into()),
         environment: Some("dev".to_owned()),
     }
 }
