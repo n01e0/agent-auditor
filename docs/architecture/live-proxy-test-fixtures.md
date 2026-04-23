@@ -2,6 +2,8 @@
 
 This note documents the checked-in unit-test fixture catalog and smoke test coverage for the live proxy seam.
 
+These fixtures are part of the repository's **fixture preview** evidence tier. They prove preview-pipeline behavior, not non-fixture traffic capture. The boundary between fixture preview, observed request, and validated observation is fixed in [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md).
+
 ## Goal of P13-9
 
 Add repository-owned fixtures and smoke tests that exercise the live proxy seam as one coherent pipeline instead of only per-module preview helpers.
@@ -87,3 +89,11 @@ Now the repository has:
 - a pipeline smoke test over those fixtures
 
 That gives later tasks a safer place to extend the live proxy seam without accidentally drifting mode semantics or reflected record status.
+
+It does **not** by itself prove:
+
+- that the repository captured a non-fixture live request
+- that a captured request was correlated to `session_id` / `agent_id` / `workspace_id`
+- that any path qualifies as a validated real-traffic observation
+
+Those stronger claims belong to the real-traffic boundary defined in [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md).
