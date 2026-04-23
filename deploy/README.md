@@ -22,6 +22,8 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/runbooks/real-runtime-audit-inspection-local.md`](../docs/runbooks/real-runtime-audit-inspection-local.md)
 - the current source-of-truth handoff for `n01e0` to run one real OpenClaw verification and collect the expected evidence:
   - [`../docs/runbooks/openclaw-real-runtime-handoff-local.md`](../docs/runbooks/openclaw-real-runtime-handoff-local.md)
+- the current source-of-truth handoff for `n01e0` to run one real Hermes verification and collect the expected evidence:
+  - [`../docs/runbooks/hermes-real-runtime-handoff-local.md`](../docs/runbooks/hermes-real-runtime-handoff-local.md)
 - local developer runbooks under:
   - [`../docs/runbooks/README.md`](../docs/runbooks/README.md)
 - a systemd service artifact + sample environment config for source-tree-independent hostd startup:
@@ -113,6 +115,17 @@ That runbook fixes:
 - the preferred first real action (`repos.update_visibility` against a disposable GitHub repo)
 - the minimum evidence bundle `n01e0` should save
 - the decision rule for `wiring success` vs `observed_request` vs `validated_observation`
+
+## Hermes real-runtime handoff
+
+P18-8 adds the Hermes-specific operator handoff in [`../docs/runbooks/hermes-real-runtime-handoff-local.md`](../docs/runbooks/hermes-real-runtime-handoff-local.md).
+
+That runbook fixes:
+
+- the exact topology A / B launch commands for the real Hermes container
+- the preferred first real action (`gmail.users.messages.send` to a test inbox you control)
+- the minimum evidence bundle `n01e0` should save
+- the decision rule for `wiring success` vs the current Hermes `observed_request` tier
 
 ## OpenClaw real runtime on topology A / forward proxy
 
