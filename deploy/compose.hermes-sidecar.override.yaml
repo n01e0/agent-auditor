@@ -1,0 +1,53 @@
+services:
+  # Real Hermes runtime for topology B / sidecar proxy profile.
+  # Start this pair instead of the checked-in `hermes-runtime-sidecar` and `hermes-proxy-sidecar`
+  # stand-ins when you want to wire a real container through the loopback proxy path.
+  hermes-runtime-real-sidecar:
+    image: ${HERMES_SIDECAR_RUNTIME_IMAGE:?set HERMES_SIDECAR_RUNTIME_IMAGE in deploy/hermes-sidecar.env}
+    pull_policy: ${HERMES_SIDECAR_RUNTIME_PULL_POLICY:-missing}
+    init: true
+    restart: unless-stopped
+    profiles: ["sidecar"]
+    env_file:
+      - ${HERMES_SIDECAR_RUNTIME_ENV_FILE:-./hermes-sidecar.runtime.env.sample}
+    environment:
+      HTTP_PROXY: ${HERMES_SIDECAR_RUNTIME_HTTP_PROXY:-http://127.0.0.1:8080}
+      HTTPS_PROXY: ${HERMES_SIDECAR_RUNTIME_HTTPS_PROXY:-http://127.0.0.1:8080}
+      NO_PROXY: ${HERMES_SIDECAR_RUNTIME_NO_PROXY:-hostd,localhost,127.0.0.1}
+
+  hermes-proxy-real-sidecar:
+    image: mitmproxy/mitmproxy:11.0.2
+    init: true
+    restart: unless-stopped
+    profiles: ["sidecar"]
+    depends_on:
+      - hostd
+      - hermes-runtime-real-sidecar
+    network_mode: service:hermes-runtime-real-sidecar
+    environment:
+      AUDITOR_STATE_DIR: /state
+      AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
+      PYTHONUNBUFFERED: "1"
+      AUDITOR_SESSION_ID: ${SIDECAR_HERMES_SESSION_ID:-sess_hermes_sidecar_proxy}
+      AUDITOR_AGENT_ID: ${SIDECAR_HERMES_AGENT_ID:-hermes-main}
+      AUDITOR_WORKSPACE_ID: ${SIDECAR_HERMES_WORKSPACE_ID:-agent-auditor}
+    volumes:
+      - agent-auditor-state:/state
+      - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+    entrypoint:
+      - mitmdump
+    command:
+      - --mode
+      - regular
+      - --listen-host
+      - 0.0.0.0
+      - --listen-port
+      - "8080"
+      - --set
+      - block_global=false
+      - --set
+      - connection_strategy=lazy
+      - --set
+      - ssl_insecure=true
+      - -s
+      - /opt/agent-auditor/mitmproxy-live-proxy.py
