@@ -25,8 +25,11 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`compose.yaml`](compose.yaml)
   - [`compose.env.sample`](compose.env.sample)
   - [`compose.openclaw-forward-proxy.override.yaml`](compose.openclaw-forward-proxy.override.yaml)
+  - [`compose.hermes-forward-proxy.override.yaml`](compose.hermes-forward-proxy.override.yaml)
   - [`openclaw-forward-proxy.env.sample`](openclaw-forward-proxy.env.sample)
   - [`openclaw-forward-proxy.runtime.env.sample`](openclaw-forward-proxy.runtime.env.sample)
+  - [`hermes-forward-proxy.env.sample`](hermes-forward-proxy.env.sample)
+  - [`hermes-forward-proxy.runtime.env.sample`](hermes-forward-proxy.runtime.env.sample)
   - [`proxy/mitmproxy-live-proxy.py`](proxy/mitmproxy-live-proxy.py)
 
 ## Compose topologies
@@ -104,6 +107,48 @@ Contract notes:
 - `openclaw-runtime-real` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
 - the paired `openclaw-forward-proxy` service still owns `OPENCLAW_SESSION_ID`, `OPENCLAW_AGENT_ID`, and `OPENCLAW_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `OPENCLAW_RUNTIME_HTTP_PROXY` / `OPENCLAW_RUNTIME_HTTPS_PROXY` default to `http://openclaw-forward-proxy:8080` so the real container stays on topology A.
+- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
+
+## Hermes real runtime on topology A / forward proxy
+
+P18-3 adds the checked-in real-runtime replacement contract for Hermes on the default forward-proxy topology.
+
+Files:
+
+- compose override: [`compose.hermes-forward-proxy.override.yaml`](compose.hermes-forward-proxy.override.yaml)
+- compose interpolation env sample: [`hermes-forward-proxy.env.sample`](hermes-forward-proxy.env.sample)
+- runtime `env_file:` sample: [`hermes-forward-proxy.runtime.env.sample`](hermes-forward-proxy.runtime.env.sample)
+
+Use it like this:
+
+```bash
+cp deploy/hermes-forward-proxy.env.sample deploy/hermes-forward-proxy.env
+cp deploy/hermes-forward-proxy.runtime.env.sample deploy/hermes-forward-proxy.runtime.env
+
+# Edit at least:
+# - HERMES_RUNTIME_IMAGE
+# - HERMES_RUNTIME_ENV_FILE (if you renamed the runtime env file)
+# - runtime-specific secrets/config inside deploy/hermes-forward-proxy.runtime.env
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.hermes-forward-proxy.override.yaml \
+  --env-file deploy/hermes-forward-proxy.env \
+  config
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.hermes-forward-proxy.override.yaml \
+  --env-file deploy/hermes-forward-proxy.env \
+  up hostd hermes-forward-proxy hermes-runtime-real
+```
+
+Contract notes:
+
+- `hermes-runtime-real` is a new service name on purpose; it lets the checked-in `hermes-runtime` stand-in stay available for smoke use while the real container wiring is tested separately.
+- `hermes-runtime-real` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
+- the paired `hermes-forward-proxy` service still owns `HERMES_SESSION_ID`, `HERMES_AGENT_ID`, and `HERMES_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
+- `HERMES_RUNTIME_HTTP_PROXY` / `HERMES_RUNTIME_HTTPS_PROXY` default to `http://hermes-forward-proxy:8080` so the real container stays on topology A.
 - this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
 
 ## Planned contents
