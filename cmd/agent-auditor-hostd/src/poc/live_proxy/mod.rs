@@ -2,6 +2,7 @@ pub mod approval;
 pub mod audit;
 pub mod contract;
 pub mod fixtures;
+pub mod forward_proxy;
 pub mod generic_rest;
 pub mod github;
 pub mod gws;

@@ -11,6 +11,7 @@ use agent_auditor_hostd::{
             contract::ApiRequestObservation, persist::GwsPocStore,
             preview_provider_metadata_catalog,
         },
+        live_proxy::forward_proxy::{ForwardProxyIngressInbox, ForwardProxyIngressRuntime},
         messaging::persist::MessagingPocStore,
         network::{
             contract::{ClassifiedNetworkConnect, DestinationScope},
@@ -82,50 +83,97 @@ fn run_daemon_or_exit(
 ) -> Result<(), daemon::DaemonRunError> {
     run_preview_or_exit();
 
-    println!("live_process_source={}", ProcConnectorSource::SOURCE_LABEL);
+    let forward_proxy =
+        ForwardProxyIngressRuntime::bootstrap().map_err(daemon::DaemonRunError::tick)?;
+    println!(
+        "forward_proxy_ingress_source={}",
+        ForwardProxyIngressInbox::SOURCE_LABEL
+    );
+    println!(
+        "forward_proxy_ingress_store_root={}",
+        forward_proxy.store().paths().root.display()
+    );
+    println!(
+        "forward_proxy_ingress_inbox={}",
+        forward_proxy.inbox().paths().inbox.display()
+    );
+    println!(
+        "forward_proxy_ingress_cursor={}",
+        forward_proxy.inbox().paths().cursor.display()
+    );
 
+    println!("live_process_source={}", ProcConnectorSource::SOURCE_LABEL);
     let source = match ProcConnectorSource::listen() {
-        Ok(source) => source,
+        Ok(source) => {
+            println!("live_process_source_status=enabled");
+            Some(source)
+        }
         Err(error) => {
             println!("live_process_source_status=disabled");
             println!("live_process_source_error={error}");
-            return daemon::run_foreground_daemon(config, || {}, || Ok(()));
+            None
         }
     };
 
-    run_live_process_daemon(config, source)
+    run_hostd_daemon(config, source, forward_proxy)
 }
 
-fn run_live_process_daemon(
+fn run_hostd_daemon(
     config: daemon::ForegroundDaemonConfig,
-    mut source: ProcConnectorSource,
+    mut source: Option<ProcConnectorSource>,
+    forward_proxy: ForwardProxyIngressRuntime,
 ) -> Result<(), daemon::DaemonRunError> {
-    let mut recorder = LiveProcessRecorder::new(
-        SessionRecord::placeholder("agent-auditor-hostd", "sess_live_process"),
-        FilesystemPocStore::bootstrap().map_err(daemon::DaemonRunError::tick)?,
-        CollectorKind::RuntimeHint,
-        current_host_id(),
-    );
+    let mut recorder = if source.is_some() {
+        Some(LiveProcessRecorder::new(
+            SessionRecord::placeholder("agent-auditor-hostd", "sess_live_process"),
+            FilesystemPocStore::bootstrap().map_err(daemon::DaemonRunError::tick)?,
+            CollectorKind::RuntimeHint,
+            current_host_id(),
+        ))
+    } else {
+        None
+    };
 
-    println!("live_process_source_status=enabled");
-    println!("live_process_host_id={}", recorder.host_id());
-    println!(
-        "live_process_store_root={}",
-        recorder.store().paths().root.display()
-    );
+    if let Some(recorder) = recorder.as_ref() {
+        println!("live_process_host_id={}", recorder.host_id());
+        println!(
+            "live_process_store_root={}",
+            recorder.store().paths().root.display()
+        );
+    }
 
     daemon::run_foreground_daemon(
         config,
         || {},
         || {
-            for envelope in recorder
-                .drain_available(&mut source)
+            for record in forward_proxy
+                .drain_available()
                 .map_err(daemon::DaemonRunError::tick)?
             {
                 println!(
-                    "live_process_audit={}",
-                    serde_json::to_string(&envelope).map_err(daemon::DaemonRunError::tick)?
+                    "forward_proxy_ingress_record={}",
+                    serde_json::to_string(&record.reflection.audit_record)
+                        .map_err(daemon::DaemonRunError::tick)?
                 );
+                if let Some(approval_request) = record.approval.approval_request.as_ref() {
+                    println!(
+                        "forward_proxy_ingress_approval_request={}",
+                        serde_json::to_string(approval_request)
+                            .map_err(daemon::DaemonRunError::tick)?
+                    );
+                }
+            }
+
+            if let (Some(recorder), Some(source)) = (recorder.as_mut(), source.as_mut()) {
+                for envelope in recorder
+                    .drain_available(source)
+                    .map_err(daemon::DaemonRunError::tick)?
+                {
+                    println!(
+                        "live_process_audit={}",
+                        serde_json::to_string(&envelope).map_err(daemon::DaemonRunError::tick)?
+                    );
+                }
             }
             Ok(())
         },
@@ -1109,6 +1157,8 @@ fn run_preview_or_exit() {
             std::process::exit(1);
         }
     }
+
+    run_forward_proxy_ingress_preview_or_exit();
 
     let preview_messaging_policy = |normalized: &EventEnvelope| {
         let input = PolicyInput::from_event(normalized);
@@ -2735,6 +2785,129 @@ fn messaging_preview_event(
         );
     }
     event
+}
+
+fn run_forward_proxy_ingress_preview_or_exit() {
+    let runtime = match ForwardProxyIngressRuntime::bootstrap() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("forward_proxy_ingress_bootstrap_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let envelope =
+        ForwardProxyIngressRuntime::preview_fixture("sess_live_proxy_forward_proxy_ingress");
+
+    println!(
+        "forward_proxy_ingress_source={}",
+        ForwardProxyIngressInbox::SOURCE_LABEL
+    );
+    println!(
+        "forward_proxy_ingress_root={}",
+        runtime.inbox().paths().root.display()
+    );
+    println!(
+        "forward_proxy_ingress_inbox={}",
+        runtime.inbox().paths().inbox.display()
+    );
+    println!(
+        "forward_proxy_ingress_cursor={}",
+        runtime.inbox().paths().cursor.display()
+    );
+    println!(
+        "forward_proxy_envelope={}",
+        serde_json::to_string(&envelope).expect("forward proxy preview envelope should serialize")
+    );
+
+    if let Err(error) = runtime.inbox().append(&envelope) {
+        eprintln!("forward_proxy_ingress_append_error={error}");
+        std::process::exit(1);
+    }
+
+    let mut records = match runtime.drain_available() {
+        Ok(records) => records,
+        Err(error) => {
+            eprintln!("forward_proxy_ingress_drain_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let record = match records.pop() {
+        Some(record) => record,
+        None => {
+            eprintln!("forward_proxy_ingress_drain_error=missing processed forward proxy record");
+            std::process::exit(1);
+        }
+    };
+
+    println!(
+        "forward_proxy_request_summary={}",
+        record.request.summary_line()
+    );
+    println!(
+        "forward_proxy_normalized_event={}",
+        serde_json::to_string(&record.normalized_event)
+            .expect("forward proxy normalized event should serialize")
+    );
+    println!(
+        "forward_proxy_policy_decision={}",
+        serde_json::to_string(&record.policy_decision)
+            .expect("forward proxy policy decision should serialize")
+    );
+    println!(
+        "forward_proxy_approval_summary={}",
+        record.approval.summary()
+    );
+    println!(
+        "forward_proxy_reflection_summary={}",
+        record.reflection.summary()
+    );
+
+    match record.approval.approval_request.as_ref() {
+        Some(approval_request) => println!(
+            "forward_proxy_approval_request={}",
+            serde_json::to_string(approval_request)
+                .expect("forward proxy approval request should serialize")
+        ),
+        None => {
+            eprintln!("forward_proxy_approval_request_error=missing approval request");
+            std::process::exit(1);
+        }
+    }
+
+    match runtime.store().latest_audit_record() {
+        Ok(Some(record)) => println!(
+            "persisted_forward_proxy_audit_record={}",
+            serde_json::to_string(&record)
+                .expect("persisted forward proxy audit record should serialize")
+        ),
+        Ok(None) => {
+            eprintln!(
+                "persisted_forward_proxy_audit_record_error=missing persisted forward proxy audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_forward_proxy_audit_record_error={error}");
+            std::process::exit(1);
+        }
+    }
+    match runtime.store().latest_approval_request() {
+        Ok(Some(record)) => println!(
+            "persisted_forward_proxy_approval_request={}",
+            serde_json::to_string(&record)
+                .expect("persisted forward proxy approval request should serialize")
+        ),
+        Ok(None) => {
+            eprintln!(
+                "persisted_forward_proxy_approval_request_error=missing persisted forward proxy approval request"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_forward_proxy_approval_request_error={error}");
+            std::process::exit(1);
+        }
+    }
 }
 
 fn provider_abstraction_plan_summary(plan: &ProviderAbstractionPlan) -> String {
