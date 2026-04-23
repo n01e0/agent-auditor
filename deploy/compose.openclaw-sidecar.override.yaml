@@ -1,0 +1,53 @@
+services:
+  # Real OpenClaw runtime for topology B / sidecar proxy profile.
+  # Start this pair instead of the checked-in `openclaw-runtime-sidecar` and `openclaw-proxy-sidecar`
+  # stand-ins when you want to wire a real container through the loopback proxy path.
+  openclaw-runtime-real-sidecar:
+    image: ${OPENCLAW_SIDECAR_RUNTIME_IMAGE:?set OPENCLAW_SIDECAR_RUNTIME_IMAGE in deploy/openclaw-sidecar.env}
+    pull_policy: ${OPENCLAW_SIDECAR_RUNTIME_PULL_POLICY:-missing}
+    init: true
+    restart: unless-stopped
+    profiles: ["sidecar"]
+    env_file:
+      - ${OPENCLAW_SIDECAR_RUNTIME_ENV_FILE:-./openclaw-sidecar.runtime.env.sample}
+    environment:
+      HTTP_PROXY: ${OPENCLAW_SIDECAR_RUNTIME_HTTP_PROXY:-http://127.0.0.1:8080}
+      HTTPS_PROXY: ${OPENCLAW_SIDECAR_RUNTIME_HTTPS_PROXY:-http://127.0.0.1:8080}
+      NO_PROXY: ${OPENCLAW_SIDECAR_RUNTIME_NO_PROXY:-hostd,localhost,127.0.0.1}
+
+  openclaw-proxy-real-sidecar:
+    image: mitmproxy/mitmproxy:11.0.2
+    init: true
+    restart: unless-stopped
+    profiles: ["sidecar"]
+    depends_on:
+      - hostd
+      - openclaw-runtime-real-sidecar
+    network_mode: service:openclaw-runtime-real-sidecar
+    environment:
+      AUDITOR_STATE_DIR: /state
+      AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
+      PYTHONUNBUFFERED: "1"
+      AUDITOR_SESSION_ID: ${SIDECAR_OPENCLAW_SESSION_ID:-sess_openclaw_sidecar_proxy}
+      AUDITOR_AGENT_ID: ${SIDECAR_OPENCLAW_AGENT_ID:-openclaw-main}
+      AUDITOR_WORKSPACE_ID: ${SIDECAR_OPENCLAW_WORKSPACE_ID:-agent-auditor}
+    volumes:
+      - agent-auditor-state:/state
+      - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+    entrypoint:
+      - mitmdump
+    command:
+      - --mode
+      - regular
+      - --listen-host
+      - 0.0.0.0
+      - --listen-port
+      - "8080"
+      - --set
+      - block_global=false
+      - --set
+      - connection_strategy=lazy
+      - --set
+      - ssl_insecure=true
+      - -s
+      - /opt/agent-auditor/mitmproxy-live-proxy.py

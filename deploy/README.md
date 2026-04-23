@@ -26,10 +26,16 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`compose.env.sample`](compose.env.sample)
   - [`compose.openclaw-forward-proxy.override.yaml`](compose.openclaw-forward-proxy.override.yaml)
   - [`compose.hermes-forward-proxy.override.yaml`](compose.hermes-forward-proxy.override.yaml)
+  - [`compose.openclaw-sidecar.override.yaml`](compose.openclaw-sidecar.override.yaml)
+  - [`compose.hermes-sidecar.override.yaml`](compose.hermes-sidecar.override.yaml)
   - [`openclaw-forward-proxy.env.sample`](openclaw-forward-proxy.env.sample)
   - [`openclaw-forward-proxy.runtime.env.sample`](openclaw-forward-proxy.runtime.env.sample)
   - [`hermes-forward-proxy.env.sample`](hermes-forward-proxy.env.sample)
   - [`hermes-forward-proxy.runtime.env.sample`](hermes-forward-proxy.runtime.env.sample)
+  - [`openclaw-sidecar.env.sample`](openclaw-sidecar.env.sample)
+  - [`openclaw-sidecar.runtime.env.sample`](openclaw-sidecar.runtime.env.sample)
+  - [`hermes-sidecar.env.sample`](hermes-sidecar.env.sample)
+  - [`hermes-sidecar.runtime.env.sample`](hermes-sidecar.runtime.env.sample)
   - [`proxy/mitmproxy-live-proxy.py`](proxy/mitmproxy-live-proxy.py)
 
 ## Compose topologies
@@ -149,6 +155,96 @@ Contract notes:
 - `hermes-runtime-real` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
 - the paired `hermes-forward-proxy` service still owns `HERMES_SESSION_ID`, `HERMES_AGENT_ID`, and `HERMES_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `HERMES_RUNTIME_HTTP_PROXY` / `HERMES_RUNTIME_HTTPS_PROXY` default to `http://hermes-forward-proxy:8080` so the real container stays on topology A.
+- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
+
+## OpenClaw real runtime on topology B / sidecar profile
+
+P18-4 adds the checked-in real-runtime replacement contract for OpenClaw on the optional sidecar profile.
+
+Files:
+
+- compose override: [`compose.openclaw-sidecar.override.yaml`](compose.openclaw-sidecar.override.yaml)
+- compose interpolation env sample: [`openclaw-sidecar.env.sample`](openclaw-sidecar.env.sample)
+- runtime `env_file:` sample: [`openclaw-sidecar.runtime.env.sample`](openclaw-sidecar.runtime.env.sample)
+
+Use it like this:
+
+```bash
+cp deploy/openclaw-sidecar.env.sample deploy/openclaw-sidecar.env
+cp deploy/openclaw-sidecar.runtime.env.sample deploy/openclaw-sidecar.runtime.env
+
+# Edit at least:
+# - OPENCLAW_SIDECAR_RUNTIME_IMAGE
+# - OPENCLAW_SIDECAR_RUNTIME_ENV_FILE (if you renamed the runtime env file)
+# - runtime-specific secrets/config inside deploy/openclaw-sidecar.runtime.env
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.openclaw-sidecar.override.yaml \
+  --env-file deploy/openclaw-sidecar.env \
+  --profile sidecar \
+  config
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.openclaw-sidecar.override.yaml \
+  --env-file deploy/openclaw-sidecar.env \
+  --profile sidecar \
+  up hostd openclaw-runtime-real-sidecar openclaw-proxy-real-sidecar
+```
+
+Contract notes:
+
+- `openclaw-runtime-real-sidecar` and `openclaw-proxy-real-sidecar` are new service names on purpose; they let the checked-in sidecar stand-ins stay available for smoke use while the real container wiring is tested separately.
+- `openclaw-runtime-real-sidecar` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
+- `openclaw-proxy-real-sidecar` shares the runtime network namespace with `network_mode: service:openclaw-runtime-real-sidecar`, so the real container reaches the loopback proxy at `127.0.0.1:8080`.
+- the paired sidecar proxy still owns `SIDECAR_OPENCLAW_SESSION_ID`, `SIDECAR_OPENCLAW_AGENT_ID`, and `SIDECAR_OPENCLAW_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
+- `OPENCLAW_SIDECAR_RUNTIME_HTTP_PROXY` / `OPENCLAW_SIDECAR_RUNTIME_HTTPS_PROXY` default to `http://127.0.0.1:8080` so the real container stays on topology B.
+- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
+
+## Hermes real runtime on topology B / sidecar profile
+
+P18-4 also adds the checked-in real-runtime replacement contract for Hermes on the optional sidecar profile.
+
+Files:
+
+- compose override: [`compose.hermes-sidecar.override.yaml`](compose.hermes-sidecar.override.yaml)
+- compose interpolation env sample: [`hermes-sidecar.env.sample`](hermes-sidecar.env.sample)
+- runtime `env_file:` sample: [`hermes-sidecar.runtime.env.sample`](hermes-sidecar.runtime.env.sample)
+
+Use it like this:
+
+```bash
+cp deploy/hermes-sidecar.env.sample deploy/hermes-sidecar.env
+cp deploy/hermes-sidecar.runtime.env.sample deploy/hermes-sidecar.runtime.env
+
+# Edit at least:
+# - HERMES_SIDECAR_RUNTIME_IMAGE
+# - HERMES_SIDECAR_RUNTIME_ENV_FILE (if you renamed the runtime env file)
+# - runtime-specific secrets/config inside deploy/hermes-sidecar.runtime.env
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.hermes-sidecar.override.yaml \
+  --env-file deploy/hermes-sidecar.env \
+  --profile sidecar \
+  config
+
+docker compose \
+  -f deploy/compose.yaml \
+  -f deploy/compose.hermes-sidecar.override.yaml \
+  --env-file deploy/hermes-sidecar.env \
+  --profile sidecar \
+  up hostd hermes-runtime-real-sidecar hermes-proxy-real-sidecar
+```
+
+Contract notes:
+
+- `hermes-runtime-real-sidecar` and `hermes-proxy-real-sidecar` are new service names on purpose; they let the checked-in sidecar stand-ins stay available for smoke use while the real container wiring is tested separately.
+- `hermes-runtime-real-sidecar` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
+- `hermes-proxy-real-sidecar` shares the runtime network namespace with `network_mode: service:hermes-runtime-real-sidecar`, so the real container reaches the loopback proxy at `127.0.0.1:8080`.
+- the paired sidecar proxy still owns `SIDECAR_HERMES_SESSION_ID`, `SIDECAR_HERMES_AGENT_ID`, and `SIDECAR_HERMES_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
+- `HERMES_SIDECAR_RUNTIME_HTTP_PROXY` / `HERMES_SIDECAR_RUNTIME_HTTPS_PROXY` default to `http://127.0.0.1:8080` so the real container stays on topology B.
 - this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
 
 ## Planned contents
