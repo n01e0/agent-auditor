@@ -2,6 +2,8 @@
 
 This runbook covers the current `agent-auditor-hostd` API / network Google Workspace semantic-action PoC after the first GWS slice.
 
+This document is still primarily about the legacy GWS preview slice. Do **not** read it as a blanket statement about the repository's entire live-traffic posture. The repository separately exposes a forward-proxy observed-runtime path whose current checked-in example is a Gmail-send request with `observation_provenance=observed_request`; use [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md), [`separate-machine-preview-checklist.md`](separate-machine-preview-checklist.md), and [`../architecture/live-proxy-coverage-matrix.md`](../architecture/live-proxy-coverage-matrix.md) when you need the cross-slice real-traffic status.
+
 ## What this PoC currently proves
 
 The current GWS path is intentionally narrow:
@@ -26,7 +28,7 @@ The current GWS path is intentionally narrow:
 - Rust toolchain installed
 - repository checked out locally
 
-The documented path below does **not** require root today because the PoC still uses deterministic preview observations instead of live API interception, browser instrumentation, or egress capture.
+The documented path below does **not** require root today because this GWS PoC path still uses deterministic preview observations instead of a production live API interception, browser instrumentation, or egress-capture deployment.
 
 ## Quick start
 
