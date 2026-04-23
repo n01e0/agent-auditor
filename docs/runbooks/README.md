@@ -8,6 +8,7 @@ Most runbooks are still preview-first. For the current repository-wide boundary 
 
 - separate-machine audit preview: [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md)
 - separate-machine preview checklist: [`separate-machine-preview-checklist.md`](separate-machine-preview-checklist.md)
+- real-runtime proxy trust bootstrap (dev minimum): [`real-runtime-proxy-trust-bootstrap-dev.md`](real-runtime-proxy-trust-bootstrap-dev.md)
 - runtime process observation: [`hostd-exec-exit-poc-local.md`](hostd-exec-exit-poc-local.md)
 - filesystem governance: [`hostd-filesystem-poc-local.md`](hostd-filesystem-poc-local.md)
 - network governance: [`hostd-network-poc-local.md`](hostd-network-poc-local.md)

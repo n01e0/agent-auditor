@@ -34,6 +34,7 @@ services:
     volumes:
       - agent-auditor-state:/state
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+      - hermes-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     entrypoint:
       - mitmdump
     command:

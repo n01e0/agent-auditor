@@ -67,6 +67,10 @@ services:
     <<: *proxy-base
     depends_on:
       - hostd
+    volumes:
+      - agent-auditor-state:/state
+      - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+      - openclaw-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
       AUDITOR_STATE_DIR: /state
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -80,6 +84,10 @@ services:
     <<: *proxy-base
     depends_on:
       - hostd
+    volumes:
+      - agent-auditor-state:/state
+      - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+      - hermes-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
       AUDITOR_STATE_DIR: /state
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -162,6 +170,10 @@ services:
       - hostd
       - openclaw-runtime-sidecar
     network_mode: service:openclaw-runtime-sidecar
+    volumes:
+      - agent-auditor-state:/state
+      - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+      - openclaw-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
       AUDITOR_STATE_DIR: /state
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -196,6 +208,10 @@ services:
       - hostd
       - hermes-runtime-sidecar
     network_mode: service:hermes-runtime-sidecar
+    volumes:
+      - agent-auditor-state:/state
+      - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
+      - hermes-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
       AUDITOR_STATE_DIR: /state
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -207,3 +223,5 @@ volumes:
   agent-auditor-cargo-registry: {}
   agent-auditor-cargo-git: {}
   agent-auditor-state: {}
+  openclaw-mitmproxy-ca: {}
+  hermes-mitmproxy-ca: {}

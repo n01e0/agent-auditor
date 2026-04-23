@@ -16,6 +16,8 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md)
 - the current source-of-truth runbook for a separate-machine audit preview setup:
   - [`../docs/runbooks/separate-machine-audit-preview-local.md`](../docs/runbooks/separate-machine-audit-preview-local.md)
+- the current source-of-truth runbook for dev proxy trust bootstrap before real HTTPS traffic:
+  - [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md)
 - local developer runbooks under:
   - [`../docs/runbooks/README.md`](../docs/runbooks/README.md)
 - a systemd service artifact + sample environment config for source-tree-independent hostd startup:
@@ -73,6 +75,19 @@ Replace their `image` / `command` with the real OpenClaw or Hermes container whi
 
 That swap should be read through [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md): the checked-in compose file currently proves stand-in topology smoke, while later P18 work is what makes the repository genuinely handoff-ready for human-run OpenClaw / Hermes verification.
 
+## Dev trust bootstrap before real HTTPS traffic
+
+P18-5 adds the dev-minimum CA / trust bootstrap path in [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md).
+
+Important contract points:
+
+- proxy CA state is now persisted per runtime identity via named volumes:
+  - `openclaw-mitmproxy-ca`
+  - `hermes-mitmproxy-ca`
+- the forward-proxy and sidecar-proxy services for the same runtime intentionally share that CA volume
+- the repository-owned path stops after CA mint/export, trust installation planning, and runtime env prep; the later handoff task is what actually starts real OpenClaw / Hermes traffic
+- only `mitmproxy-ca-cert.pem` should be distributed to runtime trust stores; the private-key bundle is not part of the trust-distribution handoff
+
 ## OpenClaw real runtime on topology A / forward proxy
 
 P18-2 adds the first checked-in real-runtime replacement contract for OpenClaw on the default forward-proxy topology.
@@ -113,7 +128,7 @@ Contract notes:
 - `openclaw-runtime-real` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
 - the paired `openclaw-forward-proxy` service still owns `OPENCLAW_SESSION_ID`, `OPENCLAW_AGENT_ID`, and `OPENCLAW_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `OPENCLAW_RUNTIME_HTTP_PROXY` / `OPENCLAW_RUNTIME_HTTPS_PROXY` default to `http://openclaw-forward-proxy:8080` so the real container stays on topology A.
-- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
+- dev trust bootstrap for HTTPS interception is documented separately in [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md). Production CA distribution is still out of scope.
 
 ## Hermes real runtime on topology A / forward proxy
 
@@ -155,7 +170,7 @@ Contract notes:
 - `hermes-runtime-real` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
 - the paired `hermes-forward-proxy` service still owns `HERMES_SESSION_ID`, `HERMES_AGENT_ID`, and `HERMES_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `HERMES_RUNTIME_HTTP_PROXY` / `HERMES_RUNTIME_HTTPS_PROXY` default to `http://hermes-forward-proxy:8080` so the real container stays on topology A.
-- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
+- dev trust bootstrap for HTTPS interception is documented separately in [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md). Production CA distribution is still out of scope.
 
 ## OpenClaw real runtime on topology B / sidecar profile
 
@@ -200,7 +215,8 @@ Contract notes:
 - `openclaw-proxy-real-sidecar` shares the runtime network namespace with `network_mode: service:openclaw-runtime-real-sidecar`, so the real container reaches the loopback proxy at `127.0.0.1:8080`.
 - the paired sidecar proxy still owns `SIDECAR_OPENCLAW_SESSION_ID`, `SIDECAR_OPENCLAW_AGENT_ID`, and `SIDECAR_OPENCLAW_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `OPENCLAW_SIDECAR_RUNTIME_HTTP_PROXY` / `OPENCLAW_SIDECAR_RUNTIME_HTTPS_PROXY` default to `http://127.0.0.1:8080` so the real container stays on topology B.
-- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
+- `openclaw-proxy-real-sidecar` also reuses the persisted `openclaw-mitmproxy-ca` volume, so you can mint/export the CA before you start the real sidecar runtime.
+- dev trust bootstrap for HTTPS interception is documented separately in [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md). Production CA distribution is still out of scope.
 
 ## Hermes real runtime on topology B / sidecar profile
 
@@ -245,7 +261,8 @@ Contract notes:
 - `hermes-proxy-real-sidecar` shares the runtime network namespace with `network_mode: service:hermes-runtime-real-sidecar`, so the real container reaches the loopback proxy at `127.0.0.1:8080`.
 - the paired sidecar proxy still owns `SIDECAR_HERMES_SESSION_ID`, `SIDECAR_HERMES_AGENT_ID`, and `SIDECAR_HERMES_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `HERMES_SIDECAR_RUNTIME_HTTP_PROXY` / `HERMES_SIDECAR_RUNTIME_HTTPS_PROXY` default to `http://127.0.0.1:8080` so the real container stays on topology B.
-- this contract is only the wiring step. Proxy CA/trust bootstrap for HTTPS interception is still separate follow-on work.
+- `hermes-proxy-real-sidecar` also reuses the persisted `hermes-mitmproxy-ca` volume, so you can mint/export the CA before you start the real sidecar runtime.
+- dev trust bootstrap for HTTPS interception is documented separately in [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md). Production CA distribution is still out of scope.
 
 ## Planned contents
 
