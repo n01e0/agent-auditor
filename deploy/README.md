@@ -20,6 +20,8 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md)
 - the current source-of-truth runbook for inspecting observed-runtime envelopes, audit records, and local inspection output during the real-runtime handoff:
   - [`../docs/runbooks/real-runtime-audit-inspection-local.md`](../docs/runbooks/real-runtime-audit-inspection-local.md)
+- the current source-of-truth handoff for `n01e0` to run one real OpenClaw verification and collect the expected evidence:
+  - [`../docs/runbooks/openclaw-real-runtime-handoff-local.md`](../docs/runbooks/openclaw-real-runtime-handoff-local.md)
 - local developer runbooks under:
   - [`../docs/runbooks/README.md`](../docs/runbooks/README.md)
 - a systemd service artifact + sample environment config for source-tree-independent hostd startup:
@@ -100,6 +102,17 @@ It fixes the minimum path for:
 - locating the durable `/state/agent-auditor-hostd*-store/` audit and approval files
 - using `agent-auditor-cli audit ... --state-dir /state` to derive the checked-in local inspection view
 - distinguishing plain wiring success from `observed_request` and `validated_observation`
+
+## OpenClaw real-runtime handoff
+
+P18-7 adds the OpenClaw-specific operator handoff in [`../docs/runbooks/openclaw-real-runtime-handoff-local.md`](../docs/runbooks/openclaw-real-runtime-handoff-local.md).
+
+That runbook fixes:
+
+- the exact topology A / B launch commands for the real OpenClaw container
+- the preferred first real action (`repos.update_visibility` against a disposable GitHub repo)
+- the minimum evidence bundle `n01e0` should save
+- the decision rule for `wiring success` vs `observed_request` vs `validated_observation`
 
 ## OpenClaw real runtime on topology A / forward proxy
 
