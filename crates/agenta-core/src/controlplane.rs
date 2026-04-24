@@ -1198,6 +1198,7 @@ mod tests {
                 outcome: Some(ApprovalStatus::Approved),
             }),
             enforcement: None,
+            integrity: None,
         }
     }
 

@@ -317,6 +317,7 @@ mod tests {
             requester_context: None,
             decision: None,
             enforcement: None,
+            integrity: None,
         };
 
         let error = plan

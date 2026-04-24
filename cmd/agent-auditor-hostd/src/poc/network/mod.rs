@@ -275,7 +275,7 @@ mod tests {
             .expect("approval-required audit record should read")
             .expect("approval-required audit record should exist");
 
-        assert_eq!(persisted, enriched);
+        assert_persisted_event(&persisted, &enriched);
         assert_eq!(persisted.result.status, ResultStatus::ApprovalRequired);
         assert_eq!(
             persisted.policy.as_ref().and_then(|policy| policy.decision),
@@ -410,5 +410,21 @@ mod tests {
             .expect("time should advance")
             .as_nanos();
         env::temp_dir().join(format!("agent-auditor-hostd-network-mod-test-{nonce}"))
+    }
+
+    fn assert_persisted_event(
+        actual: &agenta_core::EventEnvelope,
+        expected: &agenta_core::EventEnvelope,
+    ) {
+        assert!(
+            actual
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref())
+                .is_some()
+        );
+        let mut sanitized = actual.clone();
+        sanitized.integrity = None;
+        assert_eq!(sanitized, *expected);
     }
 }

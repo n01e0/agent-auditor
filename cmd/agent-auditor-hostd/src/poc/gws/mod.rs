@@ -467,11 +467,11 @@ mod tests {
         store
             .append_audit_record(&allow_preview.1)
             .expect("allow audit record should append");
-        assert_eq!(
+        assert_persisted_event_option(
             store
                 .latest_audit_record()
                 .expect("allow audit record should read"),
-            Some(allow_preview.1.clone())
+            &allow_preview.1,
         );
         assert_eq!(allow_preview.2.decision, PolicyDecisionKind::Allow);
         assert_eq!(allow_preview.1.result.status, ResultStatus::Allowed);
@@ -484,17 +484,17 @@ mod tests {
             .append_approval_request(&hold_preview.3)
             .expect("hold approval request should append");
 
-        assert_eq!(
+        assert_persisted_event_option(
             store
                 .latest_audit_record()
                 .expect("hold audit record should read"),
-            Some(hold_preview.1.clone())
+            &hold_preview.1,
         );
-        assert_eq!(
+        assert_persisted_request_option(
             store
                 .latest_approval_request()
                 .expect("hold approval request should read"),
-            Some(hold_preview.3.clone())
+            &hold_preview.3,
         );
         assert_eq!(hold_preview.2.decision, PolicyDecisionKind::RequireApproval);
         assert_eq!(hold_preview.1.result.status, ResultStatus::ApprovalRequired);
@@ -711,11 +711,11 @@ mod tests {
             Some(agenta_core::EnforcementStatus::Denied)
         );
         assert!(approval_request_from_decision(&enriched, &deny_decision).is_none());
-        assert_eq!(
+        assert_persisted_event_option(
             store
                 .latest_audit_record()
                 .expect("deny audit record should read"),
-            Some(enriched)
+            &enriched,
         );
     }
 
@@ -827,5 +827,39 @@ mod tests {
             .expect("time should advance")
             .as_nanos();
         std::env::temp_dir().join(format!("agent-auditor-hostd-gws-mod-test-{nonce}"))
+    }
+
+    fn assert_persisted_event_option(
+        actual: Option<agenta_core::EventEnvelope>,
+        expected: &agenta_core::EventEnvelope,
+    ) {
+        let actual = actual.expect("persisted event should exist");
+        assert!(
+            actual
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref())
+                .is_some()
+        );
+        let mut sanitized = actual;
+        sanitized.integrity = None;
+        assert_eq!(sanitized, *expected);
+    }
+
+    fn assert_persisted_request_option(
+        actual: Option<agenta_core::ApprovalRequest>,
+        expected: &agenta_core::ApprovalRequest,
+    ) {
+        let actual = actual.expect("persisted approval request should exist");
+        assert!(
+            actual
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref())
+                .is_some()
+        );
+        let mut sanitized = actual;
+        sanitized.integrity = None;
+        assert_eq!(sanitized, *expected);
     }
 }
