@@ -13,6 +13,7 @@ Most runbooks are still preview-first. For the current repository-wide boundary 
 - compose real-runtime end-to-end verification: [`compose-real-runtime-end-to-end-local.md`](compose-real-runtime-end-to-end-local.md)
 - OpenClaw real-runtime handoff: [`openclaw-real-runtime-handoff-local.md`](openclaw-real-runtime-handoff-local.md)
 - Hermes real-runtime handoff: [`hermes-real-runtime-handoff-local.md`](hermes-real-runtime-handoff-local.md)
+- Hermes real-runtime handoff on a separate trust boundary: [`hermes-real-runtime-handoff-separate-trust-boundary.md`](hermes-real-runtime-handoff-separate-trust-boundary.md)
 - runtime process observation: [`hostd-exec-exit-poc-local.md`](hostd-exec-exit-poc-local.md)
 - filesystem governance: [`hostd-filesystem-poc-local.md`](hostd-filesystem-poc-local.md)
 - network governance: [`hostd-network-poc-local.md`](hostd-network-poc-local.md)

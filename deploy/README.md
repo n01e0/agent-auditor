@@ -26,11 +26,13 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/runbooks/openclaw-real-runtime-handoff-local.md`](../docs/runbooks/openclaw-real-runtime-handoff-local.md)
 - the current source-of-truth handoff for `n01e0` to run one real Hermes verification and collect the expected evidence:
   - [`../docs/runbooks/hermes-real-runtime-handoff-local.md`](../docs/runbooks/hermes-real-runtime-handoff-local.md)
+- the current source-of-truth handoff for running the same Hermes exercise with `hostd` and the durable evidence path on a separate remote audit boundary:
+  - [`../docs/runbooks/hermes-real-runtime-handoff-separate-trust-boundary.md`](../docs/runbooks/hermes-real-runtime-handoff-separate-trust-boundary.md)
 - the current source-of-truth runbook for the Compose-based end-to-end verification order and first troubleshooting cuts during the real-runtime handoff:
   - [`../docs/runbooks/compose-real-runtime-end-to-end-local.md`](../docs/runbooks/compose-real-runtime-end-to-end-local.md)
 - local developer runbooks under:
   - [`../docs/runbooks/README.md`](../docs/runbooks/README.md)
-- a systemd service artifact + sample environment config for source-tree-independent hostd startup:
+- a systemd service artifact + sample environment config for source-tree-independent hostd startup, including an explicit remote-ingress listener contract for remote-audit handoff:
   - [`systemd/agent-auditor-hostd.service`](systemd/agent-auditor-hostd.service)
   - [`systemd/agent-auditor-hostd.env.sample`](systemd/agent-auditor-hostd.env.sample)
 - a container-first compose example for live proxy experimentation:
@@ -89,7 +91,8 @@ Remote-ingress defaults in `compose.env.sample`:
 - `HOSTD_IMAGE=rust:1.93-bookworm`
 - `HOSTD_REMOTE_INGRESS_PORT=19090`
 - `HOSTD_REMOTE_INGRESS_TIMEOUT_SEC=2`
-- each proxy container points `AUDITOR_REMOTE_INGRESS_ADDR` at `hostd:${HOSTD_REMOTE_INGRESS_PORT}`
+- `AUDITOR_REMOTE_INGRESS_ADDR=hostd:19090`
+- each proxy container points `AUDITOR_REMOTE_INGRESS_ADDR` at that value, so the monitored-side stack can redirect to a remote audit host without a compose override
 
 `hostd` now declares the checked-in toolchain/image contract too:
 
@@ -152,6 +155,18 @@ That runbook fixes:
 - the preferred first real action (`gmail.users.messages.send` to a test inbox you control)
 - the minimum evidence bundle `n01e0` should save
 - the decision rule for `wiring success` vs the current Hermes `observed_request` tier
+
+## Hermes real-runtime handoff on a separate trust boundary
+
+P19-19 adds the remote-boundary Hermes handoff in [`../docs/runbooks/hermes-real-runtime-handoff-separate-trust-boundary.md`](../docs/runbooks/hermes-real-runtime-handoff-separate-trust-boundary.md).
+
+That runbook fixes:
+
+- the two-boundary operator shape where Hermes runtime + proxy stay on the monitored host while `hostd` and the durable evidence path move to a remote audit host
+- the monitored-side compose knob `AUDITOR_REMOTE_INGRESS_ADDR=<remote-host>:19090`
+- the remote-side systemd knob `AGENT_AUDITOR_HOSTD_REMOTE_INGRESS_LISTEN=0.0.0.0:19090`
+- the honest reading rule that the current Hermes/Gmail provider evidence still stops at `observed_request` even when the durable copy now lives on the remote audit boundary
+- the minimum remote evidence bundle: observed-runtime envelope, durable JSONL rows, integrity checkpoints, and reviewer-facing `agent-auditor-cli audit show` output from the remote host
 
 ## Compose-based end-to-end verification and troubleshooting
 

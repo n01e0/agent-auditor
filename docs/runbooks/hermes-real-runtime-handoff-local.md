@@ -486,6 +486,7 @@ Do not hide that cleanup inside the evidence narrative.
 ## related docs
 
 - deploy entrypoint: [`../../deploy/README.md`](../../deploy/README.md)
+- separate trust-boundary handoff: [`hermes-real-runtime-handoff-separate-trust-boundary.md`](hermes-real-runtime-handoff-separate-trust-boundary.md)
 - proxy trust bootstrap: [`real-runtime-proxy-trust-bootstrap-dev.md`](real-runtime-proxy-trust-bootstrap-dev.md)
 - audit inspection path: [`real-runtime-audit-inspection-local.md`](real-runtime-audit-inspection-local.md)
 - real-runtime readiness boundary: [`../architecture/real-runtime-audit-readiness-boundary.md`](../architecture/real-runtime-audit-readiness-boundary.md)
