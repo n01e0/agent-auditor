@@ -219,6 +219,7 @@ fn sample_approval_record(approval_id: &str, second: i64) -> ApprovalRequest {
         }),
         decision: None,
         enforcement: None,
+        integrity: None,
     }
 }
 

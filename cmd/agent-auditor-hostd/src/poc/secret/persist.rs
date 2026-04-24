@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use agenta_core::{ApprovalRequest, EventEnvelope};
 
 use crate::poc::persistence::{
-    PersistenceError, PersistencePaths, append_json_line, bootstrap_paths, fresh_paths,
-    read_last_json_line,
+    PersistenceError, PersistencePaths, append_durable_approval_request,
+    append_durable_audit_record, bootstrap_paths, fresh_paths, read_last_json_line,
 };
 
 const STORE_DIR_NAME: &str = "agent-auditor-hostd-secret-poc-store";
@@ -32,14 +32,24 @@ impl SecretPocStore {
     }
 
     pub fn append_audit_record(&self, event: &EventEnvelope) -> Result<(), PersistenceError> {
-        append_json_line(&self.paths.audit_log, event)
+        append_durable_audit_record(
+            &self.paths.audit_log,
+            &self.paths.audit_integrity_log,
+            event,
+        )
+        .map(|_| ())
     }
 
     pub fn append_approval_request(
         &self,
         request: &ApprovalRequest,
     ) -> Result<(), PersistenceError> {
-        append_json_line(&self.paths.approval_log, request)
+        append_durable_approval_request(
+            &self.paths.approval_log,
+            &self.paths.approval_integrity_log,
+            request,
+        )
+        .map(|_| ())
     }
 
     pub fn latest_audit_record(&self) -> Result<Option<EventEnvelope>, PersistenceError> {
@@ -81,17 +91,17 @@ mod tests {
             .append_approval_request(&request)
             .expect("approval request should append");
 
-        assert_eq!(
+        assert_persisted_event(
             store
                 .latest_audit_record()
                 .expect("audit record should read"),
-            Some(event)
+            event,
         );
-        assert_eq!(
+        assert_persisted_request(
             store
                 .latest_approval_request()
                 .expect("approval request should read"),
-            Some(request)
+            request,
         );
     }
 
@@ -226,6 +236,33 @@ mod tests {
             requester_context: None,
             decision: None,
             enforcement: None,
+            integrity: None,
         }
+    }
+
+    fn assert_persisted_event(actual: Option<EventEnvelope>, expected: EventEnvelope) {
+        let mut actual = actual.expect("persisted event should exist");
+        assert!(
+            actual
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref())
+                .is_some()
+        );
+        actual.integrity = None;
+        assert_eq!(actual, expected);
+    }
+
+    fn assert_persisted_request(actual: Option<ApprovalRequest>, expected: ApprovalRequest) {
+        let mut actual = actual.expect("persisted approval request should exist");
+        assert!(
+            actual
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref())
+                .is_some()
+        );
+        actual.integrity = None;
+        assert_eq!(actual, expected);
     }
 }

@@ -297,6 +297,28 @@ pub struct IntegrityInfo {
     pub signature: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrityCheckpointKind {
+    Head,
+    Seal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IntegrityCheckpointRecord {
+    pub stream: String,
+    pub checkpoint_kind: IntegrityCheckpointKind,
+    pub segment_id: String,
+    pub record_count: u64,
+    pub first_record_hash: Option<String>,
+    pub last_record_hash: Option<String>,
+    pub checkpointed_at: DateTime<Utc>,
+    pub prev_checkpoint_hash: Option<String>,
+    pub checkpoint_hash: String,
+    pub signature: Option<String>,
+    pub signing_key_id: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EventEnvelope {
     pub event_id: String,
@@ -419,6 +441,7 @@ pub struct ApprovalRequest {
     pub requester_context: Option<RequesterContext>,
     pub decision: Option<ApprovalDecisionRecord>,
     pub enforcement: Option<EnforcementInfo>,
+    pub integrity: Option<IntegrityInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

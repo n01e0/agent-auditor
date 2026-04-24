@@ -716,6 +716,7 @@ mod tests {
             }),
             decision: None,
             enforcement: None,
+            integrity: None,
         }
     }
 

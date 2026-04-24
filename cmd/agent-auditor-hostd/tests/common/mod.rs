@@ -54,6 +54,29 @@ pub fn assert_json_subset(expected: &Value, actual: &Value) {
                 assert_json_subset(expected_value, actual_value);
             }
         }
+        (Value::Null, Value::Object(actual_map)) if looks_like_integrity_metadata(actual_map) => {
+            assert!(
+                actual_map
+                    .get("hash")
+                    .and_then(Value::as_str)
+                    .is_some_and(|hash| hash.starts_with("sha256:"))
+            );
+            assert!(matches!(
+                actual_map.get("prev_hash"),
+                Some(Value::Null) | Some(Value::String(_)) | None
+            ));
+            assert!(matches!(
+                actual_map.get("signature"),
+                Some(Value::Null) | None
+            ));
+        }
         _ => assert_eq!(expected, actual),
     }
+}
+
+fn looks_like_integrity_metadata(actual_map: &serde_json::Map<String, Value>) -> bool {
+    actual_map.contains_key("hash")
+        && actual_map
+            .keys()
+            .all(|key| matches!(key.as_str(), "hash" | "prev_hash" | "signature"))
 }

@@ -123,6 +123,7 @@ fn main() {
         }),
         decision: None,
         enforcement: None,
+        integrity: None,
     };
 
     let queue_item = ApprovalQueueItem::from_request(&approval_request);

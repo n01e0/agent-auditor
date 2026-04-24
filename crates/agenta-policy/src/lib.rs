@@ -662,6 +662,7 @@ pub fn approval_request_from_decision(
         }),
         decision: None,
         enforcement: None,
+        integrity: None,
     })
 }
 

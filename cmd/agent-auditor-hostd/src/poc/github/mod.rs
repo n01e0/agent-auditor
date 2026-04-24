@@ -399,17 +399,17 @@ mod tests {
                 .map(|info| info.status),
             Some(agenta_core::EnforcementStatus::Held)
         );
-        assert_eq!(
+        assert_persisted_event_option(
             store
                 .latest_audit_record()
                 .expect("audit record should read"),
-            Some(enriched)
+            &enriched,
         );
-        assert_eq!(
+        assert_persisted_request_option(
             store
                 .latest_approval_request()
                 .expect("approval request should read"),
-            Some(approval_request)
+            &approval_request,
         );
     }
 
@@ -471,11 +471,11 @@ mod tests {
                 .map(|info| info.status),
             Some(agenta_core::EnforcementStatus::Denied)
         );
-        assert_eq!(
+        assert_persisted_event_option(
             store
                 .latest_audit_record()
                 .expect("audit record should read"),
-            Some(secret_write_enriched)
+            &secret_write_enriched,
         );
     }
 
@@ -570,5 +570,39 @@ mod tests {
             branch: Some("main".to_owned()),
         });
         session
+    }
+
+    fn assert_persisted_event_option(
+        actual: Option<agenta_core::EventEnvelope>,
+        expected: &agenta_core::EventEnvelope,
+    ) {
+        let actual = actual.expect("persisted event should exist");
+        assert!(
+            actual
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref())
+                .is_some()
+        );
+        let mut sanitized = actual;
+        sanitized.integrity = None;
+        assert_eq!(sanitized, *expected);
+    }
+
+    fn assert_persisted_request_option(
+        actual: Option<agenta_core::ApprovalRequest>,
+        expected: &agenta_core::ApprovalRequest,
+    ) {
+        let actual = actual.expect("persisted approval request should exist");
+        assert!(
+            actual
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref())
+                .is_some()
+        );
+        let mut sanitized = actual;
+        sanitized.integrity = None;
+        assert_eq!(sanitized, *expected);
     }
 }
