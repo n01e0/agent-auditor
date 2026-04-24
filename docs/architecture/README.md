@@ -35,6 +35,7 @@ This directory contains design notes for the current `agent-auditor` architectur
 
 - remote audit integrity boundary: [`remote-audit-integrity-boundary.md`](remote-audit-integrity-boundary.md)
 - remote audit deployment topology: [`remote-audit-deployment-topology.md`](remote-audit-deployment-topology.md)
+- observed-runtime remote ingress contract: [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md)
 - real-runtime audit readiness boundary: [`real-runtime-audit-readiness-boundary.md`](real-runtime-audit-readiness-boundary.md)
 - real-traffic observation boundary: [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md)
 - live proxy interception foundation: [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md)

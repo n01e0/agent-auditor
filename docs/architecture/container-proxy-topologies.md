@@ -4,7 +4,7 @@ This note fixes the container-first deployment split for routing OpenClaw / Herm
 
 ## Goal
 
-Support two container wiring patterns without changing the hostd observed-runtime contract.
+Support two container wiring patterns without changing the checked-in **local-volume** observed-runtime contract.
 
 - **A / default**: explicit forward proxy per runtime
 - **B / optional**: per-agent sidecar proxy
@@ -14,7 +14,7 @@ They do not claim inline deny / hold enforcement, CA distribution, or production
 
 ## Shared contract
 
-Regardless of topology, the proxy adapter writes into the same hostd runtime path:
+Regardless of topology, the checked-in Compose/dev path writes into the same hostd local-volume runtime path:
 
 - runtime root: `agent-auditor-hostd-live-proxy-observed-runtime/`
 - session root: `sessions/<sanitized_session_id>__<sanitized_agent_id>__<workspace or workspace_none>/`
@@ -32,6 +32,8 @@ Each JSONL line is a redaction-safe `GenericLiveActionEnvelope` carrying metadat
 - interception mode
 
 Raw bodies, cookies, tokens, and message content stay out of this contract.
+
+This same-host shared-volume path is still a preview/bring-up contract, not the follow-on remote-audit handoff. The boundary-crossing replacement contract for `live proxy -> remote hostd` is documented in [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md).
 
 ## Topology A: explicit forward proxy
 

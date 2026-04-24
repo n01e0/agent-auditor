@@ -140,6 +140,7 @@ A path may be real-runtime ready, or even produce an observed request, while sti
 
 - architecture overview: [`overview.md`](overview.md)
 - remote audit deployment topology: [`remote-audit-deployment-topology.md`](remote-audit-deployment-topology.md)
+- observed-runtime remote ingress contract: [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md)
 - real-runtime audit readiness boundary: [`real-runtime-audit-readiness-boundary.md`](real-runtime-audit-readiness-boundary.md)
 - real-traffic observation boundary: [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md)
 - deployment hardening minimums: [`deployment-hardening-minimums.md`](deployment-hardening-minimums.md)
