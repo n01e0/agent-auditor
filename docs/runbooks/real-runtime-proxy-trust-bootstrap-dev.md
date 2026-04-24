@@ -38,6 +38,7 @@ The important dev rule is:
 
 - OpenClaw forward-proxy and sidecar-proxy services reuse `openclaw-mitmproxy-ca`
 - Hermes forward-proxy and sidecar-proxy services reuse `hermes-mitmproxy-ca`
+- the checked-in proxy services pin `HOME=/home/mitmproxy` so mitmproxy writes its CA into `AGENT_AUDITOR_PROXY_CA_DIR=/home/mitmproxy/.mitmproxy` instead of the image default under `/root/.mitmproxy`
 
 That means you can mint the CA once via the forward-proxy service and later reuse the same CA when you switch to the sidecar topology for the same runtime.
 
@@ -121,16 +122,16 @@ docker compose \
   up -d hostd hermes-forward-proxy
 ```
 
-Mitmproxy writes CA state under `/home/mitmproxy/.mitmproxy/` inside the proxy container. Because that path is backed by the per-runtime named volume, the CA will still be there when you later use the matching real-runtime proxy service.
+Mitmproxy writes CA state under `AGENT_AUDITOR_PROXY_CA_DIR=/home/mitmproxy/.mitmproxy` inside the proxy container. Because that path is backed by the per-runtime named volume, the CA will still be there when you later use the matching real-runtime proxy service.
 
 Quick inspection:
 
 ```bash
 docker compose -f deploy/compose.yaml --env-file deploy/compose.env.sample exec openclaw-forward-proxy \
-  ls -1 /home/mitmproxy/.mitmproxy
+  sh -lc 'echo HOME=$HOME; echo AGENT_AUDITOR_PROXY_CA_DIR=$AGENT_AUDITOR_PROXY_CA_DIR; ls -1 "$AGENT_AUDITOR_PROXY_CA_DIR"'
 
 docker compose -f deploy/compose.yaml --env-file deploy/compose.env.sample exec hermes-forward-proxy \
-  ls -1 /home/mitmproxy/.mitmproxy
+  sh -lc 'echo HOME=$HOME; echo AGENT_AUDITOR_PROXY_CA_DIR=$AGENT_AUDITOR_PROXY_CA_DIR; ls -1 "$AGENT_AUDITOR_PROXY_CA_DIR"'
 ```
 
 You should see files such as:

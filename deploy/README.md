@@ -109,6 +109,8 @@ Important contract points:
 - proxy CA state is now persisted per runtime identity via named volumes:
   - `openclaw-mitmproxy-ca`
   - `hermes-mitmproxy-ca`
+- the checked-in proxy services now pin `HOME=/home/mitmproxy`, `AGENT_AUDITOR_PROXY_CA_DIR=/home/mitmproxy/.mitmproxy`, and `AGENT_AUDITOR_PROXY_CA_CERT=/home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem`
+- that fixes the mitmproxy image default (`HOME=/root`) so the generated CA lands in the same checked-in path that the named volume and runbooks already use
 - the forward-proxy and sidecar-proxy services for the same runtime intentionally share that CA volume
 - the real-runtime env samples now pin the exported CA source path to `deploy/local/mitmproxy-ca/<runtime>/mitmproxy-ca-cert.pem`
 - the real-runtime compose override services mount that exported cert at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`

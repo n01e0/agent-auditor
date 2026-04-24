@@ -28,6 +28,9 @@ services:
       - hermes-runtime-real-sidecar
     network_mode: service:hermes-runtime-real-sidecar
     environment:
+      HOME: /home/mitmproxy
+      AGENT_AUDITOR_PROXY_CA_DIR: /home/mitmproxy/.mitmproxy
+      AGENT_AUDITOR_PROXY_CA_CERT: /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem
       AUDITOR_STATE_DIR: /state
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
       PYTHONUNBUFFERED: "1"
