@@ -164,6 +164,14 @@ That runbook fixes:
 - the shortest repeatable verification order for one runtime/topology pair
 - the first troubleshooting cut for config, startup, trust, ingress, normalization, and local-inspection failures
 
+P19-18 also adds a checked-in automation gate for the repository-owned preflight contract:
+
+```bash
+python3 deploy/check-real-runtime-preflight.py
+```
+
+It compiles the checked-in mitmproxy addon, renders the baseline Compose stack, renders all four real-runtime replacement paths from the sample env files, and asserts the key hostd / proxy / CA / runtime wiring that ALAN-equivalent handoff preflight depends on. CI now runs the same script as the `preflight` job.
+
 ## OpenClaw real runtime on topology A / forward proxy
 
 P18-2 adds the first checked-in real-runtime replacement contract for OpenClaw on the default forward-proxy topology.
