@@ -8,6 +8,7 @@ pub mod github;
 pub mod github_validated;
 pub mod gws;
 pub mod messaging;
+pub mod messaging_observed;
 pub mod mode;
 pub mod policy;
 pub mod proxy_seam;

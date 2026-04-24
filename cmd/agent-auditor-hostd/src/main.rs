@@ -14,6 +14,7 @@ use agent_auditor_hostd::{
         live_proxy::{
             forward_proxy::{ForwardProxyIngressInbox, ForwardProxyIngressRuntime},
             github_validated::GitHubValidatedObservationRuntime,
+            messaging_observed::MessagingObservedRuntime,
             remote_ingress::RemoteObservedRuntimeIngressServer,
             session_correlation::{ObservedRuntimePath, RuntimeSessionLineage},
         },
@@ -1231,6 +1232,7 @@ fn run_preview_or_exit() {
     }
 
     run_github_validated_observation_preview_or_exit();
+    run_messaging_observed_preview_or_exit();
     run_forward_proxy_ingress_preview_or_exit();
 
     let preview_messaging_policy = |normalized: &EventEnvelope| {
@@ -3066,6 +3068,174 @@ fn run_github_validated_observation_preview_or_exit() {
     print_observation_local_jsonl_inspection_for_request(
         "persisted_github_validated_approval_observation_local_jsonl_inspection",
         &persisted_github_validated_approval_request,
+    );
+}
+
+fn run_messaging_observed_preview_or_exit() {
+    let forward_proxy = match ForwardProxyIngressRuntime::bootstrap() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("messaging_observed_bootstrap_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let messaging_observed = match MessagingObservedRuntime::bootstrap() {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("messaging_observed_bootstrap_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let mut envelope =
+        MessagingObservedRuntime::preview_fixture("sess_live_proxy_messaging_observed");
+    envelope.workspace_id = Some("ws_live_proxy_messaging_observed".to_owned());
+
+    println!(
+        "messaging_observed_runtime_source={}",
+        ObservedRuntimePath::SOURCE_LABEL
+    );
+    println!(
+        "messaging_observed_store_root={}",
+        messaging_observed.store().paths().root.display()
+    );
+    println!(
+        "messaging_observed_runtime_root={}",
+        forward_proxy.observed_runtime().paths().root.display()
+    );
+
+    let observed_lineage = RuntimeSessionLineage::new(
+        envelope.session_id.clone(),
+        envelope
+            .agent_id
+            .clone()
+            .expect("messaging observed preview envelope should carry agent lineage"),
+        envelope.workspace_id.clone(),
+    );
+    let observed_session = match forward_proxy
+        .observed_runtime()
+        .session_path(observed_lineage.clone())
+    {
+        Ok(session) => session,
+        Err(error) => {
+            eprintln!("messaging_observed_runtime_error={error}");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "messaging_observed_session_root={}",
+        observed_session.paths().root.display()
+    );
+    println!(
+        "messaging_observed_session_inbox={}",
+        observed_session.paths().inbox.display()
+    );
+    println!(
+        "messaging_observed_session_cursor={}",
+        observed_session.paths().cursor.display()
+    );
+    println!(
+        "messaging_observed_envelope={}",
+        serde_json::to_string(&envelope)
+            .expect("messaging observed preview envelope should serialize")
+    );
+
+    if let Err(error) = observed_session.append(&envelope) {
+        eprintln!("messaging_observed_append_error={error}");
+        std::process::exit(1);
+    }
+
+    let observed = match observed_session.drain_available() {
+        Ok(records) => records
+            .into_iter()
+            .find(|record| record.request_id == envelope.request_id),
+        Err(error) => {
+            eprintln!("messaging_observed_drain_error={error}");
+            std::process::exit(1);
+        }
+    };
+    let observed = match observed {
+        Some(record) => record,
+        None => {
+            eprintln!("messaging_observed_drain_error=missing observed messaging envelope");
+            std::process::exit(1);
+        }
+    };
+    println!(
+        "messaging_observed_capture_summary={}",
+        observed.summary_line()
+    );
+
+    let record = match messaging_observed.record_observed(&observed, &observed_lineage) {
+        Ok(Some(record)) => record,
+        Ok(None) => {
+            eprintln!(
+                "messaging_observed_classify_error=observed messaging request did not classify"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("messaging_observed_record_error={error}");
+            std::process::exit(1);
+        }
+    };
+
+    println!(
+        "messaging_observed_classified={}",
+        record.classified.log_line()
+    );
+    println!(
+        "messaging_observed_source_kind={}",
+        record.correlated.source_kind()
+    );
+    println!(
+        "messaging_observed_session_correlation_status={}",
+        record.correlated.session_correlation_status
+    );
+    println!(
+        "messaging_observed_normalized_event={}",
+        serde_json::to_string(&record.normalized_event)
+            .expect("messaging observed normalized event should serialize")
+    );
+    println!(
+        "messaging_observed_policy_decision={}",
+        serde_json::to_string(&record.policy_decision)
+            .expect("messaging observed policy decision should serialize")
+    );
+    match record.approval_request.as_ref() {
+        Some(approval_request) => println!(
+            "messaging_observed_approval_request={}",
+            serde_json::to_string(approval_request)
+                .expect("messaging observed approval request should serialize")
+        ),
+        None => println!("messaging_observed_approval_request=null"),
+    }
+
+    let persisted_messaging_observed_audit_record = match messaging_observed
+        .store()
+        .latest_audit_record()
+    {
+        Ok(Some(audit_record)) => {
+            println!(
+                "persisted_messaging_observed_audit_record={}",
+                serde_json::to_string(&audit_record)
+                    .expect("persisted messaging observed audit record should serialize")
+            );
+            audit_record
+        }
+        Ok(None) => {
+            eprintln!(
+                "persisted_messaging_observed_audit_record_error=missing persisted messaging observed audit record"
+            );
+            std::process::exit(1);
+        }
+        Err(error) => {
+            eprintln!("persisted_messaging_observed_audit_record_error={error}");
+            std::process::exit(1);
+        }
+    };
+    print_observation_local_jsonl_inspection_for_event(
+        "persisted_messaging_observed_audit_observation_local_jsonl_inspection",
+        &persisted_messaging_observed_audit_record,
     );
 }
 
