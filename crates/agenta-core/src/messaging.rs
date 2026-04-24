@@ -27,6 +27,18 @@ impl MessagingActionFamily {
         Self("message.send".to_owned())
     }
 
+    pub fn message_edit() -> Self {
+        Self("message.edit".to_owned())
+    }
+
+    pub fn reaction_add() -> Self {
+        Self("reaction.add".to_owned())
+    }
+
+    pub fn typing_indicate() -> Self {
+        Self("typing.indicate".to_owned())
+    }
+
     pub fn channel_invite() -> Self {
         Self("channel.invite".to_owned())
     }
@@ -387,7 +399,13 @@ impl MessagingAction {
 fn is_valid_messaging_action_family(value: &str) -> bool {
     matches!(
         value.trim(),
-        "message.send" | "channel.invite" | "permission.update" | "file.upload"
+        "message.send"
+            | "message.edit"
+            | "reaction.add"
+            | "typing.indicate"
+            | "channel.invite"
+            | "permission.update"
+            | "file.upload"
     )
 }
 
@@ -410,9 +428,11 @@ mod tests {
     #[test]
     fn messaging_action_family_parse_display_and_serde_round_trip() {
         let message_send = MessagingActionFamily::message_send();
+        let reaction_add = MessagingActionFamily::reaction_add();
         let file_upload = MessagingActionFamily::file_upload();
 
         assert_eq!(message_send.as_str(), "message.send");
+        assert_eq!(reaction_add.as_str(), "reaction.add");
         assert_eq!(file_upload.to_string(), "file.upload");
         assert_eq!(
             "channel.invite".parse::<MessagingActionFamily>().unwrap(),
@@ -423,10 +443,10 @@ mod tests {
             json!("message.send")
         );
         assert_eq!(
-            serde_json::from_value::<MessagingActionFamily>(json!("permission.update")).unwrap(),
-            MessagingActionFamily::permission_update()
+            serde_json::from_value::<MessagingActionFamily>(json!("typing.indicate")).unwrap(),
+            MessagingActionFamily::typing_indicate()
         );
-        assert!("reaction.add".parse::<MessagingActionFamily>().is_err());
+        assert!("message.delete".parse::<MessagingActionFamily>().is_err());
     }
 
     #[test]

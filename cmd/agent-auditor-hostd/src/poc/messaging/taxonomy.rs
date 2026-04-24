@@ -30,11 +30,15 @@ impl Default for TaxonomyPlan {
                 MessagingSemanticSurface::SlackConversations,
                 MessagingSemanticSurface::SlackFiles,
                 MessagingSemanticSurface::DiscordChannels,
+                MessagingSemanticSurface::DiscordReactions,
                 MessagingSemanticSurface::DiscordThreads,
                 MessagingSemanticSurface::DiscordPermissions,
             ],
             action_families: vec![
                 "message.send",
+                "message.edit",
+                "reaction.add",
+                "typing.indicate",
                 "channel.invite",
                 "permission.update",
                 "file.upload",
@@ -44,6 +48,9 @@ impl Default for TaxonomyPlan {
                 MessagingActionKind::SlackConversationsInvite,
                 MessagingActionKind::SlackFilesUploadV2,
                 MessagingActionKind::DiscordChannelsMessagesCreate,
+                MessagingActionKind::DiscordChannelsMessagesUpdate,
+                MessagingActionKind::DiscordChannelsMessagesReactionsCreate,
+                MessagingActionKind::DiscordChannelsTypingTrigger,
                 MessagingActionKind::DiscordChannelsThreadMembersPut,
                 MessagingActionKind::DiscordChannelsPermissionsPut,
             ],
@@ -121,6 +128,9 @@ impl Default for TaxonomyPlan {
                 providers: vec!["slack", "discord"],
                 action_families: vec![
                     "message.send",
+                    "message.edit",
+                    "reaction.add",
+                    "typing.indicate",
                     "channel.invite",
                     "permission.update",
                     "file.upload",
@@ -174,6 +184,9 @@ impl TaxonomyPlan {
             MessagingProviderActionCandidate::preview_slack_conversations_invite(),
             MessagingProviderActionCandidate::preview_slack_files_upload_v2(),
             MessagingProviderActionCandidate::preview_discord_channels_messages_create(),
+            MessagingProviderActionCandidate::preview_discord_channels_messages_update(),
+            MessagingProviderActionCandidate::preview_discord_channels_messages_reactions_create(),
+            MessagingProviderActionCandidate::preview_discord_channels_typing_trigger(),
             MessagingProviderActionCandidate::preview_discord_channels_thread_members_put(),
             MessagingProviderActionCandidate::preview_discord_channels_permissions_put(),
         ]
@@ -277,6 +290,13 @@ fn channel_hint(action: MessagingActionKind, target_hint: &str) -> Option<String
         MessagingActionKind::DiscordChannelsMessagesCreate => {
             target_hint.strip_suffix("/messages").map(str::to_owned)
         }
+        MessagingActionKind::DiscordChannelsMessagesUpdate
+        | MessagingActionKind::DiscordChannelsMessagesReactionsCreate => target_hint
+            .split_once("/messages/")
+            .map(|(channel, _)| channel.to_owned()),
+        MessagingActionKind::DiscordChannelsTypingTrigger => {
+            target_hint.strip_suffix("/typing").map(str::to_owned)
+        }
         MessagingActionKind::DiscordChannelsPermissionsPut => target_hint
             .split_once("/permissions/")
             .map(|(channel, _)| channel.to_owned()),
@@ -315,6 +335,9 @@ mod tests {
                 MessagingActionKind::SlackConversationsInvite,
                 MessagingActionKind::SlackFilesUploadV2,
                 MessagingActionKind::DiscordChannelsMessagesCreate,
+                MessagingActionKind::DiscordChannelsMessagesUpdate,
+                MessagingActionKind::DiscordChannelsMessagesReactionsCreate,
+                MessagingActionKind::DiscordChannelsTypingTrigger,
                 MessagingActionKind::DiscordChannelsThreadMembersPut,
                 MessagingActionKind::DiscordChannelsPermissionsPut,
             ]
@@ -406,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn classify_discord_message_invite_and_permission_updates() {
+    fn classify_discord_message_edit_reaction_typing_invite_and_permission_updates() {
         let plan = TaxonomyPlan::default();
 
         let message_send = plan
@@ -414,6 +437,21 @@ mod tests {
                 &MessagingProviderActionCandidate::preview_discord_channels_messages_create(),
             )
             .expect("discord message send should classify");
+        let message_edit = plan
+            .classify_action(
+                &MessagingProviderActionCandidate::preview_discord_channels_messages_update(),
+            )
+            .expect("discord message edit should classify");
+        let reaction_add = plan
+            .classify_action(
+                &MessagingProviderActionCandidate::preview_discord_channels_messages_reactions_create(),
+            )
+            .expect("discord reaction add should classify");
+        let typing_indicate = plan
+            .classify_action(
+                &MessagingProviderActionCandidate::preview_discord_channels_typing_trigger(),
+            )
+            .expect("discord typing should classify");
         let thread_invite = plan
             .classify_action(
                 &MessagingProviderActionCandidate::preview_discord_channels_thread_members_put(),
@@ -435,6 +473,49 @@ mod tests {
         );
         assert_eq!(
             message_send.channel_hint.as_deref(),
+            Some("discord.channels/123456789012345678")
+        );
+
+        assert_eq!(
+            message_edit.semantic_action,
+            MessagingActionKind::DiscordChannelsMessagesUpdate
+        );
+        assert_eq!(
+            message_edit.action_family,
+            MessagingActionFamily::MessageEdit
+        );
+        assert_eq!(
+            message_edit.channel_hint.as_deref(),
+            Some("discord.channels/123456789012345678")
+        );
+
+        assert_eq!(
+            reaction_add.semantic_action,
+            MessagingActionKind::DiscordChannelsMessagesReactionsCreate
+        );
+        assert_eq!(
+            reaction_add.action_family,
+            MessagingActionFamily::ReactionAdd
+        );
+        assert_eq!(
+            reaction_add.channel_hint.as_deref(),
+            Some("discord.channels/123456789012345678")
+        );
+        assert_eq!(
+            reaction_add.delivery_scope,
+            Some(DeliveryScope::PublicChannel)
+        );
+
+        assert_eq!(
+            typing_indicate.semantic_action,
+            MessagingActionKind::DiscordChannelsTypingTrigger
+        );
+        assert_eq!(
+            typing_indicate.action_family,
+            MessagingActionFamily::TypingIndicate
+        );
+        assert_eq!(
+            typing_indicate.channel_hint.as_deref(),
             Some("discord.channels/123456789012345678")
         );
 
@@ -495,13 +576,13 @@ mod tests {
     fn taxonomy_summary_mentions_surfaces_actions_and_stages() {
         let summary = TaxonomyPlan::default().summary();
 
-        assert!(summary.contains("surfaces=slack.chat,slack.conversations,slack.files,discord.channels,discord.threads,discord.permissions"));
+        assert!(summary.contains("surfaces=slack.chat,slack.conversations,slack.files,discord.channels,discord.reactions,discord.threads,discord.permissions"));
         assert!(
             summary.contains(
-                "action_families=message.send,channel.invite,permission.update,file.upload"
+                "action_families=message.send,message.edit,reaction.add,typing.indicate,channel.invite,permission.update,file.upload"
             )
         );
-        assert!(summary.contains("actions=chat.post_message,conversations.invite,files.upload_v2,channels.messages.create,channels.thread_members.put,channels.permissions.put"));
+        assert!(summary.contains("actions=chat.post_message,conversations.invite,files.upload_v2,channels.messages.create,channels.messages.update,channels.messages.reactions.create,channels.typing.trigger,channels.thread_members.put,channels.permissions.put"));
         assert!(summary.contains("stages=provider_join->family_inference->label->handoff"));
     }
 }

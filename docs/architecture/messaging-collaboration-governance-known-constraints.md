@@ -15,22 +15,28 @@ This note records the current constraints of the repository-wide messaging / col
    - the messaging layer does not classify arbitrary provider traffic on its own
 
 3. **Coverage is intentionally tiny**
-   - the checked-in preview posture is still represented by a six-action sample:
+   - the checked-in preview posture is still represented by a nine-action sample:
      - Slack `chat.post_message`
      - Slack `conversations.invite`
      - Slack `files.upload_v2`
      - Discord `channels.messages.create`
+     - Discord `channels.messages.update`
+     - Discord `channels.messages.reactions.create`
+     - Discord `channels.typing.trigger`
      - Discord `channels.thread_members.put`
      - Discord `channels.permissions.put`
    - this is enough to stabilize the messaging contract and record shape, not enough to claim broad provider coverage
 
 4. **Collaboration-family coverage is intentionally narrow**
-   - the checked-in shared messaging taxonomy only proves four action families:
+   - the checked-in shared messaging taxonomy currently proves seven action families:
      - `message.send`
+     - `message.edit`
+     - `reaction.add`
+     - `typing.indicate`
      - `channel.invite`
      - `permission.update`
      - `file.upload`
-   - it does not yet cover direct messages, private-group nuances, reactions, thread lifecycle actions, channel creation/archival, moderation actions, or richer collaboration workflows
+   - it does not yet cover direct messages, private-group nuances, thread lifecycle actions, channel creation/archival, moderation actions, or richer collaboration workflows
 
 5. **Permission labels are docs-backed, not runtime-verified**
    - the current repository proves that metadata can describe expected Slack scope labels or Discord permission labels for an action
@@ -44,7 +50,7 @@ This note records the current constraints of the repository-wide messaging / col
 7. **Policy behavior is intentionally narrow**
    - the checked-in preview policy is `examples/policies/messaging_action.rego`
    - the default path proves only these outcomes:
-     - public-channel message send -> `allow`
+     - public-channel message send/edit/reaction add/typing indicate -> `allow`
      - membership expansion -> `require_approval`
      - permission overwrite update -> `deny`
      - file upload -> `require_approval`
@@ -81,7 +87,7 @@ Today’s messaging / collaboration governance slice is good for:
 - stabilizing the ownership split between provider taxonomy, generic REST lineage, messaging taxonomy, policy, and record reflection
 - proving a checked-in provider-neutral messaging contract in `agenta-core`
 - proving that `agenta-policy` can evaluate `input.messaging_action`
-- proving a first shared collaboration taxonomy across a minimal Slack / Discord action sample
+- proving a first shared collaboration taxonomy across a minimal Slack / Discord action sample, including the core Discord message edit / reaction / typing write shapes
 - proving reflected allow / hold / deny metadata shapes for local event, approval, and audit records
 - proving local persistence and smoke-test coverage for the bootstrap preview contract
 - giving P12 a stable action-family surface to build approval / control-plane UX on top of

@@ -36,6 +36,48 @@ decision := {
 }
 
 decision := {
+  "decision": "allow",
+  "rule_id": "messaging.message_edit.allow",
+  "severity": "low",
+  "reason": "Public-channel message edits are allowed by the preview policy",
+  "approval": null,
+  "tags": ["messaging", "message_edit", "allow"]
+} if {
+  is_messaging_action
+  messaging.action_family == "message.edit"
+  messaging.delivery_scope == "public_channel"
+  rest.privilege_class == "content_write"
+}
+
+decision := {
+  "decision": "allow",
+  "rule_id": "messaging.reaction_add.allow",
+  "severity": "low",
+  "reason": "Public-channel reactions are allowed by the preview policy",
+  "approval": null,
+  "tags": ["messaging", "reaction_add", "allow"]
+} if {
+  is_messaging_action
+  messaging.action_family == "reaction.add"
+  messaging.delivery_scope == "public_channel"
+  rest.privilege_class == "content_write"
+}
+
+decision := {
+  "decision": "allow",
+  "rule_id": "messaging.typing_indicate.allow",
+  "severity": "low",
+  "reason": "Public-channel typing indicators are allowed by the preview policy",
+  "approval": null,
+  "tags": ["messaging", "typing_indicate", "allow"]
+} if {
+  is_messaging_action
+  messaging.action_family == "typing.indicate"
+  messaging.delivery_scope == "public_channel"
+  rest.privilege_class == "outbound_send"
+}
+
+decision := {
   "decision": "require_approval",
   "rule_id": "messaging.channel_invite.requires_approval",
   "severity": "high",

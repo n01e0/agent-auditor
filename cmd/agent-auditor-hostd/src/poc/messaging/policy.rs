@@ -216,6 +216,21 @@ fn oauth_scope_labels(action: MessagingActionKind) -> (&'static str, Vec<&'stati
             "discord.permission:send_messages",
             vec!["discord.permission:send_messages"],
         ),
+        MessagingActionKind::DiscordChannelsMessagesUpdate => (
+            "discord.permission:send_messages",
+            vec!["discord.permission:send_messages"],
+        ),
+        MessagingActionKind::DiscordChannelsMessagesReactionsCreate => (
+            "discord.permission:add_reactions",
+            vec![
+                "discord.permission:add_reactions",
+                "discord.permission:read_message_history",
+            ],
+        ),
+        MessagingActionKind::DiscordChannelsTypingTrigger => (
+            "discord.permission:send_messages",
+            vec!["discord.permission:send_messages"],
+        ),
         MessagingActionKind::DiscordChannelsThreadMembersPut => (
             "discord.permission:create_public_threads",
             vec![

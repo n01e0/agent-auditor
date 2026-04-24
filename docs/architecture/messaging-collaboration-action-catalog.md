@@ -23,9 +23,12 @@ This note fixes both so later implementation work can add code and policy agains
 
 ## Fixed shared action families
 
-The checked-in shared collaboration taxonomy now fixes these four provider-neutral action families:
+The checked-in shared collaboration taxonomy now fixes these seven provider-neutral action families:
 
 - `message.send`
+- `message.edit`
+- `reaction.add`
+- `typing.indicate`
 - `channel.invite`
 - `permission.update`
 - `file.upload`
@@ -52,6 +55,57 @@ Does **not** carry:
 - rich text blocks or embeds
 - thread history
 - recipient rosters
+
+#### `message.edit`
+
+Use when the primary collaboration intent is mutating already-published message content without changing the target conversation.
+
+Carries redaction-safe hints such as:
+
+- provider lineage
+- target hint
+- channel or conversation hint
+- delivery scope
+
+Does **not** carry:
+
+- edited message body text
+- before/after content diffs
+- embeds or attachment payloads
+
+#### `reaction.add`
+
+Use when the primary collaboration intent is adding a lightweight reaction marker to an existing message.
+
+Carries redaction-safe hints such as:
+
+- provider lineage
+- target hint
+- channel hint
+- delivery scope
+
+Does **not** carry:
+
+- full message content
+- participant rosters
+- provider-native reaction payload details beyond redaction-safe target hints
+
+#### `typing.indicate`
+
+Use when the primary collaboration intent is signaling active composition in a conversation surface.
+
+Carries redaction-safe hints such as:
+
+- provider lineage
+- target hint
+- channel hint
+- delivery scope
+
+Does **not** carry:
+
+- message drafts
+- keystroke timing
+- content previews
 
 #### `channel.invite`
 
@@ -103,7 +157,7 @@ Does **not** carry:
 
 ## Fixed minimal provider candidates
 
-The first shared taxonomy is intentionally small. It proves the common action families against a narrow but representative Slack / Discord sample.
+The first shared taxonomy is intentionally small. It proves the common action families against a narrow but representative Slack / Discord sample, including the core Discord real-traffic write shapes.
 
 | Provider | Provider action key | Common family | Surface | Delivery / target hints fixed for the PoC | Why it belongs here |
 | --- | --- | --- | --- | --- | --- |
@@ -111,6 +165,9 @@ The first shared taxonomy is intentionally small. It proves the common action fa
 | Slack | `conversations.invite` | `channel.invite` | `slack.conversations` | `channel_hint`, `membership_target_kind=channel_member`, `delivery_scope=public_channel` | adding members is more important than the lower-level REST method |
 | Slack | `files.upload_v2` | `file.upload` | `slack.files` | `channel_hint`, `file_target_kind=channel_attachment`, `attachment_count_hint` | file publication is the primary intent |
 | Discord | `channels.messages.create` | `message.send` | `discord.channels` | `channel_hint`, `delivery_scope=public_channel` | channel message creation is still a collaboration send action |
+| Discord | `channels.messages.update` | `message.edit` | `discord.channels` | `channel_hint`, `delivery_scope=public_channel` | message mutation keeps collaboration intent above raw REST shape |
+| Discord | `channels.messages.reactions.create` | `reaction.add` | `discord.reactions` | `channel_hint`, `delivery_scope=public_channel` | reaction add is a collaboration-side content write, not a generic REST quirk |
+| Discord | `channels.typing.trigger` | `typing.indicate` | `discord.channels` | `channel_hint`, `delivery_scope=public_channel` | typing indicators are collaboration presence signals worth preserving semantically |
 | Discord | `channels.thread_members.put` | `channel.invite` | `discord.threads` | `conversation_hint`, `membership_target_kind=thread_member`, `delivery_scope=thread` | thread member add is a collaboration participation expansion |
 | Discord | `channels.permissions.put` | `permission.update` | `discord.permissions` | `channel_hint`, `permission_target_kind=channel_permission_overwrite` | permission overwrite mutation is the collaboration intent |
 
@@ -119,6 +176,7 @@ The first shared taxonomy is intentionally small. It proves the common action fa
 This first candidate set proves that the messaging taxonomy can model:
 
 - outbound message delivery across Slack and Discord
+- Discord message edits, reaction adds, and typing indicators as first-class collaboration actions
 - membership expansion on both channel-like and thread-like surfaces
 - a collaboration permission mutation shape
 - a file publication shape without carrying file contents
@@ -138,7 +196,7 @@ Still out of scope here:
 
 - complete Slack and Discord endpoint coverage
 - webhook sends or incoming-webhook-specific action naming
-- ephemeral-message, reaction, thread-archive, or moderation-specific action families
+- ephemeral-message, thread-archive, or moderation-specific action families
 - content inspection, DLP, malware scanning, or file-type classification
 - runtime proof that a Slack or Discord token actually carried the documented permissions
 - live provider mediation, fail-closed claims, or inline approval pauses
