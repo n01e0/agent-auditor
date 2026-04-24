@@ -2280,6 +2280,117 @@ mod tests {
     }
 
     #[test]
+    fn messaging_action_rego_allows_message_edits_reactions_and_typing() {
+        let edit_input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_discord_edit_allow",
+            provider_id: "discord",
+            action_key: "channels.messages.update",
+            target: "discord.channels/123456789012345678/messages/234567890123456789",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "api_observation",
+            semantic_surface: "discord.channels",
+            method: "PATCH",
+            host: "discord.com",
+            path_template: "/api/v10/channels/{channel_id}/messages/{message_id}",
+            query_class: "none",
+            primary_scope: "discord.permission:send_messages",
+            documented_scopes: &["discord.permission:send_messages"],
+            side_effect: "edits a message in a Discord channel",
+            privilege_class: "content_write",
+            action_family: "message.edit",
+            channel_hint: Some("discord.channels/123456789012345678"),
+            conversation_hint: None,
+            delivery_scope: Some("public_channel"),
+            membership_target_kind: None,
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        }));
+        let reaction_input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_discord_reaction_allow",
+            provider_id: "discord",
+            action_key: "channels.messages.reactions.create",
+            target: "discord.channels/123456789012345678/messages/234567890123456789/reactions/%F0%9F%91%8D/@me",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "api_observation",
+            semantic_surface: "discord.reactions",
+            method: "PUT",
+            host: "discord.com",
+            path_template: "/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me",
+            query_class: "none",
+            primary_scope: "discord.permission:add_reactions",
+            documented_scopes: &[
+                "discord.permission:add_reactions",
+                "discord.permission:read_message_history",
+            ],
+            side_effect: "adds a reaction to a Discord message",
+            privilege_class: "content_write",
+            action_family: "reaction.add",
+            channel_hint: Some("discord.channels/123456789012345678"),
+            conversation_hint: None,
+            delivery_scope: Some("public_channel"),
+            membership_target_kind: None,
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        }));
+        let typing_input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
+            event_id: "evt_msg_discord_typing_allow",
+            provider_id: "discord",
+            action_key: "channels.typing.trigger",
+            target: "discord.channels/123456789012345678/typing",
+            event_type: EventType::NetworkConnect,
+            action_class: ActionClass::Browser,
+            source_kind: "api_observation",
+            semantic_surface: "discord.channels",
+            method: "POST",
+            host: "discord.com",
+            path_template: "/api/v10/channels/{channel_id}/typing",
+            query_class: "none",
+            primary_scope: "discord.permission:send_messages",
+            documented_scopes: &["discord.permission:send_messages"],
+            side_effect: "triggers a typing indicator in a Discord channel",
+            privilege_class: "outbound_send",
+            action_family: "typing.indicate",
+            channel_hint: Some("discord.channels/123456789012345678"),
+            conversation_hint: None,
+            delivery_scope: Some("public_channel"),
+            membership_target_kind: None,
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        }));
+
+        let edit_decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&edit_input)
+            .expect("messaging edit rego should evaluate");
+        let reaction_decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&reaction_input)
+            .expect("messaging reaction rego should evaluate");
+        let typing_decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&typing_input)
+            .expect("messaging typing rego should evaluate");
+
+        assert_eq!(edit_decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            edit_decision.rule_id.as_deref(),
+            Some("messaging.message_edit.allow")
+        );
+        assert_eq!(reaction_decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            reaction_decision.rule_id.as_deref(),
+            Some("messaging.reaction_add.allow")
+        );
+        assert_eq!(typing_decision.decision, PolicyDecisionKind::Allow);
+        assert_eq!(
+            typing_decision.rule_id.as_deref(),
+            Some("messaging.typing_indicate.allow")
+        );
+    }
+
+    #[test]
     fn messaging_action_rego_requires_approval_for_channel_invites() {
         let input = PolicyInput::from_event(&messaging_event(MessagingEventFixture {
             event_id: "evt_msg_discord_thread_invite",

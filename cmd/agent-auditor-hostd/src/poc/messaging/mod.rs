@@ -94,6 +94,9 @@ mod tests {
             plan.taxonomy.action_families,
             vec![
                 "message.send",
+                "message.edit",
+                "reaction.add",
+                "typing.indicate",
                 "channel.invite",
                 "permission.update",
                 "file.upload",

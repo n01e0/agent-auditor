@@ -33,6 +33,7 @@ pub enum MessagingSemanticSurface {
     SlackConversations,
     SlackFiles,
     DiscordChannels,
+    DiscordReactions,
     DiscordThreads,
     DiscordPermissions,
 }
@@ -44,6 +45,7 @@ impl MessagingSemanticSurface {
             Self::SlackConversations => "slack.conversations",
             Self::SlackFiles => "slack.files",
             Self::DiscordChannels => "discord.channels",
+            Self::DiscordReactions => "discord.reactions",
             Self::DiscordThreads => "discord.threads",
             Self::DiscordPermissions => "discord.permissions",
         }
@@ -59,6 +61,9 @@ impl fmt::Display for MessagingSemanticSurface {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessagingActionFamily {
     MessageSend,
+    MessageEdit,
+    ReactionAdd,
+    TypingIndicate,
     ChannelInvite,
     PermissionUpdate,
     FileUpload,
@@ -68,6 +73,9 @@ impl MessagingActionFamily {
     pub fn label(self) -> &'static str {
         match self {
             Self::MessageSend => "message.send",
+            Self::MessageEdit => "message.edit",
+            Self::ReactionAdd => "reaction.add",
+            Self::TypingIndicate => "typing.indicate",
             Self::ChannelInvite => "channel.invite",
             Self::PermissionUpdate => "permission.update",
             Self::FileUpload => "file.upload",
@@ -77,6 +85,9 @@ impl MessagingActionFamily {
     pub fn from_label(label: &str) -> Option<Self> {
         match label {
             "message.send" => Some(Self::MessageSend),
+            "message.edit" => Some(Self::MessageEdit),
+            "reaction.add" => Some(Self::ReactionAdd),
+            "typing.indicate" => Some(Self::TypingIndicate),
             "channel.invite" => Some(Self::ChannelInvite),
             "permission.update" => Some(Self::PermissionUpdate),
             "file.upload" => Some(Self::FileUpload),
@@ -179,6 +190,9 @@ pub enum MessagingActionKind {
     SlackConversationsInvite,
     SlackFilesUploadV2,
     DiscordChannelsMessagesCreate,
+    DiscordChannelsMessagesUpdate,
+    DiscordChannelsMessagesReactionsCreate,
+    DiscordChannelsTypingTrigger,
     DiscordChannelsThreadMembersPut,
     DiscordChannelsPermissionsPut,
 }
@@ -190,6 +204,9 @@ impl MessagingActionKind {
             Self::SlackConversationsInvite => "conversations.invite",
             Self::SlackFilesUploadV2 => "files.upload_v2",
             Self::DiscordChannelsMessagesCreate => "channels.messages.create",
+            Self::DiscordChannelsMessagesUpdate => "channels.messages.update",
+            Self::DiscordChannelsMessagesReactionsCreate => "channels.messages.reactions.create",
+            Self::DiscordChannelsTypingTrigger => "channels.typing.trigger",
             Self::DiscordChannelsThreadMembersPut => "channels.thread_members.put",
             Self::DiscordChannelsPermissionsPut => "channels.permissions.put",
         }
@@ -201,6 +218,11 @@ impl MessagingActionKind {
             ("slack", "conversations.invite") => Some(Self::SlackConversationsInvite),
             ("slack", "files.upload_v2") => Some(Self::SlackFilesUploadV2),
             ("discord", "channels.messages.create") => Some(Self::DiscordChannelsMessagesCreate),
+            ("discord", "channels.messages.update") => Some(Self::DiscordChannelsMessagesUpdate),
+            ("discord", "channels.messages.reactions.create") => {
+                Some(Self::DiscordChannelsMessagesReactionsCreate)
+            }
+            ("discord", "channels.typing.trigger") => Some(Self::DiscordChannelsTypingTrigger),
             ("discord", "channels.thread_members.put") => {
                 Some(Self::DiscordChannelsThreadMembersPut)
             }
@@ -214,6 +236,9 @@ impl MessagingActionKind {
             Self::SlackChatPostMessage | Self::DiscordChannelsMessagesCreate => {
                 MessagingActionFamily::MessageSend
             }
+            Self::DiscordChannelsMessagesUpdate => MessagingActionFamily::MessageEdit,
+            Self::DiscordChannelsMessagesReactionsCreate => MessagingActionFamily::ReactionAdd,
+            Self::DiscordChannelsTypingTrigger => MessagingActionFamily::TypingIndicate,
             Self::SlackConversationsInvite | Self::DiscordChannelsThreadMembersPut => {
                 MessagingActionFamily::ChannelInvite
             }
@@ -227,7 +252,12 @@ impl MessagingActionKind {
             Self::SlackChatPostMessage => MessagingSemanticSurface::SlackChat,
             Self::SlackConversationsInvite => MessagingSemanticSurface::SlackConversations,
             Self::SlackFilesUploadV2 => MessagingSemanticSurface::SlackFiles,
-            Self::DiscordChannelsMessagesCreate => MessagingSemanticSurface::DiscordChannels,
+            Self::DiscordChannelsMessagesCreate
+            | Self::DiscordChannelsMessagesUpdate
+            | Self::DiscordChannelsTypingTrigger => MessagingSemanticSurface::DiscordChannels,
+            Self::DiscordChannelsMessagesReactionsCreate => {
+                MessagingSemanticSurface::DiscordReactions
+            }
             Self::DiscordChannelsThreadMembersPut => MessagingSemanticSurface::DiscordThreads,
             Self::DiscordChannelsPermissionsPut => MessagingSemanticSurface::DiscordPermissions,
         }
@@ -241,6 +271,9 @@ impl MessagingActionKind {
                 ProviderId::new("slack").expect("slack provider id should be valid")
             }
             Self::DiscordChannelsMessagesCreate
+            | Self::DiscordChannelsMessagesUpdate
+            | Self::DiscordChannelsMessagesReactionsCreate
+            | Self::DiscordChannelsTypingTrigger
             | Self::DiscordChannelsThreadMembersPut
             | Self::DiscordChannelsPermissionsPut => {
                 ProviderId::new("discord").expect("discord provider id should be valid")
@@ -286,6 +319,15 @@ impl MessagingActionKind {
             Self::DiscordChannelsMessagesCreate => {
                 "Discord channel message creation maps to the shared message.send collaboration family"
             }
+            Self::DiscordChannelsMessagesUpdate => {
+                "Discord channel message edits map to the shared message.edit collaboration family"
+            }
+            Self::DiscordChannelsMessagesReactionsCreate => {
+                "Discord message reaction adds map to the shared reaction.add collaboration family"
+            }
+            Self::DiscordChannelsTypingTrigger => {
+                "Discord typing indicators map to the shared typing.indicate collaboration family"
+            }
             Self::DiscordChannelsThreadMembersPut => {
                 "Discord thread member add maps to the shared channel.invite collaboration family"
             }
@@ -300,7 +342,10 @@ impl MessagingActionKind {
             Self::SlackChatPostMessage
             | Self::SlackConversationsInvite
             | Self::SlackFilesUploadV2
-            | Self::DiscordChannelsMessagesCreate => Some(DeliveryScope::PublicChannel),
+            | Self::DiscordChannelsMessagesCreate
+            | Self::DiscordChannelsMessagesUpdate
+            | Self::DiscordChannelsMessagesReactionsCreate
+            | Self::DiscordChannelsTypingTrigger => Some(DeliveryScope::PublicChannel),
             Self::DiscordChannelsThreadMembersPut => Some(DeliveryScope::Thread),
             Self::DiscordChannelsPermissionsPut => None,
         }
@@ -416,6 +461,51 @@ impl MessagingProviderActionCandidate {
             "/api/v10/channels/{channel_id}/messages",
             QueryClass::ActionArguments,
             "creates a message in a Discord channel",
+            PrivilegeClass::OutboundSend,
+            None,
+        )
+    }
+
+    pub fn preview_discord_channels_messages_update() -> Self {
+        Self::preview(
+            MessagingSignalSource::ApiObservation,
+            MessagingActionKind::DiscordChannelsMessagesUpdate,
+            "discord.channels/123456789012345678/messages/234567890123456789",
+            ProviderMethod::Patch,
+            "discord.com",
+            "/api/v10/channels/{channel_id}/messages/{message_id}",
+            QueryClass::None,
+            "edits a message in a Discord channel",
+            PrivilegeClass::ContentWrite,
+            None,
+        )
+    }
+
+    pub fn preview_discord_channels_messages_reactions_create() -> Self {
+        Self::preview(
+            MessagingSignalSource::ApiObservation,
+            MessagingActionKind::DiscordChannelsMessagesReactionsCreate,
+            "discord.channels/123456789012345678/messages/234567890123456789/reactions/%F0%9F%91%8D/@me",
+            ProviderMethod::Put,
+            "discord.com",
+            "/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me",
+            QueryClass::None,
+            "adds a reaction to a Discord message",
+            PrivilegeClass::ContentWrite,
+            None,
+        )
+    }
+
+    pub fn preview_discord_channels_typing_trigger() -> Self {
+        Self::preview(
+            MessagingSignalSource::ApiObservation,
+            MessagingActionKind::DiscordChannelsTypingTrigger,
+            "discord.channels/123456789012345678/typing",
+            ProviderMethod::Post,
+            "discord.com",
+            "/api/v10/channels/{channel_id}/typing",
+            QueryClass::None,
+            "triggers a typing indicator in a Discord channel",
             PrivilegeClass::OutboundSend,
             None,
         )
@@ -595,12 +685,28 @@ mod tests {
             MessagingActionFamily::FileUpload
         );
         assert_eq!(
+            MessagingActionKind::DiscordChannelsMessagesUpdate.family(),
+            MessagingActionFamily::MessageEdit
+        );
+        assert_eq!(
+            MessagingActionKind::DiscordChannelsMessagesReactionsCreate.family(),
+            MessagingActionFamily::ReactionAdd
+        );
+        assert_eq!(
+            MessagingActionKind::DiscordChannelsTypingTrigger.family(),
+            MessagingActionFamily::TypingIndicate
+        );
+        assert_eq!(
             MessagingActionKind::DiscordChannelsPermissionsPut.family(),
             MessagingActionFamily::PermissionUpdate
         );
         assert_eq!(
             MessagingActionKind::DiscordChannelsMessagesCreate.surface(),
             MessagingSemanticSurface::DiscordChannels
+        );
+        assert_eq!(
+            MessagingActionKind::DiscordChannelsMessagesReactionsCreate.surface(),
+            MessagingSemanticSurface::DiscordReactions
         );
         assert!(MessagingActionKind::from_label("slack", "chat.delete").is_none());
     }
@@ -628,6 +734,26 @@ mod tests {
         assert_eq!(
             discord_permission.provider_action.target_hint(),
             "discord.channels/123456789012345678/permissions/role:345678901234567890"
+        );
+        assert_eq!(
+            MessagingProviderActionCandidate::preview_discord_channels_messages_update()
+                .provider_action
+                .action_key
+                .as_str(),
+            "channels.messages.update"
+        );
+        assert_eq!(
+            MessagingProviderActionCandidate::preview_discord_channels_messages_reactions_create()
+                .provider_action
+                .action_key
+                .as_str(),
+            "channels.messages.reactions.create"
+        );
+        assert_eq!(
+            MessagingProviderActionCandidate::preview_discord_channels_typing_trigger()
+                .provider_action
+                .target_hint(),
+            "discord.channels/123456789012345678/typing"
         );
         assert_eq!(
             MessagingProviderActionCandidate::preview_slack_files_upload_v2().attachment_count_hint,

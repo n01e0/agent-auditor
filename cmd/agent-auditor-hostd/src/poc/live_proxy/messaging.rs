@@ -60,6 +60,9 @@ impl Default for MessagingLivePreviewAdapterPlan {
                 "slack:conversations.invite",
                 "slack:files.upload_v2",
                 "discord:channels.messages.create",
+                "discord:channels.messages.update",
+                "discord:channels.messages.reactions.create",
+                "discord:channels.typing.trigger",
                 "discord:channels.thread_members.put",
                 "discord:channels.permissions.put",
             ],
@@ -106,6 +109,21 @@ impl MessagingLivePreviewAdapterPlan {
             .expect("Discord message create preview should classify")
     }
 
+    pub fn preview_discord_channels_messages_update(&self) -> ClassifiedMessagingAction {
+        self.classify_live_preview(&preview_discord_channels_messages_update())
+            .expect("Discord message update preview should classify")
+    }
+
+    pub fn preview_discord_channels_messages_reactions_create(&self) -> ClassifiedMessagingAction {
+        self.classify_live_preview(&preview_discord_channels_messages_reactions_create())
+            .expect("Discord reaction add preview should classify")
+    }
+
+    pub fn preview_discord_channels_typing_trigger(&self) -> ClassifiedMessagingAction {
+        self.classify_live_preview(&preview_discord_channels_typing_trigger())
+            .expect("Discord typing preview should classify")
+    }
+
     pub fn preview_discord_channels_thread_members_put(&self) -> ClassifiedMessagingAction {
         self.classify_live_preview(&preview_discord_channels_thread_members_put())
             .expect("Discord thread member add preview should classify")
@@ -132,6 +150,9 @@ enum MatchedMessagingRoute {
     SlackConversationsInvite { target_hint: String },
     SlackFilesUploadV2 { target_hint: String },
     DiscordChannelsMessagesCreate { target_hint: String },
+    DiscordChannelsMessagesUpdate { target_hint: String },
+    DiscordChannelsMessagesReactionsCreate { target_hint: String },
+    DiscordChannelsTypingTrigger { target_hint: String },
     DiscordChannelsThreadMembersPut { target_hint: String },
     DiscordChannelsPermissionsPut { target_hint: String },
 }
@@ -249,6 +270,42 @@ fn provider_candidate_from_live_envelope(
             PrivilegeClass::OutboundSend,
             None,
         ),
+        MatchedMessagingRoute::DiscordChannelsMessagesUpdate { target_hint } => candidate(
+            envelope.source,
+            MessagingActionKind::DiscordChannelsMessagesUpdate,
+            target_hint,
+            ProviderMethod::Patch,
+            "discord.com",
+            "/api/v10/channels/{channel_id}/messages/{message_id}",
+            QueryClass::None,
+            "edits a message in a Discord channel",
+            PrivilegeClass::ContentWrite,
+            None,
+        ),
+        MatchedMessagingRoute::DiscordChannelsMessagesReactionsCreate { target_hint } => candidate(
+            envelope.source,
+            MessagingActionKind::DiscordChannelsMessagesReactionsCreate,
+            target_hint,
+            ProviderMethod::Put,
+            "discord.com",
+            "/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me",
+            QueryClass::None,
+            "adds a reaction to a Discord message",
+            PrivilegeClass::ContentWrite,
+            None,
+        ),
+        MatchedMessagingRoute::DiscordChannelsTypingTrigger { target_hint } => candidate(
+            envelope.source,
+            MessagingActionKind::DiscordChannelsTypingTrigger,
+            target_hint,
+            ProviderMethod::Post,
+            "discord.com",
+            "/api/v10/channels/{channel_id}/typing",
+            QueryClass::None,
+            "triggers a typing indicator in a Discord channel",
+            PrivilegeClass::OutboundSend,
+            None,
+        ),
         MatchedMessagingRoute::DiscordChannelsThreadMembersPut { target_hint } => candidate(
             envelope.source,
             MessagingActionKind::DiscordChannelsThreadMembersPut,
@@ -358,6 +415,42 @@ fn match_messaging_route(
                     ["api", "v10", "channels", channel_id, "messages"],
                 ) => Ok(MatchedMessagingRoute::DiscordChannelsMessagesCreate {
                     target_hint: format!("discord.channels/{}/messages", channel_id),
+                }),
+                (
+                    ProviderMethod::Patch,
+                    "discord.com",
+                    ["api", "v10", "channels", channel_id, "messages", message_id],
+                ) => Ok(MatchedMessagingRoute::DiscordChannelsMessagesUpdate {
+                    target_hint: format!("discord.channels/{}/messages/{}", channel_id, message_id),
+                }),
+                (
+                    ProviderMethod::Put,
+                    "discord.com",
+                    [
+                        "api",
+                        "v10",
+                        "channels",
+                        channel_id,
+                        "messages",
+                        message_id,
+                        "reactions",
+                        emoji,
+                        me,
+                    ],
+                ) if *me == "@me" || *me == "%40me" => Ok(
+                    MatchedMessagingRoute::DiscordChannelsMessagesReactionsCreate {
+                        target_hint: format!(
+                            "discord.channels/{}/messages/{}/reactions/{}/@me",
+                            channel_id, message_id, emoji
+                        ),
+                    },
+                ),
+                (
+                    ProviderMethod::Post,
+                    "discord.com",
+                    ["api", "v10", "channels", channel_id, "typing"],
+                ) => Ok(MatchedMessagingRoute::DiscordChannelsTypingTrigger {
+                    target_hint: format!("discord.channels/{}/typing", channel_id),
                 }),
                 (
                     ProviderMethod::Put,
@@ -565,6 +658,89 @@ fn preview_discord_channels_thread_members_put() -> GenericLiveActionEnvelope {
     )
 }
 
+fn preview_discord_channels_messages_update() -> GenericLiveActionEnvelope {
+    GenericLiveActionEnvelope::new(
+        LiveCaptureSource::ForwardProxy,
+        LiveRequestId::new("req_live_proxy_discord_channels_messages_update_preview").unwrap(),
+        LiveCorrelationId::new("corr_live_proxy_discord_channels_messages_update_preview").unwrap(),
+        "sess_live_proxy_discord_channels_messages_update_preview",
+        Some("openclaw-main".to_owned()),
+        Some("agent-auditor".to_owned()),
+        Some(discord_provider_id()),
+        LiveCorrelationStatus::Confirmed,
+        LiveSurface::http_request(),
+        LiveTransport::new("https").unwrap(),
+        ProviderMethod::Patch,
+        RestHost::new("discord.com").unwrap(),
+        LivePath::new("/api/v10/channels/123456789012345678/messages/234567890123456789").unwrap(),
+        LiveHeaders::new([
+            LiveHeaderClass::Authorization,
+            LiveHeaderClass::ContentJson,
+            LiveHeaderClass::MessageMetadata,
+        ]),
+        LiveBodyClass::Json,
+        LiveAuthHint::Bearer,
+        None,
+        LiveInterceptionMode::Shadow,
+    )
+}
+
+fn preview_discord_channels_messages_reactions_create() -> GenericLiveActionEnvelope {
+    GenericLiveActionEnvelope::new(
+        LiveCaptureSource::ForwardProxy,
+        LiveRequestId::new(
+            "req_live_proxy_discord_channels_messages_reactions_create_preview",
+        )
+        .unwrap(),
+        LiveCorrelationId::new(
+            "corr_live_proxy_discord_channels_messages_reactions_create_preview",
+        )
+        .unwrap(),
+        "sess_live_proxy_discord_channels_messages_reactions_create_preview",
+        Some("openclaw-main".to_owned()),
+        Some("agent-auditor".to_owned()),
+        Some(discord_provider_id()),
+        LiveCorrelationStatus::Confirmed,
+        LiveSurface::http_request(),
+        LiveTransport::new("https").unwrap(),
+        ProviderMethod::Put,
+        RestHost::new("discord.com").unwrap(),
+        LivePath::new("/api/v10/channels/123456789012345678/messages/234567890123456789/reactions/%F0%9F%91%8D/@me")
+            .unwrap(),
+        LiveHeaders::new([LiveHeaderClass::Authorization, LiveHeaderClass::BrowserFetch]),
+        LiveBodyClass::None,
+        LiveAuthHint::Bearer,
+        None,
+        LiveInterceptionMode::Shadow,
+    )
+}
+
+fn preview_discord_channels_typing_trigger() -> GenericLiveActionEnvelope {
+    GenericLiveActionEnvelope::new(
+        LiveCaptureSource::ForwardProxy,
+        LiveRequestId::new("req_live_proxy_discord_channels_typing_trigger_preview").unwrap(),
+        LiveCorrelationId::new("corr_live_proxy_discord_channels_typing_trigger_preview").unwrap(),
+        "sess_live_proxy_discord_channels_typing_trigger_preview",
+        Some("openclaw-main".to_owned()),
+        Some("agent-auditor".to_owned()),
+        Some(discord_provider_id()),
+        LiveCorrelationStatus::Confirmed,
+        LiveSurface::http_request(),
+        LiveTransport::new("https").unwrap(),
+        ProviderMethod::Post,
+        RestHost::new("discord.com").unwrap(),
+        LivePath::new("/api/v10/channels/123456789012345678/typing").unwrap(),
+        LiveHeaders::new([
+            LiveHeaderClass::Authorization,
+            LiveHeaderClass::BrowserFetch,
+        ]),
+        LiveBodyClass::None,
+        LiveAuthHint::Bearer,
+        None,
+        LiveInterceptionMode::Shadow,
+    )
+}
+
 fn preview_discord_channels_permissions_put() -> GenericLiveActionEnvelope {
     GenericLiveActionEnvelope::new(
         LiveCaptureSource::ForwardProxy,
@@ -618,6 +794,9 @@ mod tests {
                 "slack:conversations.invite",
                 "slack:files.upload_v2",
                 "discord:channels.messages.create",
+                "discord:channels.messages.update",
+                "discord:channels.messages.reactions.create",
+                "discord:channels.typing.trigger",
                 "discord:channels.thread_members.put",
                 "discord:channels.permissions.put",
             ]
@@ -654,6 +833,24 @@ mod tests {
             "message.send"
         );
         assert_eq!(
+            plan.preview_discord_channels_messages_update()
+                .action_family
+                .to_string(),
+            "message.edit"
+        );
+        assert_eq!(
+            plan.preview_discord_channels_messages_reactions_create()
+                .action_family
+                .to_string(),
+            "reaction.add"
+        );
+        assert_eq!(
+            plan.preview_discord_channels_typing_trigger()
+                .action_family
+                .to_string(),
+            "typing.indicate"
+        );
+        assert_eq!(
             plan.preview_discord_channels_thread_members_put()
                 .action_family
                 .to_string(),
@@ -669,6 +866,12 @@ mod tests {
                 .permission_target_kind
                 .map(|kind| kind.to_string()),
             Some("channel_permission_overwrite".to_owned())
+        );
+
+        let discord_reaction = plan.preview_discord_channels_messages_reactions_create();
+        assert_eq!(
+            discord_reaction.channel_hint.as_deref(),
+            Some("discord.channels/123456789012345678")
         );
     }
 
