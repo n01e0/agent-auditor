@@ -158,7 +158,11 @@ fn hostd_messaging_observed_smoke_preserves_runtime_lineage_into_durable_audit()
     );
     assert_eq!(
         persisted_audit["action"]["attributes"]["validation_status"],
-        Value::Null
+        json!("validated_observation")
+    );
+    assert_eq!(
+        persisted_audit["action"]["attributes"]["validation_capture_source"],
+        json!("forward_proxy_observed_runtime_path")
     );
     assert_eq!(persisted_audit["result"]["status"], json!("allowed"));
 
@@ -172,11 +176,15 @@ fn hostd_messaging_observed_smoke_preserves_runtime_lineage_into_durable_audit()
     );
     assert_eq!(
         persisted_audit_observation_local_inspection["validation_status"],
-        json!("observed_request")
+        json!("validated_observation")
     );
     assert_eq!(
         persisted_audit_observation_local_inspection["evidence_tier"],
-        json!("observed_request")
+        json!("validated_observation")
+    );
+    assert_eq!(
+        persisted_audit_observation_local_inspection["capture_source"],
+        json!("forward_proxy_observed_runtime_path")
     );
     assert_eq!(
         persisted_audit_observation_local_inspection["session_correlation_status"],

@@ -166,6 +166,17 @@ fn hermes_discord_permission_update_integrates_policy_into_durable_audit() {
         Some(&json!("runtime_path_confirmed"))
     );
     assert_eq!(
+        persisted_audit.action.attributes.get("validation_status"),
+        Some(&json!("validated_observation"))
+    );
+    assert_eq!(
+        persisted_audit
+            .action
+            .attributes
+            .get("validation_capture_source"),
+        Some(&json!("forward_proxy_observed_runtime_path"))
+    );
+    assert_eq!(
         messaging_observed
             .store()
             .latest_approval_request()
@@ -180,11 +191,11 @@ fn hermes_discord_permission_update_integrates_policy_into_durable_audit() {
     );
     assert_eq!(
         inspection.validation_status,
-        Some(ObservationValidationStatus::ObservedRequest)
+        Some(ObservationValidationStatus::ValidatedObservation)
     );
     assert_eq!(
         inspection.evidence_tier,
-        Some(ObservationEvidenceTier::ObservedRequest)
+        Some(ObservationEvidenceTier::ValidatedObservation)
     );
     assert_eq!(
         inspection.session_correlation_status.as_deref(),

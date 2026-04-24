@@ -8,6 +8,7 @@ use agenta_policy::{
 use thiserror::Error;
 
 use super::contract::{PolicyBoundary, RecordBoundary};
+use crate::poc::live_proxy::session_correlation::ObservedRuntimePath;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordPlan {
@@ -57,7 +58,9 @@ impl RecordPlan {
             });
         }
 
-        Ok(apply_decision_to_event(event, decision))
+        let mut reflected = apply_decision_to_event(event, decision);
+        annotate_hermes_discord_validated_event(&mut reflected);
+        Ok(reflected)
     }
 
     pub fn reflect_hold(
@@ -85,10 +88,13 @@ impl RecordPlan {
             expires_at: approval_request.expires_at,
         };
 
-        Ok((
-            apply_enforcement_to_event(&decision_applied, &enforcement),
-            apply_enforcement_to_approval_request(approval_request, &enforcement),
-        ))
+        let mut reflected_event = apply_enforcement_to_event(&decision_applied, &enforcement);
+        annotate_hermes_discord_validated_event(&mut reflected_event);
+        let mut reflected_request =
+            apply_enforcement_to_approval_request(approval_request, &enforcement);
+        annotate_hermes_discord_validated_request(&mut reflected_request);
+
+        Ok((reflected_event, reflected_request))
     }
 
     pub fn reflect_deny(
@@ -115,7 +121,9 @@ impl RecordPlan {
             expires_at: None,
         };
 
-        Ok(apply_enforcement_to_event(&decision_applied, &enforcement))
+        let mut reflected = apply_enforcement_to_event(&decision_applied, &enforcement);
+        annotate_hermes_discord_validated_event(&mut reflected);
+        Ok(reflected)
     }
 
     pub fn handoff(&self) -> RecordBoundary {
@@ -151,6 +159,63 @@ pub enum RecordReflectionError {
         expected: PolicyDecisionKind,
         actual: PolicyDecisionKind,
     },
+}
+
+fn annotate_hermes_discord_validated_event(event: &mut EventEnvelope) {
+    if !is_hermes_discord_validated_attributes(&event.action.attributes) {
+        return;
+    }
+
+    event
+        .action
+        .attributes
+        .entry("validation_status".to_owned())
+        .or_insert_with(|| serde_json::json!("validated_observation"));
+    event
+        .action
+        .attributes
+        .entry("validation_capture_source".to_owned())
+        .or_insert_with(|| serde_json::json!(ObservedRuntimePath::SOURCE_LABEL));
+}
+
+fn annotate_hermes_discord_validated_request(request: &mut ApprovalRequest) {
+    if !is_hermes_discord_validated_attributes(&request.request.attributes) {
+        return;
+    }
+
+    request
+        .request
+        .attributes
+        .entry("validation_status".to_owned())
+        .or_insert_with(|| serde_json::json!("validated_observation"));
+    request
+        .request
+        .attributes
+        .entry("validation_capture_source".to_owned())
+        .or_insert_with(|| serde_json::json!(ObservedRuntimePath::SOURCE_LABEL));
+}
+
+fn is_hermes_discord_validated_attributes(attributes: &agenta_core::JsonMap) -> bool {
+    let provider_id = string_attribute(attributes, "provider_id");
+    let action_key = string_attribute(attributes, "action_key");
+
+    matches!(
+        provider_id.as_deref().zip(action_key.as_deref()),
+        Some(("discord", action_key))
+            if super::contract::MessagingActionKind::from_label("discord", action_key).is_some()
+    ) && string_attribute(attributes, "live_request_source_kind").as_deref()
+        == Some("live_proxy_observed")
+        && string_attribute(attributes, "session_correlation_status").as_deref()
+            == Some("runtime_path_confirmed")
+        && string_attribute(attributes, "request_id").is_some()
+        && string_attribute(attributes, "correlation_id").is_some()
+}
+
+fn string_attribute(attributes: &agenta_core::JsonMap, key: &str) -> Option<String> {
+    attributes
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
 }
 
 #[cfg(test)]
@@ -304,6 +369,137 @@ mod tests {
         assert_eq!(
             deny_enriched.enforcement.as_ref().map(|info| info.status),
             Some(agenta_core::EnforcementStatus::Denied)
+        );
+    }
+
+    #[test]
+    fn record_plan_promotes_live_discord_records_to_validated_observation() {
+        let taxonomy = TaxonomyPlan::default();
+        let policy = PolicyPlan::from_contract_boundary(taxonomy.handoff());
+        let plan = RecordPlan::from_policy_boundary(policy.handoff());
+
+        let mut allow_observed = fixture_event(MessagingFixture {
+            event_id: "evt_msg_discord_send_validated",
+            provider_id: "discord",
+            action_key: "channels.messages.create",
+            target: "discord.channels/123456789012345678/messages",
+            semantic_surface: "discord.channels",
+            method: "POST",
+            host: "discord.com",
+            path_template: "/api/v10/channels/123456789012345678/messages",
+            query_class: "action_arguments",
+            primary_scope: "discord.permission:send_messages",
+            documented_scopes: &["discord.permission:send_messages"],
+            side_effect: "sends a message into a Discord channel",
+            privilege_class: "outbound_send",
+            action_family: "message.send",
+            channel_hint: Some("discord.channels/123456789012345678"),
+            conversation_hint: None,
+            delivery_scope: Some("public_channel"),
+            membership_target_kind: None,
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        });
+        annotate_live_discord_observation(&mut allow_observed);
+        let allow_decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&PolicyInput::from_event(&allow_observed))
+            .expect("allow decision should evaluate");
+        let allow_reflected = plan
+            .reflect_allow(&allow_observed, &allow_decision)
+            .expect("allow reflection should succeed");
+        assert_eq!(
+            allow_reflected.action.attributes.get("validation_status"),
+            Some(&json!("validated_observation"))
+        );
+        assert_eq!(
+            allow_reflected
+                .action
+                .attributes
+                .get("validation_capture_source"),
+            Some(&json!("forward_proxy_observed_runtime_path"))
+        );
+
+        let mut hold_observed = fixture_event(MessagingFixture {
+            event_id: "evt_msg_discord_invite_validated",
+            provider_id: "discord",
+            action_key: "channels.thread_members.put",
+            target: "discord.threads/123456789012345678/members/234567890123456789",
+            semantic_surface: "discord.threads",
+            method: "PUT",
+            host: "discord.com",
+            path_template: "/api/v10/channels/{thread_id}/thread-members/{user_id}",
+            query_class: "none",
+            primary_scope: "discord.permission:create_public_threads",
+            documented_scopes: &[
+                "discord.permission:create_public_threads",
+                "discord.permission:send_messages_in_threads",
+            ],
+            side_effect: "adds a member into a Discord thread",
+            privilege_class: "sharing_write",
+            action_family: "channel.invite",
+            channel_hint: None,
+            conversation_hint: Some("discord.threads/123456789012345678"),
+            delivery_scope: Some("thread"),
+            membership_target_kind: Some("thread_member"),
+            permission_target_kind: None,
+            file_target_kind: None,
+            attachment_count_hint: None,
+        });
+        annotate_live_discord_observation(&mut hold_observed);
+        let hold_decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&PolicyInput::from_event(&hold_observed))
+            .expect("hold decision should evaluate");
+        let hold_request = approval_request_from_decision(
+            &agenta_policy::apply_decision_to_event(&hold_observed, &hold_decision),
+            &hold_decision,
+        )
+        .expect("hold decision should yield approval request");
+        let (hold_reflected, hold_request) = plan
+            .reflect_hold(&hold_observed, &hold_decision, &hold_request)
+            .expect("hold reflection should succeed");
+        assert_eq!(
+            hold_reflected.action.attributes.get("validation_status"),
+            Some(&json!("validated_observation"))
+        );
+        assert_eq!(
+            hold_request.request.attributes.get("validation_status"),
+            Some(&json!("validated_observation"))
+        );
+
+        let mut deny_observed = fixture_event(MessagingFixture {
+            event_id: "evt_msg_discord_permission_validated",
+            provider_id: "discord",
+            action_key: "channels.permissions.put",
+            target: "discord.channels/123456789012345678/permissions/role:345678901234567890",
+            semantic_surface: "discord.permissions",
+            method: "PUT",
+            host: "discord.com",
+            path_template: "/api/v10/channels/{channel_id}/permissions/{overwrite_id}",
+            query_class: "none",
+            primary_scope: "discord.permission:manage_roles",
+            documented_scopes: &["discord.permission:manage_channels"],
+            side_effect: "updates a Discord channel permission overwrite",
+            privilege_class: "sharing_write",
+            action_family: "permission.update",
+            channel_hint: Some("discord.channels/123456789012345678"),
+            conversation_hint: None,
+            delivery_scope: None,
+            membership_target_kind: None,
+            permission_target_kind: Some("channel_permission_overwrite"),
+            file_target_kind: None,
+            attachment_count_hint: None,
+        });
+        annotate_live_discord_observation(&mut deny_observed);
+        let deny_decision = RegoPolicyEvaluator::messaging_action_example()
+            .evaluate(&PolicyInput::from_event(&deny_observed))
+            .expect("deny decision should evaluate");
+        let deny_reflected = plan
+            .reflect_deny(&deny_observed, &deny_decision)
+            .expect("deny reflection should succeed");
+        assert_eq!(
+            deny_reflected.action.attributes.get("validation_status"),
+            Some(&json!("validated_observation"))
         );
     }
 
@@ -515,5 +711,24 @@ mod tests {
                 ppid: None,
             },
         )
+    }
+
+    fn annotate_live_discord_observation(event: &mut EventEnvelope) {
+        event.action.attributes.insert(
+            "observation_provenance".to_owned(),
+            json!("observed_request"),
+        );
+        event.action.attributes.insert(
+            "live_request_source_kind".to_owned(),
+            json!("live_proxy_observed"),
+        );
+        event.action.attributes.insert(
+            "session_correlation_status".to_owned(),
+            json!("runtime_path_confirmed"),
+        );
+        event.action.attributes.insert(
+            "correlation_id".to_owned(),
+            json!(format!("corr_{}", event.event_id)),
+        );
     }
 }
