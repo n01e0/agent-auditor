@@ -12,6 +12,8 @@ Deployment packaging is still minimal. The repository currently ships architectu
   - [`../docs/architecture/deployment-hardening-minimums.md`](../docs/architecture/deployment-hardening-minimums.md)
 - container proxy topology boundary for OpenClaw / Hermes:
   - [`../docs/architecture/container-proxy-topologies.md`](../docs/architecture/container-proxy-topologies.md)
+- remote `observed-runtime` ingress contract for the later `live proxy -> remote hostd` handoff:
+  - [`../docs/architecture/observed-runtime-remote-ingress-contract.md`](../docs/architecture/observed-runtime-remote-ingress-contract.md)
 - real-runtime audit readiness boundary for the handoff from stand-in runtimes to real OpenClaw / Hermes verification:
   - [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md)
 - the current source-of-truth runbook for a separate-machine audit preview setup:
@@ -50,8 +52,9 @@ Deployment packaging is still minimal. The repository currently ships architectu
 
 ## Compose topologies
 
-`compose.yaml` now ships two proxy topologies that write into the same hostd observed-runtime contract.
+`compose.yaml` now ships two proxy topologies that write into the same hostd **local-volume** observed-runtime contract.
 The boundary and non-goals are fixed in [`../docs/architecture/container-proxy-topologies.md`](../docs/architecture/container-proxy-topologies.md).
+That same-host `/state` contract is still a preview/bring-up path; the follow-on boundary-crossing `live proxy -> remote hostd` contract is documented in [`../docs/architecture/observed-runtime-remote-ingress-contract.md`](../docs/architecture/observed-runtime-remote-ingress-contract.md).
 
 - **A / default**: explicit forward proxy per runtime
   - `openclaw-runtime -> openclaw-forward-proxy -> hostd`
@@ -106,6 +109,8 @@ It fixes the minimum path for:
 - locating the durable `/state/agent-auditor-hostd*-store/` audit and approval files
 - using `agent-auditor-cli audit ... --state-dir /state` to derive the checked-in local inspection view
 - distinguishing plain wiring success from `observed_request` and `validated_observation`
+
+That runbook is intentionally about the checked-in same-host `/state` inspection path, not the later remote-ingest topology.
 
 ## OpenClaw real-runtime handoff
 

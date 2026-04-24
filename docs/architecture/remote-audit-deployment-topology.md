@@ -9,6 +9,7 @@ The purpose of P19-2 is narrow:
 - make the trust boundary explicit so follow-on implementation work does not slide back into same-host preview storage
 
 This note builds on [`remote-audit-integrity-boundary.md`](remote-audit-integrity-boundary.md).
+The concrete `live proxy -> remote hostd` handoff that crosses this topology boundary is documented in [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md).
 It does **not** choose the final store engine, wire protocol, hash-chain format, or production hardening posture.
 
 ## minimum topology at a glance
@@ -224,6 +225,7 @@ If question 4 is "yes", the topology is still not sufficient.
 ## related docs
 
 - remote audit integrity boundary: [`remote-audit-integrity-boundary.md`](remote-audit-integrity-boundary.md)
+- observed-runtime remote ingress contract: [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md)
 - architecture overview: [`overview.md`](overview.md)
 - container proxy topologies: [`container-proxy-topologies.md`](container-proxy-topologies.md)
 - real-runtime audit readiness boundary: [`real-runtime-audit-readiness-boundary.md`](real-runtime-audit-readiness-boundary.md)
