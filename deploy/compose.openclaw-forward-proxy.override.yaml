@@ -14,3 +14,6 @@ services:
       HTTP_PROXY: ${OPENCLAW_RUNTIME_HTTP_PROXY:-http://openclaw-forward-proxy:8080}
       HTTPS_PROXY: ${OPENCLAW_RUNTIME_HTTPS_PROXY:-http://openclaw-forward-proxy:8080}
       NO_PROXY: ${OPENCLAW_RUNTIME_NO_PROXY:-hostd,localhost,127.0.0.1}
+      AGENT_AUDITOR_PROXY_CA_CERT: ${OPENCLAW_RUNTIME_PROXY_CA_CERT_PATH:-/opt/agent-auditor/certs/mitmproxy-ca-cert.pem}
+    volumes:
+      - ${OPENCLAW_RUNTIME_PROXY_CA_CERT:-./local/mitmproxy-ca/openclaw/mitmproxy-ca-cert.pem}:${OPENCLAW_RUNTIME_PROXY_CA_CERT_PATH:-/opt/agent-auditor/certs/mitmproxy-ca-cert.pem}:ro
