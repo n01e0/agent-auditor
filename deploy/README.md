@@ -236,6 +236,7 @@ Contract notes:
 - `hermes-runtime-real` uses the real image's default entrypoint/command. The override only injects proxy env plus `env_file:`.
 - the paired `hermes-forward-proxy` service still owns `HERMES_SESSION_ID`, `HERMES_AGENT_ID`, and `HERMES_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `HERMES_RUNTIME_HTTP_PROXY` / `HERMES_RUNTIME_HTTPS_PROXY` default to `http://hermes-forward-proxy:8080` so the real container stays on topology A.
+- the runtime env sample now fixes the Hermes-side env contract too: reuse `http_proxy` / `https_proxy` / `no_proxy` if the launcher or bundled tools require lowercase aliases, and point `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, `CURL_CA_BUNDLE`, or `GIT_SSL_CAINFO` at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem` when the image relies on env-based trust instead of the OS trust store.
 - dev trust bootstrap for HTTPS interception is documented separately in [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md). Production CA distribution is still out of scope.
 
 ## OpenClaw real runtime on topology B / sidecar profile
@@ -327,6 +328,7 @@ Contract notes:
 - `hermes-proxy-real-sidecar` shares the runtime network namespace with `network_mode: service:hermes-runtime-real-sidecar`, so the real container reaches the loopback proxy at `127.0.0.1:8080`.
 - the paired sidecar proxy still owns `SIDECAR_HERMES_SESSION_ID`, `SIDECAR_HERMES_AGENT_ID`, and `SIDECAR_HERMES_WORKSPACE_ID`; that is the lineage that reaches hostd observed-runtime storage.
 - `HERMES_SIDECAR_RUNTIME_HTTP_PROXY` / `HERMES_SIDECAR_RUNTIME_HTTPS_PROXY` default to `http://127.0.0.1:8080` so the real container stays on topology B.
+- the sidecar runtime env sample fixes the same Hermes-side contract with the loopback proxy endpoint and the mounted CA path `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`, including lowercase proxy aliases and client-specific trust envs for curl/git-style helpers when needed.
 - `hermes-proxy-real-sidecar` also reuses the persisted `hermes-mitmproxy-ca` volume, so you can mint/export the CA before you start the real sidecar runtime.
 - dev trust bootstrap for HTTPS interception is documented separately in [`../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md`](../docs/runbooks/real-runtime-proxy-trust-bootstrap-dev.md). Production CA distribution is still out of scope.
 
