@@ -22,6 +22,9 @@ x-proxy-base: &proxy-base
   init: true
   restart: unless-stopped
   environment:
+    HOME: /home/mitmproxy
+    AGENT_AUDITOR_PROXY_CA_DIR: /home/mitmproxy/.mitmproxy
+    AGENT_AUDITOR_PROXY_CA_CERT: /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem
     AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
     AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
     AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -75,6 +78,9 @@ services:
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - openclaw-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
+      HOME: /home/mitmproxy
+      AGENT_AUDITOR_PROXY_CA_DIR: /home/mitmproxy/.mitmproxy
+      AGENT_AUDITOR_PROXY_CA_CERT: /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem
       AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
       AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -92,6 +98,9 @@ services:
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - hermes-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
+      HOME: /home/mitmproxy
+      AGENT_AUDITOR_PROXY_CA_DIR: /home/mitmproxy/.mitmproxy
+      AGENT_AUDITOR_PROXY_CA_CERT: /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem
       AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
       AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -178,6 +187,9 @@ services:
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - openclaw-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
+      HOME: /home/mitmproxy
+      AGENT_AUDITOR_PROXY_CA_DIR: /home/mitmproxy/.mitmproxy
+      AGENT_AUDITOR_PROXY_CA_CERT: /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem
       AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
       AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
@@ -216,6 +228,9 @@ services:
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - hermes-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
+      HOME: /home/mitmproxy
+      AGENT_AUDITOR_PROXY_CA_DIR: /home/mitmproxy/.mitmproxy
+      AGENT_AUDITOR_PROXY_CA_CERT: /home/mitmproxy/.mitmproxy/mitmproxy-ca-cert.pem
       AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
       AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
