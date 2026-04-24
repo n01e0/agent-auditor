@@ -391,6 +391,15 @@ Look for errors like:
 If you see those, go back to [`real-runtime-proxy-trust-bootstrap-dev.md`](real-runtime-proxy-trust-bootstrap-dev.md).
 Do not keep retrying the runtime action until the trust path is fixed.
 
+If the failing host is `github.com` or `raw.githubusercontent.com` instead of `api.github.com`, do not assume the proxy vars are wrong.
+That split usually means the runtime only trusts the mitmproxy CA in one app-specific client path (for example via `NODE_EXTRA_CA_CERTS`), while a curl/git-style bootstrap path still lacks trust coverage.
+In that case, prefer baking the CA into the image trust store.
+If you need a dev-only env fallback, point the failing client at the mounted cert too:
+
+- `SSL_CERT_FILE=/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+- `CURL_CA_BUNDLE=/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+- `GIT_SSL_CAINFO=/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+
 ### no GitHub request appears in `requests.jsonl`
 
 Check the runtime env inside the container.
