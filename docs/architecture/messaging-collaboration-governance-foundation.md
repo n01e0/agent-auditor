@@ -211,6 +211,7 @@ This keeps the next tasks cleaner:
 
 - architecture overview: [`overview.md`](overview.md)
 - messaging action catalog: [`messaging-collaboration-action-catalog.md`](messaging-collaboration-action-catalog.md)
+- Hermes/Discord durable audit normalization path: [`hermes-discord-durable-audit-normalization-path.md`](hermes-discord-durable-audit-normalization-path.md)
 - approval / control-plane UX boundary: [`approval-control-plane-ux-foundation.md`](approval-control-plane-ux-foundation.md)
 - local runbook: [`../runbooks/messaging-collaboration-governance-local.md`](../runbooks/messaging-collaboration-governance-local.md)
 - known constraints: [`messaging-collaboration-governance-known-constraints.md`](messaging-collaboration-governance-known-constraints.md)

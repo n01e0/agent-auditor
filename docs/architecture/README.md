@@ -43,6 +43,7 @@ This directory contains design notes for the current `agent-auditor` architectur
 - live proxy HTTP request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - provider live preview adapter boundaries: [`provider-live-preview-adapter-boundaries.md`](provider-live-preview-adapter-boundaries.md)
+- Hermes/Discord durable audit normalization path: [`hermes-discord-durable-audit-normalization-path.md`](hermes-discord-durable-audit-normalization-path.md)
 - generic REST live preview path: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - live preview mode semantics: [`live-preview-mode-semantics.md`](live-preview-mode-semantics.md)
 - live preview record reflection: [`live-preview-record-reflection.md`](live-preview-record-reflection.md)
