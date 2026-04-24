@@ -11,6 +11,7 @@ Group=agent-auditor
 Environment=AGENT_AUDITOR_HOSTD_BIN=/usr/local/bin/agent-auditor-hostd
 Environment=AGENT_AUDITOR_HOSTD_STATE_DIR=%S/agent-auditor-hostd
 Environment=AGENT_AUDITOR_HOSTD_POLL_INTERVAL_MS=250
+Environment=AGENT_AUDITOR_HOSTD_REMOTE_INGRESS_LISTEN=0.0.0.0:19090
 EnvironmentFile=-/etc/agent-auditor/agent-auditor-hostd.env
 WorkingDirectory=/
 StateDirectory=agent-auditor-hostd
@@ -19,7 +20,7 @@ RuntimeDirectory=agent-auditor-hostd
 RuntimeDirectoryMode=0750
 LogsDirectory=agent-auditor-hostd
 LogsDirectoryMode=0750
-ExecStart=${AGENT_AUDITOR_HOSTD_BIN} daemon --foreground --state-dir ${AGENT_AUDITOR_HOSTD_STATE_DIR} --poll-interval-ms ${AGENT_AUDITOR_HOSTD_POLL_INTERVAL_MS}
+ExecStart=${AGENT_AUDITOR_HOSTD_BIN} daemon --foreground --state-dir ${AGENT_AUDITOR_HOSTD_STATE_DIR} --poll-interval-ms ${AGENT_AUDITOR_HOSTD_POLL_INTERVAL_MS} --remote-ingress-listen ${AGENT_AUDITOR_HOSTD_REMOTE_INGRESS_LISTEN}
 Restart=on-failure
 RestartSec=5s
 NoNewPrivileges=yes
