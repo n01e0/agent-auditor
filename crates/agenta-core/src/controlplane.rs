@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActionClass, ApprovalRequest, ApprovalScope, ApprovalStatus, EventEnvelope, JsonMap, Severity,
+    ActionClass, ApprovalRequest, ApprovalScope, ApprovalStatus, EventEnvelope, IntegrityInfo,
+    JsonMap, Severity, StorageLineageInfo,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -84,6 +85,8 @@ pub struct ApprovalQueueItem {
     pub target: Option<String>,
     #[serde(default)]
     pub attributes: JsonMap,
+    #[serde(default)]
+    pub integrity: Option<IntegrityInfo>,
     pub decision_summary: ApprovalDecisionSummary,
     pub rationale_capture: ApprovalRationaleCapture,
 }
@@ -102,6 +105,7 @@ impl ApprovalQueueItem {
             action_verb: request.request.action_verb.clone(),
             target: request.request.target.clone(),
             attributes: request.request.attributes.clone(),
+            integrity: request.integrity.clone(),
             decision_summary: ApprovalDecisionSummary::from_request(request),
             rationale_capture: ApprovalRationaleCapture::from_request(request),
         }
@@ -609,6 +613,28 @@ pub enum ApprovalLocalExplanationSource {
     ReviewerSummaryFallback,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DurableIntegrityChainPosition {
+    Genesis,
+    Chained,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DurableIntegritySignatureStatus {
+    UnsignedBaseline,
+    Signed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DurableIntegrityInspection {
+    pub record_hash: Option<String>,
+    pub prev_hash: Option<String>,
+    pub chain_position: Option<DurableIntegrityChainPosition>,
+    pub signature_status: Option<DurableIntegritySignatureStatus>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalLocalJsonlInspectionRecord {
     pub approval_id: String,
@@ -630,6 +656,8 @@ pub struct ApprovalLocalJsonlInspectionRecord {
     pub human_request: Option<String>,
     pub reviewer_id: Option<String>,
     pub reviewer_hint: Option<String>,
+    pub durable_integrity: Option<DurableIntegrityInspection>,
+    pub durable_storage_lineage: Option<StorageLineageInfo>,
     pub explanation_summary: String,
     pub explanation_source: ApprovalLocalExplanationSource,
 }
@@ -678,6 +706,8 @@ pub struct ObservationLocalJsonlInspectionRecord {
     pub evidence_tier: Option<ObservationEvidenceTier>,
     pub capture_source: Option<String>,
     pub session_correlation_status: Option<String>,
+    pub durable_integrity: Option<DurableIntegrityInspection>,
+    pub durable_storage_lineage: Option<StorageLineageInfo>,
     pub explanation_summary: String,
 }
 
@@ -811,6 +841,8 @@ impl ApprovalLocalJsonlInspectionRecord {
             human_request: queue_item.rationale_capture.human_request.clone(),
             reviewer_id: queue_item.rationale_capture.reviewer_id.clone(),
             reviewer_hint: queue_item.decision_summary.reviewer_hint.clone(),
+            durable_integrity: durable_integrity_inspection(queue_item.integrity.as_ref()),
+            durable_storage_lineage: durable_storage_lineage(queue_item.integrity.as_ref()),
             explanation_summary,
             explanation_source,
         }
@@ -844,6 +876,8 @@ impl ObservationLocalJsonlInspectionRecord {
             evidence_tier,
             capture_source: capture_source.clone(),
             session_correlation_status: session_correlation_status.clone(),
+            durable_integrity: durable_integrity_inspection(event.integrity.as_ref()),
+            durable_storage_lineage: durable_storage_lineage(event.integrity.as_ref()),
             explanation_summary: observation_explanation_summary(
                 evidence_tier,
                 provenance,
@@ -877,6 +911,8 @@ impl ObservationLocalJsonlInspectionRecord {
             evidence_tier,
             capture_source: capture_source.clone(),
             session_correlation_status: session_correlation_status.clone(),
+            durable_integrity: durable_integrity_inspection(request.integrity.as_ref()),
+            durable_storage_lineage: durable_storage_lineage(request.integrity.as_ref()),
             explanation_summary: observation_explanation_summary(
                 evidence_tier,
                 provenance,
@@ -1089,6 +1125,33 @@ fn observation_explanation_summary(
     }
 }
 
+fn durable_integrity_inspection(
+    integrity: Option<&IntegrityInfo>,
+) -> Option<DurableIntegrityInspection> {
+    integrity.map(|integrity| DurableIntegrityInspection {
+        record_hash: integrity.hash.clone(),
+        prev_hash: integrity.prev_hash.clone(),
+        chain_position: match integrity.hash.as_ref() {
+            Some(_) if integrity.prev_hash.is_none() => {
+                Some(DurableIntegrityChainPosition::Genesis)
+            }
+            Some(_) => Some(DurableIntegrityChainPosition::Chained),
+            None => None,
+        },
+        signature_status: integrity.hash.as_ref().map(|_| {
+            if integrity.signature.is_some() {
+                DurableIntegritySignatureStatus::Signed
+            } else {
+                DurableIntegritySignatureStatus::UnsignedBaseline
+            }
+        }),
+    })
+}
+
+fn durable_storage_lineage(integrity: Option<&IntegrityInfo>) -> Option<StorageLineageInfo> {
+    integrity.and_then(|integrity| integrity.storage.clone())
+}
+
 fn string_attribute(attributes: &JsonMap, key: &str) -> Option<String> {
     attributes
         .get(key)
@@ -1132,8 +1195,8 @@ mod tests {
     use crate::{
         Action, Actor, ActorKind, ApprovalDecisionRecord, ApprovalPolicy,
         ApprovalRecordPresentation, ApprovalRequestAction, ApprovalStatus, CollectorKind,
-        EventEnvelope, EventType, RequesterContext, ResultInfo, ResultStatus, SessionRef,
-        SourceInfo,
+        EventEnvelope, EventType, IntegrityInfo, RequesterContext, ResultInfo, ResultStatus,
+        SessionRef, SourceInfo, StorageLineageInfo,
     };
     use chrono::TimeZone;
     use serde_json::json;
@@ -1198,7 +1261,17 @@ mod tests {
                 outcome: Some(ApprovalStatus::Approved),
             }),
             enforcement: None,
-            integrity: None,
+            integrity: Some(IntegrityInfo {
+                hash: Some("sha256:approval-fixture-hash".to_owned()),
+                prev_hash: None,
+                signature: None,
+                storage: Some(StorageLineageInfo {
+                    store: Some("durable_jsonl".to_owned()),
+                    stream: Some("approval-requests".to_owned()),
+                    segment_id: Some("approval-requests:sha256:approval-fixture-hash".to_owned()),
+                    segment_record_ordinal: Some(1),
+                }),
+            }),
         }
     }
 
@@ -1264,7 +1337,17 @@ mod tests {
                 pid: None,
                 ppid: None,
             },
-            integrity: None,
+            integrity: Some(IntegrityInfo {
+                hash: Some("sha256:event-fixture-hash".to_owned()),
+                prev_hash: Some("sha256:event-fixture-prev".to_owned()),
+                signature: None,
+                storage: Some(StorageLineageInfo {
+                    store: Some("durable_jsonl".to_owned()),
+                    stream: Some("audit-records".to_owned()),
+                    segment_id: Some("audit-records:sha256:event-fixture-first".to_owned()),
+                    segment_record_ordinal: Some(2),
+                }),
+            }),
         }
     }
 
@@ -1353,6 +1436,13 @@ mod tests {
             queue_item.rationale_capture.outcome,
             Some(ApprovalStatus::Approved)
         );
+        assert_eq!(
+            queue_item
+                .integrity
+                .as_ref()
+                .and_then(|integrity| integrity.hash.as_deref()),
+            Some("sha256:approval-fixture-hash")
+        );
     }
 
     #[test]
@@ -1380,6 +1470,22 @@ mod tests {
             inspection
                 .explanation_summary
                 .contains("fixture preview record")
+        );
+        assert_eq!(
+            inspection.durable_integrity,
+            Some(DurableIntegrityInspection {
+                record_hash: Some("sha256:approval-fixture-hash".to_owned()),
+                prev_hash: None,
+                chain_position: Some(DurableIntegrityChainPosition::Genesis),
+                signature_status: Some(DurableIntegritySignatureStatus::UnsignedBaseline),
+            })
+        );
+        assert_eq!(
+            inspection
+                .durable_storage_lineage
+                .as_ref()
+                .and_then(|lineage| lineage.stream.as_deref()),
+            Some("approval-requests")
         );
     }
 
@@ -1413,6 +1519,22 @@ mod tests {
             inspection
                 .explanation_summary
                 .contains("validated observation record")
+        );
+        assert_eq!(
+            inspection.durable_integrity,
+            Some(DurableIntegrityInspection {
+                record_hash: Some("sha256:event-fixture-hash".to_owned()),
+                prev_hash: Some("sha256:event-fixture-prev".to_owned()),
+                chain_position: Some(DurableIntegrityChainPosition::Chained),
+                signature_status: Some(DurableIntegritySignatureStatus::UnsignedBaseline),
+            })
+        );
+        assert_eq!(
+            inspection
+                .durable_storage_lineage
+                .as_ref()
+                .and_then(|lineage| lineage.segment_record_ordinal),
+            Some(2)
         );
     }
 
@@ -1963,6 +2085,22 @@ mod tests {
             Some("please bring ops into the live incident room")
         );
         assert_eq!(inspection.reviewer_hint.as_deref(), Some("security-oncall"));
+        assert_eq!(
+            inspection.durable_integrity,
+            Some(DurableIntegrityInspection {
+                record_hash: Some("sha256:approval-fixture-hash".to_owned()),
+                prev_hash: None,
+                chain_position: Some(DurableIntegrityChainPosition::Genesis),
+                signature_status: Some(DurableIntegritySignatureStatus::UnsignedBaseline),
+            })
+        );
+        assert_eq!(
+            inspection
+                .durable_storage_lineage
+                .as_ref()
+                .and_then(|lineage| lineage.segment_id.as_deref()),
+            Some("approval-requests:sha256:approval-fixture-hash")
+        );
         assert_eq!(
             inspection.explanation_summary,
             "Membership change affects incident communications"

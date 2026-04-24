@@ -1573,10 +1573,10 @@ fn run_preview_or_exit() {
         std::process::exit(1);
     }
     println!(
-        "approval_local_jsonl_inspection_model=components=approval_local_jsonl_inspection_record linkage=approval_id,event_id,rule_id consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_hint explanation=redaction_safe_summary"
+        "approval_local_jsonl_inspection_model=components=approval_local_jsonl_inspection_record linkage=approval_id,event_id,rule_id consistency=reviewer_summary,persisted_rationale,agent_reason,human_request,reviewer_hint durable=durable_integrity,durable_storage_lineage explanation=redaction_safe_summary"
     );
     println!(
-        "observation_local_jsonl_inspection_model=components=observation_local_jsonl_inspection_record linkage=session_id,event_id,approval_id fields=observation_provenance,validation_status,evidence_tier classification=fixture_preview,observed_request,validated_observation"
+        "observation_local_jsonl_inspection_model=components=observation_local_jsonl_inspection_record linkage=session_id,event_id,approval_id fields=observation_provenance,validation_status,evidence_tier durable=durable_integrity,durable_storage_lineage classification=fixture_preview,observed_request,validated_observation"
     );
     let persisted_messaging_approval_request = match messaging_store.latest_approval_request() {
         Ok(Some(record)) => {
@@ -1606,7 +1606,7 @@ fn run_preview_or_exit() {
     };
     print_local_jsonl_inspection_line(
         "persisted_messaging_local_jsonl_inspection_require_approval",
-        &messaging_approval_request_require_approval,
+        &persisted_messaging_approval_request,
     );
     print_observation_local_jsonl_inspection_for_request(
         "persisted_messaging_observation_local_jsonl_inspection_require_approval",
