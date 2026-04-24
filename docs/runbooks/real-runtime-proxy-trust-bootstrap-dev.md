@@ -211,6 +211,31 @@ Common examples:
 
 The repository ships these as comments in the runtime env samples so the operator can fill in the one that matches the real image.
 
+### known cut: `github.com` / `raw.githubusercontent.com` still fail with `unknown ca`
+
+A repository-local repro through the checked-in mitmproxy seam isolated one easy-to-misread failure mode:
+
+- a Node HTTPS request to `https://api.github.com/...` succeeded once `NODE_EXTRA_CA_CERTS` pointed at the exported mitmproxy CA
+- `curl https://github.com` and `curl https://raw.githubusercontent.com/...` still failed with `SSL certificate problem: unable to get local issuer certificate`
+- `git ls-remote https://github.com/...` still failed with `server certificate verification failed. CAfile: none`
+
+That split means the CA path is present, but only the app/runtime that explicitly reads its trust env has been fixed.
+`NODE_EXTRA_CA_CERTS` does **not** install the mitmproxy CA into the OS trust store, and it does **not** automatically cover curl/git-style clients that may hit `github.com` or `raw.githubusercontent.com` during runtime startup, bootstrap, or asset download.
+
+When you see this exact split, treat the cause as **client-specific trust coverage**, not as a proxy-routing failure.
+
+Preferred fix:
+
+- use the derived-image OS trust-store path above
+
+Dev-only fallback if you must keep trust env-based injection:
+
+- `SSL_CERT_FILE=/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+- `CURL_CA_BUNDLE=/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+- `GIT_SSL_CAINFO=/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+
+Do **not** treat one successful `api.github.com` request under `NODE_EXTRA_CA_CERTS` as proof that GitHub bootstrap/download paths are fully covered.
+
 ### if the image is distroless / scratch / otherwise sealed
 
 Treat that as a manual packaging task.

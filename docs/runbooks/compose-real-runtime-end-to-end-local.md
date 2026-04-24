@@ -463,6 +463,12 @@ First checks:
 - confirm the real image trusts that CA through the OS trust store or explicit env variables
 - if you rotated the proxy CA volume, confirm the runtime trust bundle was refreshed too
 
+Special cut for GitHub-backed startup paths:
+
+- if `api.github.com` succeeds under an app-specific env like `NODE_EXTRA_CA_CERTS`, but `github.com` or `raw.githubusercontent.com` still fail with `unknown ca`, the proxy path is usually fine
+- the missing piece is that curl/git-style clients still do not trust the mounted mitmproxy CA
+- prefer OS trust-store installation in a derived image; otherwise add client-specific env such as `SSL_CERT_FILE`, `CURL_CA_BUNDLE`, and `GIT_SSL_CAINFO` pointing at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+
 Do not keep retrying provider actions until trust is fixed.
 
 ### bucket E: proxy ingress exists, but no durable audit / approval record appears
