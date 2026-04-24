@@ -6,7 +6,7 @@ use std::{
 
 use agenta_core::{
     ApprovalRequest, EventEnvelope, IntegrityCheckpointKind, IntegrityCheckpointRecord,
-    IntegrityInfo,
+    IntegrityInfo, StorageLineageInfo,
 };
 use chrono::Utc;
 use serde::{Serialize, de::DeserializeOwned};
@@ -206,8 +206,15 @@ where
         .map(last_integrity_hash)
         .transpose()?
         .flatten();
+    let active_summary_before_append = read_segment_summary::<T>(path, stream)?;
 
-    let with_integrity = materialize_durable_record(value, prev_hash, path, stream)?;
+    let with_integrity = materialize_durable_record(
+        value,
+        prev_hash,
+        path,
+        stream,
+        active_summary_before_append.as_ref(),
+    )?;
     let json =
         serde_json::to_string(&with_integrity).map_err(|source| PersistenceError::Serialize {
             path: path.to_path_buf(),
@@ -261,17 +268,46 @@ fn materialize_durable_record<T>(
     prev_hash: Option<String>,
     path: &Path,
     stream: DurableStreamKind,
+    active_summary: Option<&SegmentSummary>,
 ) -> Result<T, PersistenceError>
 where
     T: DurableRecord,
 {
     let payload = canonical_record_payload(value, path)?;
     let hash = chain_hash(stream, prev_hash.as_deref(), &payload);
+    let storage = storage_lineage_for_append(path, stream, active_summary, &hash);
     Ok(value.with_integrity(IntegrityInfo {
         hash: Some(hash),
         prev_hash,
         signature: None,
+        storage: Some(storage),
     }))
+}
+
+fn storage_lineage_for_append(
+    path: &Path,
+    stream: DurableStreamKind,
+    active_summary: Option<&SegmentSummary>,
+    hash: &str,
+) -> StorageLineageInfo {
+    let store = path
+        .parent()
+        .and_then(|parent| parent.file_name())
+        .map(|name| name.to_string_lossy().into_owned())
+        .or_else(|| Some("durable_jsonl".to_owned()));
+    let segment_id = active_summary
+        .map(|summary| summary.segment_id.clone())
+        .unwrap_or_else(|| format!("{}:{}", stream.label(), hash));
+    let segment_record_ordinal = active_summary
+        .map(|summary| summary.record_count.saturating_add(1))
+        .unwrap_or(1);
+
+    StorageLineageInfo {
+        store,
+        stream: Some(stream.label().to_owned()),
+        segment_id: Some(segment_id),
+        segment_record_ordinal: Some(segment_record_ordinal),
+    }
 }
 
 fn checkpoint_record(

@@ -290,11 +290,21 @@ pub struct SourceInfo {
     pub ppid: Option<i32>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct StorageLineageInfo {
+    pub store: Option<String>,
+    pub stream: Option<String>,
+    pub segment_id: Option<String>,
+    pub segment_record_ordinal: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntegrityInfo {
     pub hash: Option<String>,
     pub prev_hash: Option<String>,
     pub signature: Option<String>,
+    #[serde(default)]
+    pub storage: Option<StorageLineageInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

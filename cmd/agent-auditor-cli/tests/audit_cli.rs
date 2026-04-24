@@ -7,8 +7,8 @@ use std::{
 
 use agenta_core::{
     Action, ActionClass, Actor, ActorKind, ApprovalPolicy, ApprovalRequest, ApprovalRequestAction,
-    ApprovalStatus, CollectorKind, EventEnvelope, EventType, RequesterContext, ResultInfo,
-    ResultStatus, SessionRef, SourceInfo,
+    ApprovalStatus, CollectorKind, EventEnvelope, EventType, IntegrityInfo, RequesterContext,
+    ResultInfo, ResultStatus, SessionRef, SourceInfo, StorageLineageInfo,
 };
 use chrono::TimeZone;
 use serde_json::json;
@@ -81,6 +81,9 @@ fn audit_list_tail_and_show_read_durable_store_records() {
     assert!(show_output.contains("\"local_inspection\""));
     assert!(show_output.contains("\"observation_local_inspection\""));
     assert!(show_output.contains("\"evidence_tier\": \"fixture_preview\""));
+    assert!(show_output.contains("\"durable_integrity\""));
+    assert!(show_output.contains("\"durable_storage_lineage\""));
+    assert!(show_output.contains("\"segment_record_ordinal\": 1"));
 
     let audit_show_output = run_cli([
         "audit",
@@ -93,6 +96,9 @@ fn audit_list_tail_and_show_read_durable_store_records() {
     assert!(audit_show_output.contains("\"observation_local_inspection\""));
     assert!(audit_show_output.contains("\"validation_status\": \"validated_observation\""));
     assert!(audit_show_output.contains("\"observation_provenance\": \"observed_request\""));
+    assert!(audit_show_output.contains("\"durable_integrity\""));
+    assert!(audit_show_output.contains("\"durable_storage_lineage\""));
+    assert!(audit_show_output.contains("\"stream\": \"audit-records\""));
 }
 
 fn run_cli<const N: usize>(args: [&str; N]) -> String {
@@ -171,7 +177,17 @@ fn sample_audit_record(event_id: &str, second: i64) -> EventEnvelope {
             pid: Some(42),
             ppid: Some(7),
         },
-        integrity: None,
+        integrity: Some(IntegrityInfo {
+            hash: Some(format!("sha256:{event_id}")),
+            prev_hash: (second > 1).then(|| "sha256:evt-older".to_owned()),
+            signature: None,
+            storage: Some(StorageLineageInfo {
+                store: Some("agent-auditor-hostd-poc-store".to_owned()),
+                stream: Some("audit-records".to_owned()),
+                segment_id: Some("audit-records:sha256:evt-older".to_owned()),
+                segment_record_ordinal: Some(second as u64),
+            }),
+        }),
     }
 }
 
@@ -219,7 +235,17 @@ fn sample_approval_record(approval_id: &str, second: i64) -> ApprovalRequest {
         }),
         decision: None,
         enforcement: None,
-        integrity: None,
+        integrity: Some(IntegrityInfo {
+            hash: Some(format!("sha256:{approval_id}")),
+            prev_hash: None,
+            signature: None,
+            storage: Some(StorageLineageInfo {
+                store: Some("agent-auditor-hostd-poc-store".to_owned()),
+                stream: Some("approval-requests".to_owned()),
+                segment_id: Some(format!("approval-requests:sha256:{approval_id}")),
+                segment_record_ordinal: Some(1),
+            }),
+        }),
     }
 }
 

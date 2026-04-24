@@ -503,9 +503,21 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     );
     assert!(
         lines
+            .get("approval_local_jsonl_inspection_model")
+            .expect("smoke output should include approval_local_jsonl_inspection_model")
+            .contains("durable=durable_integrity,durable_storage_lineage")
+    );
+    assert!(
+        lines
             .get("observation_local_jsonl_inspection_model")
             .expect("smoke output should include observation_local_jsonl_inspection_model")
             .contains("fields=observation_provenance,validation_status,evidence_tier")
+    );
+    assert!(
+        lines
+            .get("observation_local_jsonl_inspection_model")
+            .expect("smoke output should include observation_local_jsonl_inspection_model")
+            .contains("durable=durable_integrity,durable_storage_lineage")
     );
 
     let persisted_messaging_local_jsonl_inspection_require_approval: Value =
@@ -534,6 +546,14 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
         "persisted_rationale"
     );
     assert_eq!(
+        persisted_messaging_local_jsonl_inspection_require_approval["durable_integrity"]["signature_status"],
+        "unsigned_baseline"
+    );
+    assert_eq!(
+        persisted_messaging_local_jsonl_inspection_require_approval["durable_storage_lineage"]["stream"],
+        "approval-requests"
+    );
+    assert_eq!(
         persisted_messaging_local_jsonl_inspection_require_approval["explanation_summary"],
         "Messaging membership expansion requires approval"
     );
@@ -558,6 +578,16 @@ fn hostd_bootstrap_smoke_matches_poc_fixtures() {
     assert_eq!(
         persisted_messaging_observation_local_jsonl_inspection_require_approval["evidence_tier"],
         Value::Null
+    );
+    assert_eq!(
+        persisted_messaging_observation_local_jsonl_inspection_require_approval["durable_integrity"]
+            ["signature_status"],
+        "unsigned_baseline"
+    );
+    assert_eq!(
+        persisted_messaging_observation_local_jsonl_inspection_require_approval["durable_storage_lineage"]
+            ["stream"],
+        "approval-requests"
     );
     assert_eq!(
         persisted_messaging_observation_local_jsonl_inspection_require_approval["explanation_summary"],
