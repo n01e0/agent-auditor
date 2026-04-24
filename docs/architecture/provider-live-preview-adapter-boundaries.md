@@ -141,5 +141,6 @@ The task proves the provider-specific semantic adapter boundaries only.
 - live proxy phase boundary: [`live-proxy-interception-foundation.md`](live-proxy-interception-foundation.md)
 - live proxy request contract: [`live-proxy-http-request-contract.md`](live-proxy-http-request-contract.md)
 - shared live envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
+- Hermes/Discord durable audit normalization path: [`hermes-discord-durable-audit-normalization-path.md`](hermes-discord-durable-audit-normalization-path.md)
 - generic REST live preview adapter: [`generic-rest-live-preview-path.md`](generic-rest-live-preview-path.md)
 - live coverage posture: [`live-proxy-coverage-matrix.md`](live-proxy-coverage-matrix.md)
