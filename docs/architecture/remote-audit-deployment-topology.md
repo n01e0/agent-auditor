@@ -10,7 +10,7 @@ The purpose of P19-2 is narrow:
 
 This note builds on [`remote-audit-integrity-boundary.md`](remote-audit-integrity-boundary.md).
 The concrete `live proxy -> remote hostd` handoff that crosses this topology boundary is documented in [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md).
-It does **not** choose the final store engine, wire protocol, hash-chain format, or production hardening posture.
+It does **not** choose the final store engine, wire protocol, or production hardening posture. The checked-in tamper-evident format choice is documented in [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md).
 
 ## minimum topology at a glance
 
@@ -226,6 +226,7 @@ If question 4 is "yes", the topology is still not sufficient.
 
 - remote audit integrity boundary: [`remote-audit-integrity-boundary.md`](remote-audit-integrity-boundary.md)
 - observed-runtime remote ingress contract: [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md)
+- remote audit tamper-evident strategy: [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md)
 - architecture overview: [`overview.md`](overview.md)
 - container proxy topologies: [`container-proxy-topologies.md`](container-proxy-topologies.md)
 - real-runtime audit readiness boundary: [`real-runtime-audit-readiness-boundary.md`](real-runtime-audit-readiness-boundary.md)
