@@ -1,13 +1,16 @@
 name: agent-auditor-proxy-stack
 
 x-hostd-base: &hostd-base
-  image: rust:1.86-bookworm
+  image: ${HOSTD_IMAGE:-rust:1.93-bookworm}
   init: true
   restart: unless-stopped
   working_dir: /workspace
   environment:
+    CARGO_HOME: /usr/local/cargo
     CARGO_TARGET_DIR: /workspace/target
+    PATH: /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     RUST_LOG: ${HOSTD_RUST_LOG:-info}
+    RUSTUP_HOME: /usr/local/rustup
   volumes:
     - ..:/workspace
     - agent-auditor-cargo-registry:/usr/local/cargo/registry
@@ -56,7 +59,7 @@ services:
     <<: *hostd-base
     command:
       - bash
-      - -lc
+      - -c
       - >-
         cargo run -p agent-auditor-hostd --
         daemon --foreground

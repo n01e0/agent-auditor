@@ -86,9 +86,17 @@ Replace their `image` / `command` with the real OpenClaw or Hermes container whi
 
 Remote-ingress defaults in `compose.env.sample`:
 
+- `HOSTD_IMAGE=rust:1.93-bookworm`
 - `HOSTD_REMOTE_INGRESS_PORT=19090`
 - `HOSTD_REMOTE_INGRESS_TIMEOUT_SEC=2`
 - each proxy container points `AUDITOR_REMOTE_INGRESS_ADDR` at `hostd:${HOSTD_REMOTE_INGRESS_PORT}`
+
+`hostd` now declares the checked-in toolchain/image contract too:
+
+- it defaults to the Rust toolchain image from `HOSTD_IMAGE`
+- that default is pinned to the workspace `rust-version = 1.93`
+- it exports `CARGO_HOME=/usr/local/cargo` and `RUSTUP_HOME=/usr/local/rustup`
+- it pins `PATH=/usr/local/cargo/bin:...` and starts `hostd` via a non-login shell so `cargo run -p agent-auditor-hostd ...` works without an ad-hoc compose override
 
 That swap should be read through [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md): the checked-in compose file currently proves stand-in topology smoke, while later P18 work is what makes the repository genuinely handoff-ready for human-run OpenClaw / Hermes verification.
 
