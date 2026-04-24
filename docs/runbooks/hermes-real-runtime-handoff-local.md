@@ -75,6 +75,11 @@ Edit at least:
 - `HERMES_RUNTIME_IMAGE`
 - `HERMES_RUNTIME_ENV_FILE` if you renamed the runtime env file
 - the real Hermes runtime credentials/config in `deploy/hermes-forward-proxy.runtime.env`
+- if the Hermes launcher or bundled tools need explicit runtime env wiring, mirror the checked-in proxy/cert contract there too:
+  - `http_proxy=http://hermes-forward-proxy:8080`
+  - `https_proxy=http://hermes-forward-proxy:8080`
+  - `no_proxy=hostd,localhost,127.0.0.1`
+  - `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, `CURL_CA_BUNDLE`, and `GIT_SSL_CAINFO` pointed at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem` as needed by the image
 
 ### topology B / sidecar proxy
 
@@ -88,6 +93,11 @@ Edit at least:
 - `HERMES_SIDECAR_RUNTIME_IMAGE`
 - `HERMES_SIDECAR_RUNTIME_ENV_FILE` if you renamed the runtime env file
 - the real Hermes runtime credentials/config in `deploy/hermes-sidecar.runtime.env`
+- if the Hermes launcher or bundled tools need explicit runtime env wiring, mirror the checked-in sidecar proxy/cert contract there too:
+  - `http_proxy=http://127.0.0.1:8080`
+  - `https_proxy=http://127.0.0.1:8080`
+  - `no_proxy=hostd,localhost,127.0.0.1`
+  - `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, `CURL_CA_BUNDLE`, and `GIT_SSL_CAINFO` pointed at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem` as needed by the image
 
 ## 2. render the exact config before you run it
 
@@ -126,7 +136,7 @@ openssl x509 -in deploy/local/mitmproxy-ca/hermes/mitmproxy-ca-cert.pem -noout -
 And your real Hermes image should already trust that CA either:
 
 - via the OS trust store in a derived image, or
-- via runtime env such as `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, or `SSL_CERT_FILE`
+- via runtime env such as `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, `CURL_CA_BUNDLE`, or `GIT_SSL_CAINFO` pointed at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
 
 If this step is still uncertain, stop and finish [`real-runtime-proxy-trust-bootstrap-dev.md`](real-runtime-proxy-trust-bootstrap-dev.md) first.
 
@@ -391,6 +401,13 @@ Look for errors like:
 If you see those, go back to [`real-runtime-proxy-trust-bootstrap-dev.md`](real-runtime-proxy-trust-bootstrap-dev.md).
 Do not keep retrying the runtime action until the trust path is fixed.
 
+If Hermes itself can reach Gmail but a bundled helper still fails during bootstrap, compare the runtime env against the checked-in Hermes contract before you retry:
+
+- `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` are injected by compose
+- some launchers/helpers also need `http_proxy` / `https_proxy` / `no_proxy`
+- client-specific trust may require one or more of `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, `CURL_CA_BUNDLE`, or `GIT_SSL_CAINFO`
+- all env-based trust paths should point at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+
 ### no Gmail request appears in `requests.jsonl`
 
 Check the runtime env inside the container.
@@ -402,7 +419,7 @@ docker compose \
   -f deploy/compose.yaml \
   -f deploy/compose.hermes-forward-proxy.override.yaml \
   --env-file deploy/hermes-forward-proxy.env \
-  exec hermes-runtime-real env | grep -E 'HTTP_PROXY|HTTPS_PROXY|NO_PROXY'
+  exec hermes-runtime-real env | grep -E 'HTTP_PROXY|HTTPS_PROXY|NO_PROXY|http_proxy|https_proxy|no_proxy|NODE_EXTRA_CA_CERTS|REQUESTS_CA_BUNDLE|SSL_CERT_FILE|CURL_CA_BUNDLE|GIT_SSL_CAINFO|AGENT_AUDITOR_PROXY_CA_CERT'
 ```
 
 ### topology B
@@ -413,7 +430,7 @@ docker compose \
   -f deploy/compose.hermes-sidecar.override.yaml \
   --env-file deploy/hermes-sidecar.env \
   --profile sidecar \
-  exec hermes-runtime-real-sidecar env | grep -E 'HTTP_PROXY|HTTPS_PROXY|NO_PROXY'
+  exec hermes-runtime-real-sidecar env | grep -E 'HTTP_PROXY|HTTPS_PROXY|NO_PROXY|http_proxy|https_proxy|no_proxy|NODE_EXTRA_CA_CERTS|REQUESTS_CA_BUNDLE|SSL_CERT_FILE|CURL_CA_BUNDLE|GIT_SSL_CAINFO|AGENT_AUDITOR_PROXY_CA_CERT'
 ```
 
 If those proxy vars are missing or wrong, the runtime is not actually routed through mitmproxy.
