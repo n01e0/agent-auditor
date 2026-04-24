@@ -851,9 +851,8 @@ impl ApprovalLocalJsonlInspectionRecord {
 
 impl ObservationLocalJsonlInspectionRecord {
     pub fn from_event(event: &EventEnvelope) -> Self {
-        let provenance = observation_provenance_from_attributes(&event.action.attributes);
-        let validation_status =
-            validation_status_from_attributes(&event.action.attributes, provenance);
+        let provenance = observation_provenance_from_event(event);
+        let validation_status = validation_status_from_event(event, provenance);
         let evidence_tier = observation_evidence_tier(provenance, validation_status);
         let capture_source =
             string_attribute(&event.action.attributes, "validation_capture_source");
@@ -889,9 +888,8 @@ impl ObservationLocalJsonlInspectionRecord {
     }
 
     pub fn from_request(request: &ApprovalRequest) -> Self {
-        let provenance = observation_provenance_from_attributes(&request.request.attributes);
-        let validation_status =
-            validation_status_from_attributes(&request.request.attributes, provenance);
+        let provenance = observation_provenance_from_request(request);
+        let validation_status = validation_status_from_request(request, provenance);
         let evidence_tier = observation_evidence_tier(provenance, validation_status);
         let capture_source =
             string_attribute(&request.request.attributes, "validation_capture_source");
@@ -922,6 +920,34 @@ impl ObservationLocalJsonlInspectionRecord {
             ),
         }
     }
+}
+
+fn observation_provenance_from_event(event: &EventEnvelope) -> Option<ObservationProvenance> {
+    observation_provenance_from_attributes(&event.action.attributes)
+        .or_else(|| hermes_discord_observation_provenance(&event.action.attributes))
+}
+
+fn observation_provenance_from_request(request: &ApprovalRequest) -> Option<ObservationProvenance> {
+    observation_provenance_from_attributes(&request.request.attributes)
+        .or_else(|| hermes_discord_observation_provenance(&request.request.attributes))
+}
+
+fn validation_status_from_event(
+    event: &EventEnvelope,
+    provenance: Option<ObservationProvenance>,
+) -> Option<ObservationValidationStatus> {
+    explicit_validation_status(&event.action.attributes)
+        .or_else(|| hermes_discord_validated_status_for_event(event, provenance))
+        .or_else(|| fallback_validation_status_from_provenance(provenance))
+}
+
+fn validation_status_from_request(
+    request: &ApprovalRequest,
+    provenance: Option<ObservationProvenance>,
+) -> Option<ObservationValidationStatus> {
+    explicit_validation_status(&request.request.attributes)
+        .or_else(|| hermes_discord_validated_status_for_request(request, provenance))
+        .or_else(|| fallback_validation_status_from_provenance(provenance))
 }
 
 impl ApprovalControlPlaneProjection {
@@ -1031,23 +1057,19 @@ fn parse_observation_provenance(value: &str) -> Option<ObservationProvenance> {
     }
 }
 
-fn validation_status_from_attributes(
-    attributes: &JsonMap,
-    provenance: Option<ObservationProvenance>,
-) -> Option<ObservationValidationStatus> {
+fn explicit_validation_status(attributes: &JsonMap) -> Option<ObservationValidationStatus> {
     string_attribute(attributes, "validation_status")
         .as_deref()
         .and_then(parse_validation_status)
-        .or_else(|| {
-            provenance.map(|provenance| match provenance {
-                ObservationProvenance::FixturePreview => {
-                    ObservationValidationStatus::FixturePreview
-                }
-                ObservationProvenance::ObservedRequest => {
-                    ObservationValidationStatus::ObservedRequest
-                }
-            })
-        })
+}
+
+fn fallback_validation_status_from_provenance(
+    provenance: Option<ObservationProvenance>,
+) -> Option<ObservationValidationStatus> {
+    provenance.map(|provenance| match provenance {
+        ObservationProvenance::FixturePreview => ObservationValidationStatus::FixturePreview,
+        ObservationProvenance::ObservedRequest => ObservationValidationStatus::ObservedRequest,
+    })
 }
 
 fn parse_validation_status(value: &str) -> Option<ObservationValidationStatus> {
@@ -1078,6 +1100,53 @@ fn observation_evidence_tier(
             ObservationProvenance::ObservedRequest => ObservationEvidenceTier::ObservedRequest,
         }),
     }
+}
+
+fn hermes_discord_observation_provenance(attributes: &JsonMap) -> Option<ObservationProvenance> {
+    if is_hermes_discord_observed_attributes(attributes) {
+        Some(ObservationProvenance::ObservedRequest)
+    } else {
+        None
+    }
+}
+
+fn hermes_discord_validated_status_for_event(
+    event: &EventEnvelope,
+    provenance: Option<ObservationProvenance>,
+) -> Option<ObservationValidationStatus> {
+    if provenance == Some(ObservationProvenance::ObservedRequest)
+        && is_hermes_discord_observed_attributes(&event.action.attributes)
+        && event.result.status != crate::ResultStatus::Observed
+    {
+        Some(ObservationValidationStatus::ValidatedObservation)
+    } else {
+        None
+    }
+}
+
+fn hermes_discord_validated_status_for_request(
+    request: &ApprovalRequest,
+    provenance: Option<ObservationProvenance>,
+) -> Option<ObservationValidationStatus> {
+    if provenance == Some(ObservationProvenance::ObservedRequest)
+        && is_hermes_discord_observed_attributes(&request.request.attributes)
+    {
+        Some(ObservationValidationStatus::ValidatedObservation)
+    } else {
+        None
+    }
+}
+
+fn is_hermes_discord_observed_attributes(attributes: &JsonMap) -> bool {
+    matches!(
+        string_attribute(attributes, "provider_id").as_deref(),
+        Some("discord")
+    ) && string_attribute(attributes, "live_request_source_kind").as_deref()
+        == Some("live_proxy_observed")
+        && string_attribute(attributes, "session_correlation_status").as_deref()
+            == Some("runtime_path_confirmed")
+        && string_attribute(attributes, "request_id").is_some()
+        && string_attribute(attributes, "correlation_id").is_some()
 }
 
 fn observation_explanation_summary(
@@ -1351,6 +1420,148 @@ mod tests {
         }
     }
 
+    fn sample_hermes_discord_observed_event() -> EventEnvelope {
+        let mut attributes = JsonMap::new();
+        attributes.insert("provider_id".to_owned(), json!("discord"));
+        attributes.insert("action_key".to_owned(), json!("channels.permissions.put"));
+        attributes.insert(
+            "request_id".to_owned(),
+            json!("req_hermes_discord_permission_update"),
+        );
+        attributes.insert(
+            "correlation_id".to_owned(),
+            json!("corr_hermes_discord_permission_update"),
+        );
+        attributes.insert(
+            "live_request_source_kind".to_owned(),
+            json!("live_proxy_observed"),
+        );
+        attributes.insert(
+            "session_correlation_status".to_owned(),
+            json!("runtime_path_confirmed"),
+        );
+
+        EventEnvelope {
+            event_id: "evt_hermes_discord_permission_observed".to_owned(),
+            timestamp: Utc
+                .with_ymd_and_hms(2026, 4, 24, 8, 0, 0)
+                .single()
+                .expect("fixed timestamp should be valid"),
+            event_type: EventType::NetworkConnect,
+            session: SessionRef {
+                session_id: "sess_hermes_discord".to_owned(),
+                agent_id: Some("openclaw-main".to_owned()),
+                initiator_id: None,
+                workspace_id: Some("ws_hermes_discord".to_owned()),
+                policy_bundle_version: Some("bundle-live-proxy-observed".to_owned()),
+                environment: Some("dev".to_owned()),
+            },
+            actor: Actor {
+                kind: ActorKind::System,
+                id: Some("agent-auditor-hostd".to_owned()),
+                display_name: Some("hostd".to_owned()),
+            },
+            action: Action {
+                class: ActionClass::Browser,
+                verb: Some("channels.permissions.put".to_owned()),
+                target: Some(
+                    "discord.channels/123456789012345678/permissions/role:345678901234567890"
+                        .to_owned(),
+                ),
+                attributes,
+            },
+            result: ResultInfo {
+                status: ResultStatus::Observed,
+                reason: Some("observed by hostd Hermes Discord runtime".to_owned()),
+                exit_code: None,
+                error: None,
+            },
+            policy: None,
+            enforcement: None,
+            source: SourceInfo {
+                collector: CollectorKind::RuntimeHint,
+                host_id: Some("hostd-live-proxy-observed".to_owned()),
+                container_id: None,
+                pod_uid: None,
+                pid: None,
+                ppid: None,
+            },
+            integrity: None,
+        }
+    }
+
+    fn sample_hermes_discord_validated_event() -> EventEnvelope {
+        let mut event = sample_hermes_discord_observed_event();
+        event.event_id = "evt_hermes_discord_permission_validated".to_owned();
+        event.result.status = ResultStatus::Denied;
+        event.result.reason = Some("Discord permission updates are denied".to_owned());
+        event.action.attributes.insert(
+            "validation_capture_source".to_owned(),
+            json!("forward_proxy_observed_runtime_path"),
+        );
+        event
+    }
+
+    fn sample_hermes_discord_validated_request() -> ApprovalRequest {
+        let mut attributes = JsonMap::new();
+        attributes.insert("provider_id".to_owned(), json!("discord"));
+        attributes.insert(
+            "action_key".to_owned(),
+            json!("channels.thread_members.put"),
+        );
+        attributes.insert(
+            "request_id".to_owned(),
+            json!("req_hermes_discord_thread_invite"),
+        );
+        attributes.insert(
+            "correlation_id".to_owned(),
+            json!("corr_hermes_discord_thread_invite"),
+        );
+        attributes.insert(
+            "live_request_source_kind".to_owned(),
+            json!("live_proxy_observed"),
+        );
+        attributes.insert(
+            "session_correlation_status".to_owned(),
+            json!("runtime_path_confirmed"),
+        );
+
+        ApprovalRequest {
+            approval_id: "apr_hermes_discord_thread_invite".to_owned(),
+            status: ApprovalStatus::Pending,
+            requested_at: Utc
+                .with_ymd_and_hms(2026, 4, 24, 8, 5, 0)
+                .single()
+                .expect("fixed timestamp should be valid"),
+            resolved_at: None,
+            expires_at: None,
+            session_id: "sess_hermes_discord".to_owned(),
+            event_id: Some("evt_hermes_discord_thread_invite".to_owned()),
+            request: ApprovalRequestAction {
+                action_class: ActionClass::Browser,
+                action_verb: "channels.thread_members.put".to_owned(),
+                target: Some(
+                    "discord.threads/123456789012345678/members/234567890123456789".to_owned(),
+                ),
+                summary: Some("Invite a user into the incident thread".to_owned()),
+                attributes,
+            },
+            policy: ApprovalPolicy {
+                rule_id: "messaging.channel_invite.requires_approval".to_owned(),
+                severity: Some(Severity::High),
+                reason: Some("Discord thread invites require approval".to_owned()),
+                scope: Some(ApprovalScope::SingleAction),
+                ttl_seconds: Some(1800),
+                reviewer_hint: Some("security-oncall".to_owned()),
+            },
+            presentation: None,
+            requester_context: None,
+            decision: None,
+            enforcement: None,
+            integrity: None,
+        }
+    }
+
     #[test]
     fn decision_summary_uses_request_and_policy_fields() {
         let summary = ApprovalDecisionSummary::from_request(&sample_request());
@@ -1535,6 +1746,76 @@ mod tests {
                 .as_ref()
                 .and_then(|lineage| lineage.segment_record_ordinal),
             Some(2)
+        );
+    }
+
+    #[test]
+    fn observation_local_jsonl_inspection_keeps_hermes_discord_observed_events_at_observed_request()
+    {
+        let inspection = ObservationLocalJsonlInspectionRecord::from_event(
+            &sample_hermes_discord_observed_event(),
+        );
+
+        assert_eq!(inspection.record_kind, ObservationLocalRecordKind::Audit);
+        assert_eq!(
+            inspection.observation_provenance,
+            Some(ObservationProvenance::ObservedRequest)
+        );
+        assert_eq!(
+            inspection.validation_status,
+            Some(ObservationValidationStatus::ObservedRequest)
+        );
+        assert_eq!(
+            inspection.evidence_tier,
+            Some(ObservationEvidenceTier::ObservedRequest)
+        );
+    }
+
+    #[test]
+    fn observation_local_jsonl_inspection_promotes_hermes_discord_audit_records_to_validated_observation()
+     {
+        let inspection = ObservationLocalJsonlInspectionRecord::from_event(
+            &sample_hermes_discord_validated_event(),
+        );
+
+        assert_eq!(inspection.record_kind, ObservationLocalRecordKind::Audit);
+        assert_eq!(
+            inspection.observation_provenance,
+            Some(ObservationProvenance::ObservedRequest)
+        );
+        assert_eq!(
+            inspection.validation_status,
+            Some(ObservationValidationStatus::ValidatedObservation)
+        );
+        assert_eq!(
+            inspection.evidence_tier,
+            Some(ObservationEvidenceTier::ValidatedObservation)
+        );
+        assert_eq!(
+            inspection.session_correlation_status.as_deref(),
+            Some("runtime_path_confirmed")
+        );
+    }
+
+    #[test]
+    fn observation_local_jsonl_inspection_promotes_hermes_discord_approval_records_to_validated_observation()
+     {
+        let inspection = ObservationLocalJsonlInspectionRecord::from_request(
+            &sample_hermes_discord_validated_request(),
+        );
+
+        assert_eq!(inspection.record_kind, ObservationLocalRecordKind::Approval);
+        assert_eq!(
+            inspection.observation_provenance,
+            Some(ObservationProvenance::ObservedRequest)
+        );
+        assert_eq!(
+            inspection.validation_status,
+            Some(ObservationValidationStatus::ValidatedObservation)
+        );
+        assert_eq!(
+            inspection.evidence_tier,
+            Some(ObservationEvidenceTier::ValidatedObservation)
         );
     }
 

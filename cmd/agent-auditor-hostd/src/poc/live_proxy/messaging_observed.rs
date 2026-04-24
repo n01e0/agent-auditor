@@ -396,10 +396,13 @@ mod tests {
                         && audit_record.session.workspace_id == lineage.workspace_id.clone()
                         && audit_record.action.attributes.get("observation_provenance")
                             == Some(&json!("observed_request"))
-                        && !audit_record
+                        && audit_record.action.attributes.get("validation_status")
+                            == Some(&json!("validated_observation"))
+                        && audit_record
                             .action
                             .attributes
-                            .contains_key("validation_status")
+                            .get("validation_capture_source")
+                            == Some(&json!("forward_proxy_observed_runtime_path"))
                 })
         );
     }
