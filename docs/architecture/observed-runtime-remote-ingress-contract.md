@@ -8,7 +8,7 @@ The purpose of P19-3 is narrow:
 - keep the existing redaction-safe live-request vocabulary intact
 - make explicit how the remote handoff differs from the checked-in local-volume preview path
 
-This note does **not** choose the final wire protocol, auth/mTLS mechanism, durable-store engine, or tamper-evident format.
+This note does **not** choose the final wire protocol, auth/mTLS mechanism, or durable-store engine. The checked-in tamper-evident format choice for the remote durable path is documented in [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md).
 
 ## core rule
 
@@ -216,4 +216,5 @@ If those answers are unclear, the implementation is probably still relying too m
 - generic live action envelope: [`generic-live-action-envelope.md`](generic-live-action-envelope.md)
 - remote audit integrity boundary: [`remote-audit-integrity-boundary.md`](remote-audit-integrity-boundary.md)
 - remote audit deployment topology: [`remote-audit-deployment-topology.md`](remote-audit-deployment-topology.md)
+- remote audit tamper-evident strategy: [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md)
 - real-traffic observation boundary: [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md)

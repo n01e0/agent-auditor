@@ -8,7 +8,7 @@ The purpose of P19-1 is narrow:
 - define the trust boundary required before the repository may claim durable audit integrity
 - make explicit that a store living with the monitored target is useful for preview/debugging, but insufficient as the final audit trail
 
-This note does **not** pick the final remote topology, store engine, or tamper-evident mechanism. Those are follow-on tasks.
+This note does **not** pick the final remote topology or store engine. The checked-in tamper-evident mechanism choice is documented separately in [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md).
 
 ## core rule
 
@@ -141,6 +141,7 @@ A path may be real-runtime ready, or even produce an observed request, while sti
 - architecture overview: [`overview.md`](overview.md)
 - remote audit deployment topology: [`remote-audit-deployment-topology.md`](remote-audit-deployment-topology.md)
 - observed-runtime remote ingress contract: [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md)
+- remote audit tamper-evident strategy: [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md)
 - real-runtime audit readiness boundary: [`real-runtime-audit-readiness-boundary.md`](real-runtime-audit-readiness-boundary.md)
 - real-traffic observation boundary: [`real-traffic-observation-boundary.md`](real-traffic-observation-boundary.md)
 - deployment hardening minimums: [`deployment-hardening-minimums.md`](deployment-hardening-minimums.md)
