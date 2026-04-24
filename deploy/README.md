@@ -102,6 +102,9 @@ Important contract points:
   - `openclaw-mitmproxy-ca`
   - `hermes-mitmproxy-ca`
 - the forward-proxy and sidecar-proxy services for the same runtime intentionally share that CA volume
+- the real-runtime env samples now pin the exported CA source path to `deploy/local/mitmproxy-ca/<runtime>/mitmproxy-ca-cert.pem`
+- the real-runtime compose override services mount that exported cert at `/opt/agent-auditor/certs/mitmproxy-ca-cert.pem`
+- the real-runtime compose override services inject `AGENT_AUDITOR_PROXY_CA_CERT=/opt/agent-auditor/certs/mitmproxy-ca-cert.pem` so runtime-specific trust env can reuse one stable path
 - the repository-owned path stops after CA mint/export, trust installation planning, and runtime env prep; the later handoff task is what actually starts real OpenClaw / Hermes traffic
 - only `mitmproxy-ca-cert.pem` should be distributed to runtime trust stores; the private-key bundle is not part of the trust-distribution handoff
 

@@ -14,6 +14,9 @@ services:
       HTTP_PROXY: ${OPENCLAW_SIDECAR_RUNTIME_HTTP_PROXY:-http://127.0.0.1:8080}
       HTTPS_PROXY: ${OPENCLAW_SIDECAR_RUNTIME_HTTPS_PROXY:-http://127.0.0.1:8080}
       NO_PROXY: ${OPENCLAW_SIDECAR_RUNTIME_NO_PROXY:-hostd,localhost,127.0.0.1}
+      AGENT_AUDITOR_PROXY_CA_CERT: ${OPENCLAW_SIDECAR_RUNTIME_PROXY_CA_CERT_PATH:-/opt/agent-auditor/certs/mitmproxy-ca-cert.pem}
+    volumes:
+      - ${OPENCLAW_SIDECAR_RUNTIME_PROXY_CA_CERT:-./local/mitmproxy-ca/openclaw/mitmproxy-ca-cert.pem}:${OPENCLAW_SIDECAR_RUNTIME_PROXY_CA_CERT_PATH:-/opt/agent-auditor/certs/mitmproxy-ca-cert.pem}:ro
 
   openclaw-proxy-real-sidecar:
     image: mitmproxy/mitmproxy:11.0.2
