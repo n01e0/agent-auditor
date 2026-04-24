@@ -19,11 +19,11 @@ x-proxy-base: &proxy-base
   init: true
   restart: unless-stopped
   environment:
-    AUDITOR_STATE_DIR: /state
+    AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
+    AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
     AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
     PYTHONUNBUFFERED: "1"
   volumes:
-    - agent-auditor-state:/state
     - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
   entrypoint:
     - mitmdump
@@ -61,6 +61,7 @@ services:
         cargo run -p agent-auditor-hostd --
         daemon --foreground
         --poll-interval-ms ${HOSTD_POLL_INTERVAL_MS:-1000}
+        --remote-ingress-listen 0.0.0.0:${HOSTD_REMOTE_INGRESS_PORT:-19090}
         --state-dir /state
 
   openclaw-forward-proxy:
@@ -68,11 +69,11 @@ services:
     depends_on:
       - hostd
     volumes:
-      - agent-auditor-state:/state
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - openclaw-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
-      AUDITOR_STATE_DIR: /state
+      AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
+      AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
       AUDITOR_SESSION_ID: ${OPENCLAW_SESSION_ID:-sess_openclaw_forward_proxy}
       AUDITOR_AGENT_ID: ${OPENCLAW_AGENT_ID:-openclaw-main}
@@ -85,11 +86,11 @@ services:
     depends_on:
       - hostd
     volumes:
-      - agent-auditor-state:/state
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - hermes-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
-      AUDITOR_STATE_DIR: /state
+      AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
+      AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
       AUDITOR_SESSION_ID: ${HERMES_SESSION_ID:-sess_hermes_forward_proxy}
       AUDITOR_AGENT_ID: ${HERMES_AGENT_ID:-hermes-main}
@@ -171,11 +172,11 @@ services:
       - openclaw-runtime-sidecar
     network_mode: service:openclaw-runtime-sidecar
     volumes:
-      - agent-auditor-state:/state
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - openclaw-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
-      AUDITOR_STATE_DIR: /state
+      AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
+      AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
       AUDITOR_SESSION_ID: ${SIDECAR_OPENCLAW_SESSION_ID:-sess_openclaw_sidecar_proxy}
       AUDITOR_AGENT_ID: ${SIDECAR_OPENCLAW_AGENT_ID:-openclaw-main}
@@ -209,11 +210,11 @@ services:
       - hermes-runtime-sidecar
     network_mode: service:hermes-runtime-sidecar
     volumes:
-      - agent-auditor-state:/state
       - ./proxy/mitmproxy-live-proxy.py:/opt/agent-auditor/mitmproxy-live-proxy.py:ro
       - hermes-mitmproxy-ca:/home/mitmproxy/.mitmproxy
     environment:
-      AUDITOR_STATE_DIR: /state
+      AUDITOR_REMOTE_INGRESS_ADDR: hostd:${HOSTD_REMOTE_INGRESS_PORT:-19090}
+      AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC: ${HOSTD_REMOTE_INGRESS_TIMEOUT_SEC:-2}
       AUDITOR_MODE: ${AUDITOR_MODE:-enforce_preview}
       AUDITOR_SESSION_ID: ${SIDECAR_HERMES_SESSION_ID:-sess_hermes_sidecar_proxy}
       AUDITOR_AGENT_ID: ${SIDECAR_HERMES_AGENT_ID:-hermes-main}

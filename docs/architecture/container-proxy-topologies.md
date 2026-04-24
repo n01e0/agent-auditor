@@ -4,22 +4,28 @@ This note fixes the container-first deployment split for routing OpenClaw / Herm
 
 ## Goal
 
-Support two container wiring patterns without changing the checked-in **local-volume** observed-runtime contract.
+Support two container wiring patterns while sending the checked-in redaction-safe live envelope over the `live proxy -> remote hostd` ingress boundary instead of requiring proxy-side shared-volume writes.
 
 - **A / default**: explicit forward proxy per runtime
 - **B / optional**: per-agent sidecar proxy
 
-Both paths only emit redaction-safe `GenericLiveActionEnvelope` metadata into the observed runtime path.
+Both paths only emit redaction-safe `GenericLiveActionEnvelope` metadata into the remote ingress path owned by `hostd`.
 They do not claim inline deny / hold enforcement, CA distribution, or production-hardening completeness.
 
 ## Shared contract
 
-Regardless of topology, the checked-in Compose/dev path writes into the same hostd local-volume runtime path:
+Regardless of topology, the checked-in Compose/dev path sends the same logical units into `hostd` remote ingress acceptance:
+
+- one idempotent session-lineage bootstrap carrying `session_id`, `agent_id`, and optional `workspace_id`
+- ordered `GenericLiveActionEnvelope` appends with stable `request_id`
+- an acceptance response from `hostd` so the proxy can retry safely without owning the remote cursor
+
+After acceptance, `hostd` persists the resulting observed-runtime state under its own runtime root:
 
 - runtime root: `agent-auditor-hostd-live-proxy-observed-runtime/`
 - session root: `sessions/<sanitized_session_id>__<sanitized_agent_id>__<workspace or workspace_none>/`
 - files:
-  - `metadata.json`
+  - `session.json`
   - `requests.jsonl`
 
 Each JSONL line is a redaction-safe `GenericLiveActionEnvelope` carrying metadata such as:
@@ -33,15 +39,15 @@ Each JSONL line is a redaction-safe `GenericLiveActionEnvelope` carrying metadat
 
 Raw bodies, cookies, tokens, and message content stay out of this contract.
 
-This same-host shared-volume path is still a preview/bring-up contract, not the follow-on remote-audit handoff. The boundary-crossing replacement contract for `live proxy -> remote hostd` is documented in [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md).
+The checked-in Compose path now uses the boundary-crossing `live proxy -> remote hostd` contract documented in [`observed-runtime-remote-ingress-contract.md`](observed-runtime-remote-ingress-contract.md), while still keeping `hostd`-owned `/state` output available for preview/debug inspection after acceptance.
 
 ## Topology A: explicit forward proxy
 
 Use one proxy service per runtime and point the runtime at it with `HTTP_PROXY` / `HTTPS_PROXY`.
 
 ```text
-openclaw-runtime -> openclaw-forward-proxy -> hostd
-hermes-runtime   -> hermes-forward-proxy   -> hostd
+openclaw-runtime -> openclaw-forward-proxy => remote ingress => hostd
+hermes-runtime   -> hermes-forward-proxy   => remote ingress => hostd
 ```
 
 Choose A when:
@@ -58,8 +64,8 @@ This is the default compose path.
 Use one proxy sidecar in the same network namespace as the runtime and point the runtime at `127.0.0.1:8080`.
 
 ```text
-openclaw-runtime-sidecar -> openclaw-proxy-sidecar -> hostd
-hermes-runtime-sidecar   -> hermes-proxy-sidecar   -> hostd
+openclaw-runtime-sidecar -> openclaw-proxy-sidecar => remote ingress => hostd
+hermes-runtime-sidecar   -> hermes-proxy-sidecar   => remote ingress => hostd
 ```
 
 Choose B when:
