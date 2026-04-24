@@ -8,7 +8,7 @@ The purpose of P19-3 is narrow:
 - keep the existing redaction-safe live-request vocabulary intact
 - make explicit how the remote handoff differs from the checked-in local-volume preview path
 
-This note does **not** choose the final wire protocol, auth/mTLS mechanism, or durable-store engine. The checked-in tamper-evident format choice for the remote durable path is documented in [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md).
+This note does **not** choose the final production wire protocol, auth/mTLS mechanism, or durable-store engine. The checked-in preview implementation currently uses newline-delimited JSON request/response messages over a TCP listener owned by `hostd`, and the checked-in tamper-evident format choice for the remote durable path is documented in [`remote-audit-tamper-evident-strategy.md`](remote-audit-tamper-evident-strategy.md).
 
 ## core rule
 
@@ -72,7 +72,7 @@ Rules:
 - a conflicting rewrite for the same session identity is not allowed
 - the remote transport may encode this as an explicit handshake, a first-record declaration, or an equivalent session-open message
 
-In other words, the current local session-directory naming rule becomes an explicit remote ingress contract instead of an implicit shared-volume convention.
+In other words, the current local session-directory naming rule becomes an explicit remote ingress contract instead of an implicit shared-volume convention. The checked-in preview path exposes that as a `bootstrap_session` ingress message accepted by `hostd`.
 
 ### 2. observed request append
 
@@ -86,7 +86,7 @@ Rules:
 - `request_id` must stay stable across retries so the remote side can deduplicate safely
 - the monitored-side proxy may batch multiple envelopes, but batching must not change envelope contents or lineage
 
-This keeps the current proxy seam vocabulary while moving from filesystem append to remote append semantics.
+This keeps the current proxy seam vocabulary while moving from filesystem append to remote append semantics. The checked-in preview path exposes that as an `append_envelope` ingress message and deduplicates retries by stable `request_id` within the accepted session.
 
 ### 3. ingress acceptance / replay boundary
 
@@ -99,7 +99,7 @@ Minimum semantics:
 - duplicate delivery is acceptable if remote ingest can deduplicate by stable request identity
 - retries, drops, and replay state must be visible operationally rather than hidden inside silent local overwrite behavior
 
-This is the main behavioral difference from the current local-volume path: the remote side now owns acceptance state instead of relying on a same-host file plus hostd-local cursor scanning.
+This is the main behavioral difference from the current local-volume path: the remote side now owns acceptance state instead of relying on a same-host file plus hostd-local cursor scanning. In the checked-in preview implementation, the sender sees an explicit accepted / duplicate / rejected response per request.
 
 ## sender / receiver responsibilities
 
@@ -152,13 +152,19 @@ So P19-3 changes the **handoff boundary**, not the meaning of `fixture preview`,
 
 ## delta from the checked-in local-volume contract
 
-The repository's current Compose/dev path uses a same-host local-volume dependency:
+The repository historically used a same-host local-volume dependency:
 
 ```text
 runtime -> live proxy -> shared local volume (/state) <- hostd
 ```
 
-That path is still useful for preview, smoke tests, and bring-up. But the remote ingress contract differs in a few important ways.
+The checked-in Compose/dev path now routes through remote ingress instead:
+
+```text
+runtime -> live proxy => remote ingress => hostd -> /state
+```
+
+The older shared-volume path is still useful as a mental model for preview/debug inspection, but the remote ingress contract differs in a few important ways.
 
 ### transport
 

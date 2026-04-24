@@ -271,6 +271,12 @@ pub struct ObservedSessionPath {
     paths: ObservedSessionPaths,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObservedAppendOutcome {
+    Appended,
+    Duplicate,
+}
+
 impl ObservedSessionPath {
     fn new(
         sessions_root: PathBuf,
@@ -340,6 +346,23 @@ impl ObservedSessionPath {
             .map_err(SessionCorrelationError::PersistObservedEnvelope)
     }
 
+    pub fn append_deduplicated(
+        &self,
+        envelope: &GenericLiveActionEnvelope,
+    ) -> Result<ObservedAppendOutcome, SessionCorrelationError> {
+        match self.find_by_request_id(envelope.request_id.as_str())? {
+            Some(existing) if existing == *envelope => Ok(ObservedAppendOutcome::Duplicate),
+            Some(_) => Err(SessionCorrelationError::ObservedEnvelopeConflict {
+                path: self.paths.inbox.clone(),
+                request_id: envelope.request_id.to_string(),
+            }),
+            None => {
+                self.append(envelope)?;
+                Ok(ObservedAppendOutcome::Appended)
+            }
+        }
+    }
+
     pub fn drain_available(
         &self,
     ) -> Result<Vec<GenericLiveActionEnvelope>, SessionCorrelationError> {
@@ -387,6 +410,49 @@ impl ObservedSessionPath {
 
         self.write_cursor(processed_lines)?;
         Ok(drained)
+    }
+
+    fn find_by_request_id(
+        &self,
+        request_id: &str,
+    ) -> Result<Option<GenericLiveActionEnvelope>, SessionCorrelationError> {
+        if !self.paths.inbox.exists() {
+            return Ok(None);
+        }
+
+        let file = OpenOptions::new()
+            .read(true)
+            .open(&self.paths.inbox)
+            .map_err(|source| SessionCorrelationError::ReadObservedInbox {
+                path: self.paths.inbox.clone(),
+                source,
+            })?;
+        let reader = BufReader::new(file);
+
+        for (line_idx, line) in reader.lines().enumerate() {
+            let line_no = line_idx + 1;
+            let line = line.map_err(|source| SessionCorrelationError::ReadObservedInbox {
+                path: self.paths.inbox.clone(),
+                source,
+            })?;
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let envelope =
+                serde_json::from_str::<GenericLiveActionEnvelope>(&line).map_err(|source| {
+                    SessionCorrelationError::DeserializeObservedEnvelope {
+                        path: self.paths.inbox.clone(),
+                        line: line_no,
+                        source,
+                    }
+                })?;
+            if envelope.request_id.as_str() == request_id {
+                return Ok(Some(envelope));
+            }
+        }
+
+        Ok(None)
     }
 
     fn persist_metadata(&self) -> Result<(), SessionCorrelationError> {
@@ -641,6 +707,10 @@ pub enum SessionCorrelationError {
     },
     #[error("failed to persist observed live envelope: {0}")]
     PersistObservedEnvelope(#[source] PersistenceError),
+    #[error(
+        "observed inbox `{path}` already contains a different envelope for request_id `{request_id}`"
+    )]
+    ObservedEnvelopeConflict { path: PathBuf, request_id: String },
     #[error("failed to read observed inbox `{path}`: {source}")]
     ReadObservedInbox {
         path: PathBuf,

@@ -11,6 +11,7 @@ pub mod messaging;
 pub mod mode;
 pub mod policy;
 pub mod proxy_seam;
+pub mod remote_ingress;
 pub mod semantic_conversion;
 pub mod session_correlation;
 

@@ -44,9 +44,28 @@ impl CliConfig {
                         ));
                     }
                     let value = args.next().ok_or(CliParseError::MissingPollIntervalValue)?;
-                    mode = CliMode::Daemon(ForegroundDaemonConfig {
-                        poll_interval: parse_poll_interval_ms(&value)?,
-                    });
+                    let mut config = match mode {
+                        CliMode::Daemon(config) => config,
+                        CliMode::Preview => unreachable!("guarded above"),
+                    };
+                    config.poll_interval = parse_poll_interval_ms(&value)?;
+                    mode = CliMode::Daemon(config);
+                }
+                "--remote-ingress-listen" => {
+                    if !matches!(mode, CliMode::Daemon(_)) {
+                        return Err(CliParseError::FlagRequiresDaemon(
+                            "--remote-ingress-listen".to_owned(),
+                        ));
+                    }
+                    let value = args
+                        .next()
+                        .ok_or(CliParseError::MissingRemoteIngressListenValue)?;
+                    let mut config = match mode {
+                        CliMode::Daemon(config) => config,
+                        CliMode::Preview => unreachable!("guarded above"),
+                    };
+                    config.remote_ingress_listen = Some(value);
+                    mode = CliMode::Daemon(config);
                 }
                 unknown if unknown.starts_with('-') => {
                     return Err(CliParseError::UnknownFlag(unknown.to_owned()));
@@ -59,21 +78,23 @@ impl CliConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliMode {
     Preview,
     Daemon(ForegroundDaemonConfig),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForegroundDaemonConfig {
     pub poll_interval: Duration,
+    pub remote_ingress_listen: Option<String>,
 }
 
 impl Default for ForegroundDaemonConfig {
     fn default() -> Self {
         Self {
             poll_interval: Duration::from_millis(250),
+            remote_ingress_listen: None,
         }
     }
 }
@@ -104,7 +125,7 @@ impl ShutdownSignal {
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CliParseError {
     #[error(
-        "unknown mode `{0}`; use no args for preview or `daemon [--foreground] [--poll-interval-ms <ms>] [--state-dir <path>]`"
+        "unknown mode `{0}`; use no args for preview or `daemon [--foreground] [--poll-interval-ms <ms>] [--remote-ingress-listen <addr>] [--state-dir <path>]`"
     )]
     UnknownMode(String),
     #[error("unknown daemon flag `{0}`")]
@@ -115,6 +136,8 @@ pub enum CliParseError {
     MissingPollIntervalValue,
     #[error("missing value for `--state-dir`")]
     MissingStateDirValue,
+    #[error("missing value for `--remote-ingress-listen`")]
+    MissingRemoteIngressListenValue,
     #[error("invalid `--poll-interval-ms` value `{value}`: {reason}")]
     InvalidPollIntervalValue { value: String, reason: String },
 }
@@ -267,8 +290,28 @@ mod tests {
             CliConfig {
                 mode: CliMode::Daemon(ForegroundDaemonConfig {
                     poll_interval: Duration::from_millis(25),
+                    remote_ingress_listen: None,
                 }),
                 state_dir: Some(PathBuf::from("/tmp/hostd-state")),
+            }
+        );
+    }
+
+    #[test]
+    fn parse_accepts_daemon_remote_ingress_listener() {
+        assert_eq!(
+            CliConfig::parse(vec![
+                "daemon".to_owned(),
+                "--remote-ingress-listen".to_owned(),
+                "0.0.0.0:19090".to_owned(),
+            ])
+            .unwrap(),
+            CliConfig {
+                mode: CliMode::Daemon(ForegroundDaemonConfig {
+                    poll_interval: Duration::from_millis(250),
+                    remote_ingress_listen: Some("0.0.0.0:19090".to_owned()),
+                }),
+                state_dir: None,
             }
         );
     }

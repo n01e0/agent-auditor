@@ -96,7 +96,7 @@ docker compose exec hostd find /state/agent-auditor-hostd-live-proxy-observed-ru
 Expected shape:
 
 ```text
-/state/agent-auditor-hostd-live-proxy-observed-runtime/sessions/<sanitized_session>__<sanitized_agent>__<sanitized_workspace>/metadata.json
+/state/agent-auditor-hostd-live-proxy-observed-runtime/sessions/<sanitized_session>__<sanitized_agent>__<sanitized_workspace>/session.json
 /state/agent-auditor-hostd-live-proxy-observed-runtime/sessions/<sanitized_session>__<sanitized_agent>__<sanitized_workspace>/requests.jsonl
 ```
 
@@ -110,11 +110,11 @@ with non-alphanumeric characters sanitized to `_`.
 
 ## 3. inspect the observed-runtime envelope first
 
-Start with `metadata.json` so you know you are looking at the right runtime lineage:
+Start with `session.json` so you know you are looking at the right runtime lineage:
 
 ```bash
 docker compose exec hostd bash -lc '
-  for file in /state/agent-auditor-hostd-live-proxy-observed-runtime/sessions/*/metadata.json; do
+  for file in /state/agent-auditor-hostd-live-proxy-observed-runtime/sessions/*/session.json; do
     echo "== $file =="
     jq . "$file"
   done
@@ -277,7 +277,7 @@ Use this rule when deciding what the inspected files actually prove.
 
 You have only wiring success when you can show:
 
-- `metadata.json` and `requests.jsonl` exist under the observed-runtime session path
+- `session.json` and `requests.jsonl` exist under the observed-runtime session path
 - the request envelope has the expected lineage and target hints
 
 That proves the proxy seam wrote into hostd's observed-runtime inbox.

@@ -52,16 +52,16 @@ Deployment packaging is still minimal. The repository currently ships architectu
 
 ## Compose topologies
 
-`compose.yaml` now ships two proxy topologies that write into the same hostd **local-volume** observed-runtime contract.
-The boundary and non-goals are fixed in [`../docs/architecture/container-proxy-topologies.md`](../docs/architecture/container-proxy-topologies.md).
-That same-host `/state` contract is still a preview/bring-up path; the follow-on boundary-crossing `live proxy -> remote hostd` contract is documented in [`../docs/architecture/observed-runtime-remote-ingress-contract.md`](../docs/architecture/observed-runtime-remote-ingress-contract.md).
+`compose.yaml` now ships two proxy topologies that send redaction-safe live envelopes over the checked-in `live proxy -> remote hostd` ingress seam instead of requiring a proxy-side shared `/state` volume.
+The boundary and non-goals are fixed in [`../docs/architecture/container-proxy-topologies.md`](../docs/architecture/container-proxy-topologies.md) and [`../docs/architecture/observed-runtime-remote-ingress-contract.md`](../docs/architecture/observed-runtime-remote-ingress-contract.md).
+`hostd` still persists accepted observed-runtime state under its own `/state` volume for inspection and downstream durable audit reflection, but the proxy containers no longer need direct write access to that path.
 
 - **A / default**: explicit forward proxy per runtime
-  - `openclaw-runtime -> openclaw-forward-proxy -> hostd`
-  - `hermes-runtime -> hermes-forward-proxy -> hostd`
+  - `openclaw-runtime -> openclaw-forward-proxy => remote-ingress => hostd`
+  - `hermes-runtime -> hermes-forward-proxy => remote-ingress => hostd`
 - **B / optional profile**: per-agent sidecar proxy
-  - `openclaw-runtime-sidecar -> openclaw-proxy-sidecar -> hostd`
-  - `hermes-runtime-sidecar -> hermes-proxy-sidecar -> hostd`
+  - `openclaw-runtime-sidecar -> openclaw-proxy-sidecar => remote-ingress => hostd`
+  - `hermes-runtime-sidecar -> hermes-proxy-sidecar => remote-ingress => hostd`
 
 The default path is A. Enable B with `--profile sidecar`.
 
@@ -83,6 +83,12 @@ docker compose -f deploy/compose.yaml --env-file deploy/compose.env --profile si
 
 The runtime services in the compose file are smoke-friendly stand-ins built with `curlimages/curl`.
 Replace their `image` / `command` with the real OpenClaw or Hermes container while keeping the same proxy env wiring.
+
+Remote-ingress defaults in `compose.env.sample`:
+
+- `HOSTD_REMOTE_INGRESS_PORT=19090`
+- `HOSTD_REMOTE_INGRESS_TIMEOUT_SEC=2`
+- each proxy container points `AUDITOR_REMOTE_INGRESS_ADDR` at `hostd:${HOSTD_REMOTE_INGRESS_PORT}`
 
 That swap should be read through [`../docs/architecture/real-runtime-audit-readiness-boundary.md`](../docs/architecture/real-runtime-audit-readiness-boundary.md): the checked-in compose file currently proves stand-in topology smoke, while later P18 work is what makes the repository genuinely handoff-ready for human-run OpenClaw / Hermes verification.
 
@@ -110,7 +116,7 @@ It fixes the minimum path for:
 - using `agent-auditor-cli audit ... --state-dir /state` to derive the checked-in local inspection view
 - distinguishing plain wiring success from `observed_request` and `validated_observation`
 
-That runbook is intentionally about the checked-in same-host `/state` inspection path, not the later remote-ingest topology.
+That runbook is intentionally about the hostd-owned `/state` inspection path after remote ingress acceptance, not about giving the proxy direct shared-volume write access.
 
 ## OpenClaw real-runtime handoff
 

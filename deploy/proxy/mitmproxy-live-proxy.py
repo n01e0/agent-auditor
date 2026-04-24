@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import socket
 import time
 import uuid
 from pathlib import Path
@@ -22,34 +23,57 @@ def env(name: str, default: Optional[str] = None) -> str:
 
 class AgentAuditorLiveProxy:
     def __init__(self) -> None:
-        self.state_dir = Path(env("AUDITOR_STATE_DIR", "/state"))
         self.session_id = env("AUDITOR_SESSION_ID")
         self.agent_id = env("AUDITOR_AGENT_ID")
         self.workspace_id = os.getenv("AUDITOR_WORKSPACE_ID")
         self.mode = env("AUDITOR_MODE", "enforce_preview")
-        self.sessions_root = (
-            self.state_dir
-            / "agent-auditor-hostd-live-proxy-observed-runtime"
-            / "sessions"
+        self.remote_ingress_addr = os.getenv("AUDITOR_REMOTE_INGRESS_ADDR")
+        self.remote_ingress_timeout_sec = float(
+            os.getenv("AUDITOR_REMOTE_INGRESS_TIMEOUT_SEC", "2")
         )
-        self.session_root = self.sessions_root / self.session_dir_name()
-        self.metadata_path = self.session_root / "metadata.json"
-        self.requests_path = self.session_root / "requests.jsonl"
-        self.sessions_root.mkdir(parents=True, exist_ok=True)
-        self.session_root.mkdir(parents=True, exist_ok=True)
-        self.persist_metadata()
+        self.remote_session_bootstrapped = False
+
+        state_dir = os.getenv("AUDITOR_STATE_DIR")
+        self.state_dir = Path(state_dir) if state_dir else None
+        self.sessions_root = None
+        self.session_root = None
+        self.metadata_path = None
+        self.requests_path = None
+
+        if self.remote_ingress_addr:
+            self.bootstrap_remote_session()
+        elif self.state_dir is not None:
+            self.sessions_root = (
+                self.state_dir
+                / "agent-auditor-hostd-live-proxy-observed-runtime"
+                / "sessions"
+            )
+            self.session_root = self.sessions_root / self.session_dir_name()
+            self.metadata_path = self.session_root / "session.json"
+            self.requests_path = self.session_root / "requests.jsonl"
+            self.sessions_root.mkdir(parents=True, exist_ok=True)
+            self.session_root.mkdir(parents=True, exist_ok=True)
+            self.persist_local_metadata()
+        else:
+            raise RuntimeError(
+                "either AUDITOR_REMOTE_INGRESS_ADDR or AUDITOR_STATE_DIR must be set"
+            )
+
+    def session_payload(self) -> dict:
+        return {
+            "session_id": self.session_id,
+            "agent_id": self.agent_id,
+            "workspace_id": self.workspace_id,
+        }
 
     def session_dir_name(self) -> str:
         workspace = sanitize(self.workspace_id) if self.workspace_id else "workspace_none"
         return f"{sanitize(self.session_id)}__{sanitize(self.agent_id)}__{workspace}"
 
-    def persist_metadata(self) -> None:
-        payload = {
-            "session_id": self.session_id,
-            "agent_id": self.agent_id,
-            "workspace_id": self.workspace_id,
-        }
-        encoded = json.dumps(payload, separators=(",", ":"))
+    def persist_local_metadata(self) -> None:
+        if self.metadata_path is None:
+            raise RuntimeError("local metadata path is not initialized")
+        encoded = json.dumps(self.session_payload(), separators=(",", ":"))
         if self.metadata_path.exists():
             existing = self.metadata_path.read_text(encoding="utf-8").strip()
             if existing and existing != encoded:
@@ -58,6 +82,21 @@ class AgentAuditorLiveProxy:
                 )
             return
         self.metadata_path.write_text(encoded, encoding="utf-8")
+
+    def bootstrap_remote_session(self) -> None:
+        if self.remote_session_bootstrapped:
+            return
+        response = self.remote_round_trip(
+            {
+                "kind": "bootstrap_session",
+                "session": self.session_payload(),
+            }
+        )
+        if not response.get("accepted"):
+            raise RuntimeError(
+                f"remote ingress rejected session bootstrap: {response.get('message')}"
+            )
+        self.remote_session_bootstrapped = True
 
     def request(self, flow: http.HTTPFlow) -> None:
         if flow.request.scheme not in {"http", "https"}:
@@ -72,7 +111,7 @@ class AgentAuditorLiveProxy:
             "workspace_id": self.workspace_id,
             "provider_hint": self.provider_hint(flow.request.host),
             "correlation_status": "confirmed",
-            "live_surface": "http.request",
+            "live_surface": "http_request",
             "transport": flow.request.scheme,
             "method": flow.request.method.lower(),
             "authority": flow.request.host,
@@ -101,8 +140,48 @@ class AgentAuditorLiveProxy:
         return f"corr_{int(time.time() * 1000)}_{uuid.uuid4().hex[:10]}"
 
     def append(self, payload: dict) -> None:
+        if self.remote_ingress_addr:
+            self.bootstrap_remote_session()
+            response = self.remote_round_trip(
+                {
+                    "kind": "append_envelope",
+                    "session": self.session_payload(),
+                    "envelope": payload,
+                }
+            )
+            if not response.get("accepted"):
+                raise RuntimeError(
+                    f"remote ingress rejected envelope append: {response.get('message')}"
+                )
+            return
+
+        if self.requests_path is None:
+            raise RuntimeError("local requests path is not initialized")
         with self.requests_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+
+    def remote_round_trip(self, payload: dict) -> dict:
+        if not self.remote_ingress_addr:
+            raise RuntimeError("remote ingress address is not configured")
+        host, port = self.parse_remote_ingress_addr(self.remote_ingress_addr)
+        with socket.create_connection(
+            (host, port), timeout=self.remote_ingress_timeout_sec
+        ) as sock:
+            encoded = json.dumps(payload, separators=(",", ":")) + "\n"
+            sock.sendall(encoded.encode("utf-8"))
+            sock_file = sock.makefile("r", encoding="utf-8")
+            response = sock_file.readline().strip()
+            if not response:
+                raise RuntimeError("remote ingress closed without a response")
+            return json.loads(response)
+
+    def parse_remote_ingress_addr(self, value: str) -> tuple[str, int]:
+        host, sep, port = value.rpartition(":")
+        if not sep or not host or not port:
+            raise RuntimeError(
+                "AUDITOR_REMOTE_INGRESS_ADDR must use the form <host>:<port>"
+            )
+        return host, int(port)
 
     def provider_hint(self, host: str) -> Optional[str]:
         host = host.lower()

@@ -14,6 +14,7 @@ use agent_auditor_hostd::{
         live_proxy::{
             forward_proxy::{ForwardProxyIngressInbox, ForwardProxyIngressRuntime},
             github_validated::GitHubValidatedObservationRuntime,
+            remote_ingress::RemoteObservedRuntimeIngressServer,
             session_correlation::{ObservedRuntimePath, RuntimeSessionLineage},
         },
         messaging::persist::MessagingPocStore,
@@ -128,6 +129,31 @@ fn run_daemon_or_exit(
         "forward_proxy_ingress_cursor={}",
         forward_proxy.inbox().paths().cursor.display()
     );
+    println!(
+        "forward_proxy_observed_runtime_root={}",
+        forward_proxy.observed_runtime().paths().root.display()
+    );
+
+    let remote_ingress = match config.remote_ingress_listen.as_deref() {
+        Some(bind_addr) => {
+            let server = RemoteObservedRuntimeIngressServer::start(
+                bind_addr,
+                forward_proxy.observed_runtime().clone(),
+            )
+            .map_err(daemon::DaemonRunError::tick)?;
+            println!("forward_proxy_remote_ingress_source=remote_socket_jsonl");
+            println!(
+                "forward_proxy_remote_ingress_listen={}",
+                server.local_addr()
+            );
+            println!("forward_proxy_remote_ingress_state=enabled");
+            Some(server)
+        }
+        None => {
+            println!("forward_proxy_remote_ingress_state=disabled");
+            None
+        }
+    };
 
     println!("live_process_source={}", ProcConnectorSource::SOURCE_LABEL);
     let source = match ProcConnectorSource::listen() {
@@ -142,13 +168,14 @@ fn run_daemon_or_exit(
         }
     };
 
-    run_hostd_daemon(config, source, forward_proxy)
+    run_hostd_daemon(config, source, forward_proxy, remote_ingress)
 }
 
 fn run_hostd_daemon(
     config: daemon::ForegroundDaemonConfig,
     mut source: Option<ProcConnectorSource>,
     forward_proxy: ForwardProxyIngressRuntime,
+    _remote_ingress: Option<RemoteObservedRuntimeIngressServer>,
 ) -> Result<(), daemon::DaemonRunError> {
     let mut recorder = if source.is_some() {
         Some(LiveProcessRecorder::new(
@@ -185,6 +212,24 @@ fn run_hostd_daemon(
                 if let Some(approval_request) = record.approval.approval_request.as_ref() {
                     println!(
                         "forward_proxy_ingress_approval_request={}",
+                        serde_json::to_string(approval_request)
+                            .map_err(daemon::DaemonRunError::tick)?
+                    );
+                }
+            }
+
+            for record in forward_proxy
+                .drain_observed_available()
+                .map_err(daemon::DaemonRunError::tick)?
+            {
+                println!(
+                    "forward_proxy_remote_ingress_record={}",
+                    serde_json::to_string(&record.reflection.audit_record)
+                        .map_err(daemon::DaemonRunError::tick)?
+                );
+                if let Some(approval_request) = record.approval.approval_request.as_ref() {
+                    println!(
+                        "forward_proxy_remote_ingress_approval_request={}",
                         serde_json::to_string(approval_request)
                             .map_err(daemon::DaemonRunError::tick)?
                     );
