@@ -28,7 +28,8 @@ Why this route first:
 Important boundary:
 
 - the current Hermes/GWS path stops at **`observed_request`**
-- unlike the GitHub/OpenClaw handoff, this Hermes path does **not** currently have a checked-in `validated_observation` contract
+- unlike the GitHub/OpenClaw handoff, this Hermes/GWS path does **not** currently have a checked-in `validated_observation` contract
+- the repository does separately expose a Hermes/Discord `validated_observation` path through the messaging runbook, but that is a different provider exercise from this Gmail handoff
 
 ## before you start
 
@@ -385,7 +386,7 @@ It still does **not** mean broad Hermes coverage or fail-closed enforcement is d
 
 ### there is no checked-in Hermes validated-observation outcome yet
 
-Do **not** upgrade this Hermes/GWS exercise to `validated_observation` just because the repository has one validated GitHub path elsewhere.
+Do **not** upgrade this Hermes/GWS exercise to `validated_observation` just because the repository now has other validated paths elsewhere.
 The GitHub/OpenClaw handoff and the Hermes/GWS handoff currently stop at different evidence tiers.
 
 ## quick troubleshooting branches

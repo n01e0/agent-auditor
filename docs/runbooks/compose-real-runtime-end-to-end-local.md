@@ -16,7 +16,7 @@ Following this runbook lets an operator:
 - run the checked-in Compose preflight gates before attempting real traffic
 - choose one runtime/topology pair without reverse-engineering service names
 - verify the stack layer by layer from config render -> container health -> proxy ingress -> durable audit records -> local inspection
-- quickly decide whether the result stopped at wiring success, reached `observed_request`, or reached the one checked-in `validated_observation` path
+- quickly decide whether the result stopped at wiring success, reached `observed_request`, or reached a checked-in `validated_observation` path
 - cut failures into the first likely bucket before going deeper into the provider-specific handoff docs
 
 It does **not** prove:
@@ -393,7 +393,7 @@ Possible outcomes:
 
 Important rule:
 
-- do **not** promote the Hermes path to `validated_observation` just because the repository has one validated GitHub path elsewhere
+- do **not** promote the Hermes/GWS path to `validated_observation` just because the repository has other validated paths elsewhere
 
 ## 12. failure triage map
 
