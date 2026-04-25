@@ -48,7 +48,7 @@ pub struct MessagingObservedRecord {
 impl MessagingObservedRecord {
     pub fn summary(&self) -> String {
         format!(
-            "request_id={} source_kind={} semantic_action={} policy_decision={:?} approval_request={} validation_status=absent",
+            "request_id={} source_kind={} semantic_action={} policy_decision={:?} approval_request={} validation_status=validated_observation evidence_tier=validated_observation",
             self.correlated.envelope.request_id,
             self.correlated.source_kind(),
             self.classified.semantic_action,

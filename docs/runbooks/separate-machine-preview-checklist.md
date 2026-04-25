@@ -18,6 +18,7 @@ Use it after [`separate-machine-audit-preview-local.md`](separate-machine-audit-
 | `cargo test -p agent-auditor-hostd --test forward_proxy_ingress_smoke` | hostd-owned forward-proxy observed-runtime ingress seam | [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md), [`hostd-api-network-gws-poc-local.md`](hostd-api-network-gws-poc-local.md), [`../architecture/live-proxy-coverage-matrix.md`](../architecture/live-proxy-coverage-matrix.md) | `forward_proxy_source_kind=live_proxy_observed`, redaction-safe request summary lines, local inspection values that show `observation_provenance=observed_request` |
 | `cargo test -p agent-auditor-hostd --test live_observation_diff_smoke` | evidence-tier separation between fixture preview, observed request, and validated observation | [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md), [`../architecture/real-traffic-observation-boundary.md`](../architecture/real-traffic-observation-boundary.md), [`../architecture/live-proxy-coverage-matrix.md`](../architecture/live-proxy-coverage-matrix.md) | `forward_proxy_preview_*` vs `forward_proxy_*` vs `persisted_github_validated_*` inspection output, especially `observation_provenance`, `validation_status`, and `evidence_tier` |
 | `cargo test -p agent-auditor-hostd --test github_validated_observation_smoke` | one end-to-end validated GitHub observation | [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md), [`hostd-github-semantic-governance-poc-local.md`](hostd-github-semantic-governance-poc-local.md), [`../architecture/hostd-github-semantic-governance-known-constraints.md`](../architecture/hostd-github-semantic-governance-known-constraints.md) | `github_validated_*` lines, persisted GitHub validated audit/approval records, inspection fields showing `observation_provenance=observed_request` and `validation_status=validated_observation` |
+| `cargo test -p agent-auditor-hostd --test messaging_observed_smoke` | one end-to-end validated Hermes/Discord observation | [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md), [`messaging-collaboration-governance-local.md`](messaging-collaboration-governance-local.md), [`../architecture/live-proxy-coverage-matrix.md`](../architecture/live-proxy-coverage-matrix.md) | `messaging_observed_*` lines, persisted messaging validated audit record, integrity checkpoint output, and inspection fields showing `observation_provenance=observed_request`, `validation_status=validated_observation`, and durable lineage |
 | `cargo test -p agent-auditor-controld --test control_plane_smoke` | control-plane status / explanation / notification / reconciliation / export consistency | [`separate-machine-audit-preview-local.md`](separate-machine-audit-preview-local.md), [`approval-control-plane-ux-local.md`](approval-control-plane-ux-local.md), [`approval-jsonl-inspection-local.md`](approval-jsonl-inspection-local.md), [`policy-authoring-explainability-local.md`](policy-authoring-explainability-local.md) | controld bootstrap stdout, `approval_ops_hardening_pattern_matrix`, `approval_audit_export_*`, local-vs-export consistency fields |
 
 ## how to read failures
@@ -94,6 +95,20 @@ Typical symptom groups:
 - GitHub `repos.update_visibility` no longer completing capture -> correlate -> classify -> policy -> audit
 - persisted GitHub audit/approval inspection fields losing `validated_observation` status
 
+### `messaging_observed_smoke` fails
+
+Start with:
+
+- `messaging-collaboration-governance-local.md`
+- `../architecture/live-proxy-coverage-matrix.md`
+- `../architecture/real-traffic-observation-boundary.md`
+
+Typical symptom groups:
+
+- runtime-path session correlation drift for the Hermes/Discord observed-runtime path
+- Discord `channels.messages.create` no longer completing capture -> correlate -> classify -> policy -> audit
+- persisted messaging audit inspection fields losing `validated_observation`, `durable_integrity`, or `durable_storage_lineage`
+
 ### `control_plane_smoke` fails
 
 Start with:
@@ -131,6 +146,7 @@ Mark the preview as ready to evaluate on another Linux machine only if all of th
 - [ ] `cargo test -p agent-auditor-hostd --test forward_proxy_ingress_smoke`
 - [ ] `cargo test -p agent-auditor-hostd --test live_observation_diff_smoke`
 - [ ] `cargo test -p agent-auditor-hostd --test github_validated_observation_smoke`
+- [ ] `cargo test -p agent-auditor-hostd --test messaging_observed_smoke`
 - [ ] `cargo test -p agent-auditor-controld --test control_plane_smoke`
 
 ### artifact inspection
@@ -141,6 +157,7 @@ Mark the preview as ready to evaluate on another Linux machine only if all of th
 - [ ] live preview records still distinguish `preview_supported` vs `unsupported` and keep the current fail-open display rule explicit
 - [ ] forward-proxy local inspection still distinguishes `fixture_preview` from `observed_request`
 - [ ] the checked-in GitHub validated path still surfaces `validation_status=validated_observation` without implying broader fail-closed coverage
+- [ ] the checked-in Hermes/Discord validated path still surfaces `validation_status=validated_observation` plus durable integrity/storage lineage without implying broader live messaging mediation
 
 ### cleanup / retry
 
@@ -161,10 +178,12 @@ If you only want the compact separate-machine preview flow, use this exact order
 8. run `live_observation_diff_smoke`
 9. confirm fixture preview vs observed request vs validated observation remain distinct
 10. run `github_validated_observation_smoke`
-11. confirm the single checked-in GitHub validated observation still holds
-12. run `control_plane_smoke`
-13. compare control-plane export output to local inspection output
-14. mark the checklist above complete before calling the preview reproducible
+11. confirm the checked-in GitHub validated observation still holds
+12. run `messaging_observed_smoke`
+13. confirm the checked-in Hermes/Discord validated observation still holds
+14. run `control_plane_smoke`
+15. compare control-plane export output to local inspection output
+16. mark the checklist above complete before calling the preview reproducible
 
 ## related docs
 

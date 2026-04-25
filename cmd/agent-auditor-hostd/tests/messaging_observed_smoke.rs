@@ -165,6 +165,20 @@ fn hostd_messaging_observed_smoke_preserves_runtime_lineage_into_durable_audit()
         json!("forward_proxy_observed_runtime_path")
     );
     assert_eq!(persisted_audit["result"]["status"], json!("allowed"));
+    assert!(
+        persisted_audit["integrity"]["hash"]
+            .as_str()
+            .is_some_and(|hash| hash.starts_with("sha256:"))
+    );
+    assert_eq!(persisted_audit["integrity"]["signature"], Value::Null);
+    assert_eq!(
+        persisted_audit["integrity"]["storage"]["store"],
+        json!("agent-auditor-hostd-messaging-poc-store")
+    );
+    assert_eq!(
+        persisted_audit["integrity"]["storage"]["stream"],
+        json!("audit-records")
+    );
 
     let persisted_audit_observation_local_inspection = json_line(
         &lines,
@@ -190,6 +204,16 @@ fn hostd_messaging_observed_smoke_preserves_runtime_lineage_into_durable_audit()
         persisted_audit_observation_local_inspection["session_correlation_status"],
         json!("runtime_path_confirmed")
     );
-
-    let _ignored: Value = persisted_audit;
+    assert_eq!(
+        persisted_audit_observation_local_inspection["durable_integrity"]["signature_status"],
+        json!("unsigned_baseline")
+    );
+    assert_eq!(
+        persisted_audit_observation_local_inspection["durable_storage_lineage"]["store"],
+        json!("agent-auditor-hostd-messaging-poc-store")
+    );
+    assert_eq!(
+        persisted_audit_observation_local_inspection["durable_storage_lineage"]["stream"],
+        json!("audit-records")
+    );
 }

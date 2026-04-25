@@ -41,10 +41,10 @@ Use the evidence tiers from [`../architecture/real-traffic-observation-boundary.
 
 - **fixture preview** remains the default posture for most hostd PoC slices and bootstrap fixtures
 - **observed request** is now checked in for the hostd-owned forward-proxy observed-runtime seam; the current example is a redaction-safe Gmail-send request that reaches `gws_action` output with `observation_provenance=observed_request`
-- **validated observation** is now checked in for one GitHub path: `repos.update_visibility` through `forward_proxy_observed_runtime_path`, with durable `observation_provenance=observed_request` plus `validation_status=validated_observation`
+- **validated observation** is now checked in for two narrow paths: GitHub `repos.update_visibility` and Hermes/Discord `channels.messages.create`, both through `forward_proxy_observed_runtime_path`, with durable `observation_provenance=observed_request` plus `validation_status=validated_observation`
 - no other slice should be read as a validated observation unless its own runbook/tests say so explicitly
 
-So the honest repository-wide answer today is: the repo can prove fixture preview broadly, one observed-request ingress path through the forward proxy seam, and one validated GitHub observation end to end. It still does **not** prove broad real-traffic interception coverage.
+So the honest repository-wide answer today is: the repo can prove fixture preview broadly, one observed-request ingress path through the forward proxy seam, and two narrow validated observations end to end. It still does **not** prove broad real-traffic interception coverage.
 
 ## 1. dependencies / prerequisites
 
@@ -124,6 +124,7 @@ cargo test -p agent-auditor-hostd --test live_proxy_seam_smoke
 cargo test -p agent-auditor-hostd --test forward_proxy_ingress_smoke
 cargo test -p agent-auditor-hostd --test live_observation_diff_smoke
 cargo test -p agent-auditor-hostd --test github_validated_observation_smoke
+cargo test -p agent-auditor-hostd --test messaging_observed_smoke
 cargo test -p agent-auditor-controld --test control_plane_smoke
 ```
 
@@ -157,6 +158,7 @@ The current preview writes JSONL artifacts under directories such as:
 Common files include:
 
 - `audit-records.jsonl`
+- `audit-records.integrity.jsonl`
 - `approval-requests.jsonl`
 
 Quick inspection examples:
@@ -178,13 +180,15 @@ For the current real-traffic evidence tiers, compare:
 ```bash
 cargo run -p agent-auditor-hostd --quiet | rg '^forward_proxy_(preview_request_summary|request_summary|preview_source_kind|source_kind|preview_observation_local_jsonl_inspection|observed_observation_local_jsonl_inspection)='
 cargo run -p agent-auditor-hostd --quiet | rg '^github_validated_(runtime_source|source_kind|session_correlation_status|capture_summary|normalized_event|policy_decision|approval_request)=|^persisted_github_validated_.*observation_local_jsonl_inspection='
+cargo run -p agent-auditor-hostd --quiet | rg '^messaging_observed_(runtime_source|capture_summary|source_kind|session_correlation_status|normalized_event|policy_decision|approval_request)=|^persisted_messaging_observed_.*observation_local_jsonl_inspection='
 ```
 
 Interpret those lines conservatively:
 
 - `forward_proxy_preview_*` = **fixture preview**
 - `forward_proxy_*` with `source_kind=live_proxy_observed` = **observed request**
-- `github_validated_*` plus `persisted_github_validated_*observation_local_jsonl_inspection` = **validated observation** for the one checked-in GitHub path
+- `github_validated_*` plus `persisted_github_validated_*observation_local_jsonl_inspection` = **validated observation** for the checked-in GitHub path
+- `messaging_observed_*` plus `persisted_messaging_observed_*observation_local_jsonl_inspection` = **validated observation** for the checked-in Hermes/Discord path
 
 Use these runbooks when you want deeper inspection:
 
@@ -245,7 +249,9 @@ Current primary mapping:
 - `live_observation_diff_smoke`
   - backs the explicit distinction between fixture preview, observed request, and validated observation in local inspection output
 - `github_validated_observation_smoke`
-  - backs the one checked-in validated GitHub observation path
+  - backs the checked-in validated GitHub observation path
+- `messaging_observed_smoke`
+  - backs the checked-in validated Hermes/Discord observation path
 - `control_plane_smoke`
   - backs the control-plane export / explanation / reviewer-facing summary runbooks
 
@@ -267,9 +273,11 @@ If you only want the minimum separate-machine preview checklist, use this order:
 12. confirm fixture-preview vs observed-request vs validated-observation inspection output stays distinct
 13. `cargo test -p agent-auditor-hostd --test github_validated_observation_smoke`
 14. inspect the GitHub validated-observation output and confirm `validation_status=validated_observation`
-15. `cargo test -p agent-auditor-controld --test control_plane_smoke`
-16. compare control-plane export output against the local JSONL inspection view
-17. clean the preview-local stores before retrying another revision
+15. `cargo test -p agent-auditor-hostd --test messaging_observed_smoke`
+16. inspect the Hermes/Discord validated-observation output and confirm `validation_status=validated_observation`
+17. `cargo test -p agent-auditor-controld --test control_plane_smoke`
+18. compare control-plane export output against the local JSONL inspection view
+19. clean the preview-local stores before retrying another revision
 
 ## related docs
 

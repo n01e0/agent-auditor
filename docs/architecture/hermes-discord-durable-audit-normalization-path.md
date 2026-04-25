@@ -141,14 +141,14 @@ The resulting event must preserve all existing messaging attributes plus these l
 - `live_request_source_kind`
 - `session_correlation_status`
 - `session_correlation_reason`
-- `validation_status` absent for this first path
-- `validation_capture_source` absent for this first path
+- `validation_status` absent on the pre-record normalized event for this first path
+- `validation_capture_source` absent on the pre-record normalized event for this first path
 
 This is the minimum needed so durable records and local inspection can say:
 
 - this was not a fixture preview
 - this did reach the real ingress seam
-- this has not yet been promoted to validated observation
+- this is eligible to be promoted to validated observation only after the record layer confirms the runtime-path evidence contract
 
 ### 5. policy and approval projection
 
@@ -184,7 +184,8 @@ Minimum durable evidence expectations for the first path:
 
 - append-only audit record in the remote durable store
 - `observation_provenance="observed_request"`
-- no `validation_status` yet
+- `validation_status="validated_observation"`
+- `validation_capture_source="forward_proxy_observed_runtime_path"`
 - durable integrity metadata
 - durable storage lineage metadata
 
@@ -249,12 +250,12 @@ If a later implementation needs one of those, it should first update the redacti
 
 This design intentionally narrows the follow-on work:
 
-- **P19-9** should implement the first real Discord semantic conversions against this path, then widen to additional routes such as edit/react/typing
-- **P19-10** should make sure the observed Discord path preserves session / agent / workspace identity end to end
-- **P19-11** should add the integration test that proves one Hermes/Discord request reaches durable audit through this exact path
-- **P19-12** should decide when a Discord path may upgrade from `observed_request` to `validated_observation`
+- **P19-9** implemented the first real Discord semantic conversions against this path and kept the initial route anchored on `channels.messages.create`
+- **P19-10** preserved session / agent / workspace identity end to end for the observed Discord path
+- **P19-11** added the integration test that proves one Hermes/Discord request reaches durable audit through this exact path
+- **P19-12** fixed the record/local-inspection promotion rule that upgrades the checked-in Discord route from `observed_request` to `validated_observation`
 
-In other words, P19-8 fixes the shape of the first path; later tasks prove and widen it.
+In other words, P19-8 fixed the shape of the first path, and the later P19 tasks proved it end to end while keeping the scope intentionally narrow.
 
 ## review questions for follow-on implementation PRs
 
@@ -263,7 +264,7 @@ Before merging a follow-on Hermes/Discord implementation PR, reviewers should be
 1. does the live path still begin from the existing remote ingress + session-correlation contract?
 2. is the first durable route still clearly `channels.messages.create`, or is the PR widening scope without saying so?
 3. are live lineage fields injected in a live wrapper/boundary layer rather than leaking into the shared messaging contract gratuitously?
-4. does the durable record preserve `observed_request` provenance without falsely claiming `validated_observation`?
+4. does the durable record preserve `observed_request` provenance and only claim `validated_observation` when the runtime-path evidence contract is actually present?
 5. do local inspection outputs show both messaging lineage and durable integrity/storage lineage without exposing raw Discord content?
 
 If those answers are unclear, the implementation is probably mixing live-ingress ownership, messaging ownership, and durable-audit ownership too loosely.

@@ -168,6 +168,17 @@ That runbook fixes:
 - the honest reading rule that the current Hermes/Gmail provider evidence still stops at `observed_request` even when the durable copy now lives on the remote audit boundary
 - the minimum remote evidence bundle: observed-runtime envelope, durable JSONL rows, integrity checkpoints, and reviewer-facing `agent-auditor-cli audit show` output from the remote host
 
+## Hermes/Discord validated-observation evidence bundle
+
+P19-21 makes the checked-in Hermes/Discord validated path explicit in [`../docs/runbooks/messaging-collaboration-governance-local.md`](../docs/runbooks/messaging-collaboration-governance-local.md).
+
+That update fixes:
+
+- the first checked-in Hermes/Discord route that now completes `capture -> correlate -> classify -> policy -> audit`: `POST /api/v10/channels/{channel_id}/messages`
+- the minimum final evidence bundle for that path: observed-runtime envelope, durable messaging audit row, integrity checkpoint, and reviewer-facing `agent-auditor-cli audit show` output
+- the honest reading rule that this path reaches `validated_observation` for one Discord message-send route without implying broad live Slack/Discord mediation or fail-closed enforcement
+- the focused smoke coverage (`messaging_observed_smoke`) that backs the checked-in Hermes/Discord validated-observation claim
+
 ## Compose-based end-to-end verification and troubleshooting
 
 P18-9 adds the Compose-first operator verification flow in [`../docs/runbooks/compose-real-runtime-end-to-end-local.md`](../docs/runbooks/compose-real-runtime-end-to-end-local.md).

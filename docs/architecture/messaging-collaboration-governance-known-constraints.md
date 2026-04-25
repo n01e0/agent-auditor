@@ -4,10 +4,10 @@ This note records the current constraints of the repository-wide messaging / col
 
 ## Current limitations
 
-1. **No live Slack / Discord interception seam yet**
-   - the current local path does not intercept real Slack or Discord traffic yet
-   - bootstrap output is produced from deterministic preview events assembled in userspace
-   - there is no validated bot mediation layer, webhook gateway, browser relay, or inline API pause/resume seam behind the messaging preview today
+1. **No broad live Slack / Discord mediation seam yet**
+   - the repository now has one checked-in Hermes/Discord observed-runtime path for Discord `channels.messages.create`
+   - most messaging bootstrap output is still produced from deterministic preview events assembled in userspace
+   - there is still no validated bot mediation layer, webhook gateway, browser relay, or inline API pause/resume seam for broad Slack/Discord coverage
 
 2. **The messaging layer still depends on upstream provider taxonomy and generic REST lineage**
    - upstream provider taxonomy still decides `provider_id`, `action_key`, redaction-safe `target_hint`, and semantic-surface hints
@@ -60,15 +60,17 @@ This note records the current constraints of the repository-wide messaging / col
    - `require_approval` currently enriches the event metadata and creates a pending `ApprovalRequest`
    - there is no approval inbox, reviewer workflow, callback into a live Slack / Discord adapter, or resumed provider execution after approval yet
 
-9. **Persistence is bootstrap-local and resettable**
+9. **Persistence is still bootstrap-local and resettable in the checked-in smoke path**
    - messaging audit records and approval requests are appended to JSONL under `target/agent-auditor-hostd-messaging-poc-store/`
-   - the PoC store resets that directory on bootstrap, so this is not durable product storage yet
+   - the checked-in Hermes/Discord observed-runtime path now also appends integrity checkpoints under the same store for local inspection
+   - the PoC store resets that directory on bootstrap, so this is still not durable product storage yet
    - there is no lookup API, retention policy, compaction, replay support, or multi-process coordination
 
-10. **Smoke coverage is fixture-backed on purpose**
+10. **Most smoke coverage is still fixture-backed, with one explicit observed-runtime exception**
     - the dedicated messaging smoke test validates stable bootstrap preview output for normalized events, policy decisions, approval requests, and persisted records
+    - `messaging_observed_smoke` validates the narrower Hermes/Discord observed-runtime path and its durable `validated_observation` inspection fields
     - the broader provider-abstraction and generic REST smoke tests validate the upstream preview slices that feed the messaging contract
-    - none of this is evidence that the same behavior has been validated against live Slack or Discord traffic, real bot permissions, or production gateway integration
+    - this is still not evidence of broad live Slack or Discord bot permissions, production gateway integration, or generalized runtime mediation
 
 11. **No messaging action is inside a validated fail-closed subset yet**
     - the current bootstrap can reflect intended `hold` and `deny` outcomes into event metadata and local records
@@ -90,6 +92,7 @@ Today’s messaging / collaboration governance slice is good for:
 - proving a first shared collaboration taxonomy across a minimal Slack / Discord action sample, including the core Discord message edit / reaction / typing write shapes
 - proving reflected allow / hold / deny metadata shapes for local event, approval, and audit records
 - proving local persistence and smoke-test coverage for the bootstrap preview contract
+- proving one Hermes/Discord observed-runtime route can preserve `observed_request` provenance and durable `validated_observation` inspection output for Discord message send
 - giving P12 a stable action-family surface to build approval / control-plane UX on top of
 
 It is **not yet** good evidence of:
